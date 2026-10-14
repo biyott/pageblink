@@ -3,6 +3,21 @@ import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../client.dart';
 
+/// 12–50 chars, a lowercase letter and a number, plus an uppercase letter or
+/// a special character. (The server's own policy, ≥8 chars, is looser.)
+final pageBlinkPasswordRequirements = [
+  PasswordRequirement.minLength(12),
+  PasswordRequirement.maxLength(50),
+  PasswordRequirement.containsLowercase(),
+  PasswordRequirement.containsNumber(),
+  PasswordRequirement(
+    description: 'At least 1 uppercase letter or special character',
+    validator: (p) =>
+        PasswordRequirement.uppercaseLetters.hasMatch(p) ||
+        PasswordRequirement.specialCharacters.hasMatch(p),
+  ),
+];
+
 class SignInScreen extends StatefulWidget {
   final Widget child;
   const SignInScreen({super.key, required this.child});
@@ -42,6 +57,10 @@ class _SignInScreenState extends State<SignInScreen> {
         : Center(
             child: SignInWidget(
               client: client,
+              emailSignInWidget: EmailSignInWidget(
+                client: client,
+                passwordRequirements: pageBlinkPasswordRequirements,
+              ),
               onAuthenticated: () {
                 context.showSnackBar(
                   message: 'User authenticated.',
