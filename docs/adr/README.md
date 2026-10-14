@@ -37,9 +37,10 @@
 | [005](005-backend-split.md) | 백엔드: Serverpod 메인 + AI 워커/외부 API | 채택 |
 | [006](006-monorepo-app-folder.md) | 모노레포: 패키지명 `ragpod`, 바깥 폴더 `app/` | 채택 |
 | [007](007-docs-structure-and-agent-files.md) | 문서 종류별 폴더 + README 정본 + AGENTS.md | 일부 대체됨 → 011 |
-| [008](008-pgvector-fallback.md) | pgvector 폴백 순서 (Cloud → Neon → Dart 코사인) | 채택 (G2에서 검증) |
+| [008](008-pgvector-fallback.md) | pgvector 폴백 순서 (Cloud → Neon → Dart 코사인) | 채택 · G2 통과 (폴백 불필요) |
 | [009](009-device-tier-privacy-and-sync.md) | Device 계층 프라이버시 · 승격 · 동기화 원칙 | 채택 |
 | [010](010-acl-in-query.md) | 접근 제어는 검색 쿼리 안에서, 서버가 멤버십 계산 | 채택 |
 | [011](011-readme-only-folder-rules.md) | 폴더 규칙은 README.md만 (폴더별 AGENTS.md 제거) | 채택 |
 | [012](012-product-name-pageblink.md) | 제품 이름 PageBlink, 패키지명까지 변경 | 채택 (006 일부 대체) |
-| [013](013-llm-via-openrouter.md) | LLM은 OpenRouter 경유 (기본 Claude Haiku 5.5) | 채택 (004 대체) |
+| [013](013-llm-via-openrouter.md) | LLM은 OpenRouter 경유 (기본 Claude Haiku 5.5) | 채택 (004 대체) · 일부 대체됨 → 014 |
+| [014](014-model-catalog-and-rotation.md) | 모델 카탈로그 + 자동 로테이션 (무료 모델 기본) | 채택 (013 일부 대체) |

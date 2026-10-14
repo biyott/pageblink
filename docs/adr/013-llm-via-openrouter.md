@@ -2,7 +2,7 @@
 
 | 상태 | 결정일 | 근거 |
 |---|---|---|
-| 채택 (004 대체) | 2026-10-14 | 사용자 결정(OpenRouter 사용) · [research 016](../research/016-openrouter.md) |
+| 채택 (004 대체) · 일부 대체됨 → [014](014-model-catalog-and-rotation.md) | 2026-10-14 | 사용자 결정(OpenRouter 사용) · [research 016](../research/016-openrouter.md) |
 
 ## 맥락
 사용자가 OpenRouter 사용을 원함. 키 하나로 Claude·Gemini 등 모델을 설정값만으로 교체할 수 있다.

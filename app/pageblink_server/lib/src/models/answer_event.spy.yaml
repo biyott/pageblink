@@ -1,4 +1,4 @@
-### One event in a streamed answer. type: token | citation | done | error
+### One event in a streamed answer. type: token | citation | model | done | error
 class: AnswerEvent
 fields:
   type: String

@@ -2,7 +2,7 @@
 
 | 상태 | 결정일 | 근거 |
 |---|---|---|
-| 채택 (G2에서 검증) | 2026-10-14 | [research 001](../research/001-serverpod-cloud-pgvector.md) · [research 007](../research/007-serverpod4-setup-and-cloud.md) |
+| 채택 · G2 통과 → 폴백 불필요 ([devlog 007](../devlog/007-cloud-deploy-and-model-rotation.md)) | 2026-10-14 | [research 001](../research/001-serverpod-cloud-pgvector.md) · [research 007](../research/007-serverpod4-setup-and-cloud.md) |
 
 ## 맥락
 Serverpod ORM은 `Vector`를 지원하지만 Cloud 관리형 DB의 pgvector 확장 여부가 문서에 없다.

@@ -48,3 +48,4 @@ PageBlink 개발 과정을 **작업 단위별로 번호를 붙여** 남깁니다
 | [004](004-product-name-pageblink.md) | 제품 이름 PageBlink 확정 · 프로젝트 재생성 | Phase 0 · 서버 | ✅ | 2026-10-14 23:04 | 2026-10-14 23:44 |
 | [005](005-llm-via-openrouter.md) | LLM을 OpenRouter로 | Phase 0 · 서버 | ✅ | 2026-10-14 23:46 | 2026-10-14 23:51 |
 | [006](006-flutter-app-v1.md) | Flutter 앱 1차 | Phase 0 · 앱 | ✅ (⚠️ E2E 미검증) | 2026-10-14 23:51 | 2026-10-14 23:56 |
+| [007](007-cloud-deploy-and-model-rotation.md) | Cloud 배포(G2) · 모델 카탈로그와 자동 로테이션 | Phase 0 · G2 · 서버 | ✅ (⚠️ Cloud E2E 확인 필요) | 2026-10-14 23:46 | 2026-10-15 00:08 |
