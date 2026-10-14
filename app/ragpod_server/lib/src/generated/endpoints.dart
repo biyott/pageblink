@@ -10,6 +10,7 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:ragpod_server/src/generated/page_text.dart' as _iddg3cxq;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
@@ -18,6 +19,9 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../greetings/greeting_endpoint.dart' as _il624ik7;
+import '../rag_endpoints/ask_endpoint.dart' as _ijowjyl9;
+import '../rag_endpoints/document_endpoint.dart' as _iw2avhc4;
+import '../rag_endpoints/project_endpoint.dart' as _ik8zva9b;
 
 class Endpoints extends _is.EndpointDispatch {
   @override
@@ -39,6 +43,24 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'greeting',
+          null,
+        ),
+      'ask': _ijowjyl9.AskEndpoint()
+        ..initialize(
+          server,
+          'ask',
+          null,
+        ),
+      'document': _iw2avhc4.DocumentEndpoint()
+        ..initialize(
+          server,
+          'document',
+          null,
+        ),
+      'project': _ik8zva9b.ProjectEndpoint()
+        ..initialize(
+          server,
+          'project',
           null,
         ),
     };
@@ -269,6 +291,202 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['greeting'] as _il624ik7.GreetingEndpoint).hello(
                     session,
                     params['name'],
+                  ),
+        ),
+      },
+    );
+    connectors['ask'] = _is.EndpointConnector(
+      name: 'ask',
+      endpoint: endpoints['ask']!,
+      methodConnectors: {
+        'ask': _is.MethodStreamConnector(
+          name: 'ask',
+          params: {
+            'question': _is.ParameterDescription(
+              name: 'question',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'projectIds': _is.ParameterDescription(
+              name: 'projectIds',
+              type: _is.getType<List<int>>(),
+              nullable: false,
+            ),
+            'includePersonal': _is.ParameterDescription(
+              name: 'includePersonal',
+              type: _is.getType<bool>(),
+              nullable: false,
+            ),
+          },
+          streamParams: {},
+          returnType: _is.MethodStreamReturnType.streamType,
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+                Map<String, Stream> streamParams,
+              ) => (endpoints['ask'] as _ijowjyl9.AskEndpoint).ask(
+                session,
+                params['question'],
+                params['projectIds'],
+                params['includePersonal'],
+              ),
+        ),
+      },
+    );
+    connectors['document'] = _is.EndpointConnector(
+      name: 'document',
+      endpoint: endpoints['document']!,
+      methodConnectors: {
+        'upload': _is.MethodConnector(
+          name: 'upload',
+          params: {
+            'title': _is.ParameterDescription(
+              name: 'title',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'pages': _is.ParameterDescription(
+              name: 'pages',
+              type: _is.getType<List<_iddg3cxq.PageText>>(),
+              nullable: false,
+            ),
+            'contentHash': _is.ParameterDescription(
+              name: 'contentHash',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'projectId': _is.ParameterDescription(
+              name: 'projectId',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['document'] as _iw2avhc4.DocumentEndpoint).upload(
+                    session,
+                    params['title'],
+                    params['pages'],
+                    params['contentHash'],
+                    params['projectId'],
+                  ),
+        ),
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['document'] as _iw2avhc4.DocumentEndpoint)
+                  .list(session),
+        ),
+        'delete': _is.MethodConnector(
+          name: 'delete',
+          params: {
+            'documentId': _is.ParameterDescription(
+              name: 'documentId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['document'] as _iw2avhc4.DocumentEndpoint).delete(
+                    session,
+                    params['documentId'],
+                  ),
+        ),
+      },
+    );
+    connectors['project'] = _is.EndpointConnector(
+      name: 'project',
+      endpoint: endpoints['project']!,
+      methodConnectors: {
+        'create': _is.MethodConnector(
+          name: 'create',
+          params: {
+            'name': _is.ParameterDescription(
+              name: 'name',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['project'] as _ik8zva9b.ProjectEndpoint).create(
+                    session,
+                    params['name'],
+                  ),
+        ),
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['project'] as _ik8zva9b.ProjectEndpoint)
+                  .list(session),
+        ),
+        'addMember': _is.MethodConnector(
+          name: 'addMember',
+          params: {
+            'projectId': _is.ParameterDescription(
+              name: 'projectId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'email': _is.ParameterDescription(
+              name: 'email',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'role': _is.ParameterDescription(
+              name: 'role',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['project'] as _ik8zva9b.ProjectEndpoint).addMember(
+                    session,
+                    params['projectId'],
+                    params['email'],
+                    params['role'],
+                  ),
+        ),
+        'members': _is.MethodConnector(
+          name: 'members',
+          params: {
+            'projectId': _is.ParameterDescription(
+              name: 'projectId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['project'] as _ik8zva9b.ProjectEndpoint).members(
+                    session,
+                    params['projectId'],
                   ),
         ),
       },

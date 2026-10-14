@@ -11,3 +11,14 @@ jwtRefresh:
   - refreshAccessToken:
 greeting:
   - hello:
+ask:
+  - ask:
+document:
+  - upload:
+  - list:
+  - delete:
+project:
+  - create:
+  - list:
+  - addMember:
+  - members:

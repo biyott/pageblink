@@ -12,8 +12,13 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
 import 'package:http/http.dart' as _i85jenna;
+import 'package:ragpod_client/src/protocol/answer_event.dart' as _i8l1zeqb;
+import 'package:ragpod_client/src/protocol/document.dart' as _i1s8k4lc;
 import 'package:ragpod_client/src/protocol/greetings/greeting.dart'
     as _is0338l5;
+import 'package:ragpod_client/src/protocol/page_text.dart' as _iprvwupc;
+import 'package:ragpod_client/src/protocol/project.dart' as _iaxmdafw;
+import 'package:ragpod_client/src/protocol/project_member.dart' as _ixp7nrhk;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
@@ -264,6 +269,121 @@ class EndpointGreeting extends _isc.EndpointRef {
       );
 }
 
+/// Retrieval + generation in one streaming call (Phase 0).
+/// {@category Endpoint}
+class EndpointAsk extends _isc.EndpointRef {
+  EndpointAsk(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'ask';
+
+  /// Streams an answer to [question] over the user's personal documents and
+  /// the requested projects they are a member of.
+  _ida.Stream<_i8l1zeqb.AnswerEvent> ask(
+    String question,
+    List<int> projectIds,
+    bool includePersonal,
+  ) =>
+      caller.callStreamingServerEndpoint<
+        _ida.Stream<_i8l1zeqb.AnswerEvent>,
+        _i8l1zeqb.AnswerEvent
+      >(
+        'ask',
+        'ask',
+        {
+          'question': question,
+          'projectIds': projectIds,
+          'includePersonal': includePersonal,
+        },
+        {},
+      );
+}
+
+/// Upload and list documents. Text is extracted on the client (ADR 003).
+/// {@category Endpoint}
+class EndpointDocument extends _isc.EndpointRef {
+  EndpointDocument(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'document';
+
+  /// Indexes a document from per-page text. [projectId] null = personal.
+  _ida.Future<_i1s8k4lc.Document> upload(
+    String title,
+    List<_iprvwupc.PageText> pages,
+    String contentHash,
+    int? projectId,
+  ) => caller.callServerEndpoint<_i1s8k4lc.Document>(
+    'document',
+    'upload',
+    {
+      'title': title,
+      'pages': pages,
+      'contentHash': contentHash,
+      'projectId': projectId,
+    },
+  );
+
+  /// Personal documents plus documents of every project the user belongs to.
+  _ida.Future<List<_i1s8k4lc.Document>> list() =>
+      caller.callServerEndpoint<List<_i1s8k4lc.Document>>(
+        'document',
+        'list',
+        {},
+      );
+
+  _ida.Future<void> delete(int documentId) => caller.callServerEndpoint<void>(
+    'document',
+    'delete',
+    {'documentId': documentId},
+  );
+}
+
+/// Projects share documents between members.
+/// {@category Endpoint}
+class EndpointProject extends _isc.EndpointRef {
+  EndpointProject(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'project';
+
+  _ida.Future<_iaxmdafw.Project> create(String name) =>
+      caller.callServerEndpoint<_iaxmdafw.Project>(
+        'project',
+        'create',
+        {'name': name},
+      );
+
+  _ida.Future<List<_iaxmdafw.Project>> list() =>
+      caller.callServerEndpoint<List<_iaxmdafw.Project>>(
+        'project',
+        'list',
+        {},
+      );
+
+  /// Adds a registered user by email. Only owners can invite.
+  _ida.Future<_ixp7nrhk.ProjectMember> addMember(
+    int projectId,
+    String email,
+    String role,
+  ) => caller.callServerEndpoint<_ixp7nrhk.ProjectMember>(
+    'project',
+    'addMember',
+    {
+      'projectId': projectId,
+      'email': email,
+      'role': role,
+    },
+  );
+
+  _ida.Future<List<_ixp7nrhk.ProjectMember>> members(int projectId) =>
+      caller.callServerEndpoint<List<_ixp7nrhk.ProjectMember>>(
+        'project',
+        'members',
+        {'projectId': projectId},
+      );
+}
+
 class Modules {
   Modules(Client client) {
     serverpod_auth_idp = _iaic.Caller(client);
@@ -305,6 +425,9 @@ class Client extends _isc.ServerpodClientShared {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     greeting = EndpointGreeting(this);
+    ask = EndpointAsk(this);
+    document = EndpointDocument(this);
+    project = EndpointProject(this);
     modules = Modules(this);
   }
 
@@ -314,6 +437,12 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointGreeting greeting;
 
+  late final EndpointAsk ask;
+
+  late final EndpointDocument document;
+
+  late final EndpointProject project;
+
   late final Modules modules;
 
   @override
@@ -321,6 +450,9 @@ class Client extends _isc.ServerpodClientShared {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'greeting': greeting,
+    'ask': ask,
+    'document': document,
+    'project': project,
   };
 
   @override

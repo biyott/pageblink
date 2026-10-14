@@ -11,6 +11,10 @@
 // ignore_for_file: dead_code, unnecessary_type_check
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:ragpod_server/src/generated/document.dart' as _iiamf0rv;
+import 'package:ragpod_server/src/generated/page_text.dart' as _iddg3cxq;
+import 'package:ragpod_server/src/generated/project.dart' as _ipdtnmnu;
+import 'package:ragpod_server/src/generated/project_member.dart' as _ilw0r1sy;
 import 'package:serverpod/protocol.dart' as _isp;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
@@ -431,6 +435,33 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _is.getType<_i7o7d07j.ProjectMember?>()) {
       return (data != null ? _i7o7d07j.ProjectMember.fromJson(data) : null)
+          as T;
+    }
+    if (t == List<int>) {
+      return (data as List).map((e) => deserialize<int>(e)).toList() as T;
+    }
+    if (t == List<_iddg3cxq.PageText>) {
+      return (data as List)
+              .map((e) => deserialize<_iddg3cxq.PageText>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_iiamf0rv.Document>) {
+      return (data as List)
+              .map((e) => deserialize<_iiamf0rv.Document>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ipdtnmnu.Project>) {
+      return (data as List)
+              .map((e) => deserialize<_ipdtnmnu.Project>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ilw0r1sy.ProjectMember>) {
+      return (data as List)
+              .map((e) => deserialize<_ilw0r1sy.ProjectMember>(e))
+              .toList()
           as T;
     }
     try {
