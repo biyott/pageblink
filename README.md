@@ -30,7 +30,7 @@ Built for **Build Something Real: The Serverpod Hackathon** with Flutter + Serve
 | PDF upload with on-device text extraction | `pdfrx` extracts text **per page** in the Flutter app; only text and a SHA-256 content hash are sent ([ADR 003](docs/adr/003-pdf-extract-on-client.md)) |
 | Indexing | Server chunks pages, embeds with **EmbeddingGemma-300m** (768-d, via DeepInfra), stores in Postgres with **pgvector** (HNSW, cosine) through the Serverpod ORM |
 | Streaming answers with citations (notes + PDFs) | `Stream<AnswerEvent>` endpoint: top-8 chunks by cosine distance over notes and PDFs together → LLM → tokens + `[n]` markers → `citation` events (each carries `kind`: `note` or `pdf`) |
-| ⚡ Blink to the page | Citation chip opens the PDF viewer at the cited page with the quoted passage. When the original PDF is not on this device the app shows the quote only (see limits below) |
+| ⚡ Blink to the page | Citation chip opens the PDF viewer at the cited page with the quoted passage. The viewer uses the local copy if present, otherwise the server copy via a short-lived signed URL after an ACL check, so citations open on any device or for teammates. If the server copy is unavailable it shows the quote only (see limits below) |
 | Projects + invites | Create a project, invite a registered user by email (owner only; the UI invites as editor). Roles owner / editor / viewer |
 | Server-side ACL inside the vector query | `WHERE` on owner / project membership is part of the same query as the similarity ordering; client-sent project ids are intersected with real memberships ([ADR 010](docs/adr/010-acl-in-query.md)) |
 | In-app model picker + automatic rotation | Backend serves a 7-model catalog (5 free, 2 paid via OpenRouter). On 402/404/408/429/5xx **before any text streams**, the server rotates to the next model; the app shows which model answered ([ADR 014](docs/adr/014-model-catalog-and-rotation.md)) |
@@ -38,13 +38,14 @@ Built for **Build Something Real: The Serverpod Hackathon** with Flutter + Serve
 **Known limits (honest):**
 - Notes are single-user editing with save-on-back. There is no realtime sync or collaborative editing, no images, no labels/colors/pin/archive, no version history, and checkboxes cannot be toggled in the preview. Those are planned ([plan 005](docs/plan/005-follow-up-spec.md)).
 - ⚠️ The notes UI and the sign-up password rule change (12–50 chars, lowercase + number, uppercase or special; client-side only) are not covered by automated tests or a recorded end-to-end run (확인 필요).
-- The original PDF is kept only on the uploading device (on web: in memory for the browser session). Opening a citation on another device, after a web reload, or as a teammate shows the quote instead of the page. Server-side PDF storage is the top follow-up item.
+- Original PDFs are stored server-side in private cloud storage (`document.pdfUploadDescription` / `confirmPdfUpload` / `pdfUrl`, commit 4140d4f). The viewer falls back to the server copy through a short-lived signed URL after an ACL check, so citations open on any device and for teammates. ⚠️ CORS for the web upload is still unverified (확인 필요); if the server copy is unavailable (for example a failed upload), the viewer shows the cited quote instead of the page. Citation highlight inside the page body is not implemented yet.
+- **Known issue during judging:** embeddings need a funded DeepInfra account (402 when balance is 0), so uploads and note indexing fail until the balance is topped up.
 - OpenRouter free quota is per account (50/day, 1,000/day after buying ≥ $10 credits; 20/min), so rotation helps with congestion, not with the daily cap.
 - The Cloak tier appears in the tier picker as "coming soon" (disabled).
 
 ### Planned
 
-Notion-like realtime sync and collaborative editing (Serverpod streams), a richer note editor (checklist toggling in preview, images, labels/colors/pin/archive), note version history, Cloak device-only tier with offline Evidence mode (EmbeddingGemma on device + sqlite-vec/FTS5), original PDF storage on the server with ACL-checked download URLs, citation highlight, device↔cloud sync (Recall), direct Gemini provider, member/role management UI, background indexing with Future Calls, Korean hybrid search, and more. Full spec with acceptance criteria: [docs/plan/005-follow-up-spec.md](docs/plan/005-follow-up-spec.md).
+Notion-like realtime sync and collaborative editing (Serverpod streams), a richer note editor (checklist toggling in preview, images, labels/colors/pin/archive), note version history, Cloak device-only tier with offline Evidence mode (EmbeddingGemma on device + sqlite-vec/FTS5), citation highlight inside the page body, device↔cloud sync (Recall), direct Gemini provider, member/role management UI, background indexing with Future Calls, Korean hybrid search, and more. Full spec with acceptance criteria: [docs/plan/005-follow-up-spec.md](docs/plan/005-follow-up-spec.md).
 
 ## Architecture
 
@@ -90,7 +91,7 @@ Flow of one question: embed the query → ACL-filtered pgvector search (top 8) �
 | Generated protocol + client | `pageblink_client` is generated; the app calls `client.ask.ask(...)`, `client.document.saveNote(...)`, `client.document.upload(...)` | ✅ in use |
 | Serverpod Cloud deploy + passwords | Live at `pageblink.serverpod.space`; API keys set as Cloud passwords | ✅ in use |
 | Web server serves the Flutter web app | `FlutterRoute` in [`server.dart`](app/pageblink_server/lib/server.dart) | ✅ in use |
-| Cloud storage / file upload | Private/public storage is configured in `server.dart`; `Document.storagePath` exists but is not used yet | ⏳ planned |
+| Cloud storage / file upload | Original PDFs go to private cloud storage via upload descriptions; `pdfUrl` returns a short-lived signed URL after an ACL check; deleting a document removes the stored file too | ✅ in use (web upload CORS unverified) |
 | Future Calls | Background indexing | ⏳ planned (needs Growth plan; project is on Starter) |
 
 ## Run locally

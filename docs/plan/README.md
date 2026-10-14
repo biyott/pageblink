@@ -20,3 +20,4 @@
 | [003](003-tech-stack-and-prep.md) | 기술 스택 결정 & 개발 전 준비 | SDK·패키지 버전, AI 제공자, 환경 진단, 모노레포 구조, 오늘 밤 타임라인·게이트 |
 | [004](004-naming-and-feature-vocabulary.md) | 제품 이름 후보 & 기능 이름 용어집 | 숏리스트(Pinpage·Burrow·Docparty·Pagewarp·Savepoint), 후보 50개 마스터 표, 게임 용어 기능 어휘집 (결정 대기) |
 | [005](005-follow-up-spec.md) | 후속 기능 명세 | 해커톤 이후 항목별 목적·사용자 스토리·구현 메모·수용 기준·우선순위(P1~P3): 원본 PDF 서버 저장, Cloak, 하이라이트, Recall, Gemini 직접, Future Calls 등 |
+| [006](006-demo-script.md) | 데모 영상 대본 (2분) | 시간별 화면·영어 내레이션·보여줄 포인트, 아키텍처 슬라이드, 촬영·업로드/제출 체크리스트 |
