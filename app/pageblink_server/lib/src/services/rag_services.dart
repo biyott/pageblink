@@ -10,7 +10,7 @@ import 'llm_catalog.dart';
 
 /// Builds providers from server passwords (config/passwords.yaml or Cloud).
 class RagServices {
-  /// Serverpod password (passwords.yaml, Cloud, or SERVERPOD_PASSWORD_<name>),
+  /// Serverpod password (passwords.yaml, Cloud, or `SERVERPOD_PASSWORD_name`),
   /// falling back to a conventional environment variable.
   static String? _secret(Session session, String password, String envVar) {
     final value = session.passwords[password];
