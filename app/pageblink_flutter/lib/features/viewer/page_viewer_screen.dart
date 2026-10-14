@@ -1,56 +1,83 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
-import 'package:pageblink_client/pageblink_client.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../app/l10n.dart';
 import '../../app/local_pdfs.dart';
-import '../../client.dart';
-import '../notes/note_editor_screen.dart';
+import '../../app/pane_header.dart';
 
-/// Blink: opens the cited PDF right at the cited page.
-/// Falls back to the quoted passage when the original isn't on this device.
-class PageViewerScreen extends StatelessWidget {
-  const PageViewerScreen({super.key, required this.citation});
+/// Blink: shows the cited PDF right at the cited page.
+/// Falls back to the quoted passage when the original isn't available.
+class PdfPageView extends StatefulWidget {
+  const PdfPageView({
+    super.key,
+    required this.documentId,
+    required this.title,
+    required this.page,
+    required this.quote,
+    required this.embedded,
+    required this.onClose,
+  });
 
-  final Citation citation;
+  final int documentId;
+  final String title;
+  final int page;
+  final String quote;
+  final bool embedded;
+  final VoidCallback onClose;
+
+  @override
+  State<PdfPageView> createState() => _PdfPageViewState();
+}
+
+class _PdfPageViewState extends State<PdfPageView> {
+  late final Future<Uint8List?> _bytes = LocalPdfs.fetch(widget.documentId);
 
   @override
   Widget build(BuildContext context) {
-    if (citation.kind == 'note') return _NoteCitation(citation);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${citation.documentTitle} · p.${citation.page}'),
-      ),
-      body: FutureBuilder(
-        future: LocalPdfs.fetch(citation.documentId),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final bytes = snapshot.data;
-          if (bytes == null) return _QuoteView(citation);
-          return Column(
-            children: [
-              _QuoteBanner(citation.quote),
-              Expanded(
-                child: PdfViewer(
-                  PdfDocumentRefData(
-                    bytes,
-                    sourceName: 'doc-${citation.documentId}',
+    final l = context.l;
+    return Column(
+      children: [
+        PaneHeader(
+          embedded: widget.embedded,
+          onBack: widget.onClose,
+          onClose: widget.onClose,
+          title: Text('${widget.title} · ${l.pageN(widget.page)}'),
+        ),
+        Expanded(
+          child: FutureBuilder<Uint8List?>(
+            future: _bytes,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final bytes = snapshot.data;
+              if (bytes == null) return QuoteView(widget.quote);
+              return Column(
+                children: [
+                  if (widget.quote.isNotEmpty) QuoteBanner(widget.quote),
+                  Expanded(
+                    child: PdfViewer(
+                      PdfDocumentRefData(
+                        bytes,
+                        sourceName: 'doc-${widget.documentId}',
+                      ),
+                      initialPageNumber: widget.page,
+                    ),
                   ),
-                  initialPageNumber: citation.page,
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _QuoteBanner extends StatelessWidget {
-  const _QuoteBanner(this.quote);
+class QuoteBanner extends StatelessWidget {
+  const QuoteBanner(this.quote, {super.key});
   final String quote;
 
   @override
@@ -65,9 +92,10 @@ class _QuoteBanner extends StatelessWidget {
   }
 }
 
-class _QuoteView extends StatelessWidget {
-  const _QuoteView(this.citation);
-  final Citation citation;
+/// Shown when the original PDF (or cited note) isn't available.
+class QuoteView extends StatelessWidget {
+  const QuoteView(this.quote, {super.key});
+  final String quote;
 
   @override
   Widget build(BuildContext context) => ListView(
@@ -77,29 +105,10 @@ class _QuoteView extends StatelessWidget {
         context.l.originalMissing,
         style: Theme.of(context).textTheme.bodySmall,
       ),
-      const SizedBox(height: 16),
-      Text('“${citation.quote}”', style: Theme.of(context).textTheme.bodyLarge),
+      if (quote.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Text('“$quote”', style: Theme.of(context).textTheme.bodyLarge),
+      ],
     ],
-  );
-}
-
-/// Notes open in the editor with the cited passage highlighted on top.
-class _NoteCitation extends StatelessWidget {
-  const _NoteCitation(this.citation);
-  final Citation citation;
-
-  @override
-  Widget build(BuildContext context) => FutureBuilder(
-    future: client.document.get(citation.documentId),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) {
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
-      }
-      final note = snapshot.data;
-      if (note == null) {
-        return Scaffold(appBar: AppBar(), body: _QuoteView(citation));
-      }
-      return NoteEditorScreen(note: note, highlight: citation.quote);
-    },
   );
 }

@@ -5,27 +5,35 @@ import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
-import 'page_viewer_screen.dart';
 
 /// Mobile "Blink": a bottom sheet previewing the cited passage, with a
-/// button that opens the full page in [PageViewerScreen].
+/// button that hands the citation to [onOpen] (note in the Notes tab, PDF in
+/// the current tab). Shown above the bottom bar, on the root navigator.
 Future<void> showCitationSheet(
   BuildContext context,
   List<Citation> citations,
-  int index,
-) => showModalBottomSheet<void>(
+  int index, {
+  required void Function(Citation) onOpen,
+}) => showModalBottomSheet<void>(
   context: context,
+  useRootNavigator: true,
   isScrollControlled: true,
   backgroundColor: Colors.transparent,
   barrierColor: context.pb.scrim,
-  builder: (_) => _CitationSheet(citations: citations, initial: index),
+  builder: (_) =>
+      _CitationSheet(citations: citations, initial: index, onOpen: onOpen),
 );
 
 class _CitationSheet extends StatefulWidget {
-  const _CitationSheet({required this.citations, required this.initial});
+  const _CitationSheet({
+    required this.citations,
+    required this.initial,
+    required this.onOpen,
+  });
 
   final List<Citation> citations;
   final int initial;
+  final void Function(Citation) onOpen;
 
   @override
   State<_CitationSheet> createState() => _CitationSheetState();
@@ -183,13 +191,8 @@ class _CitationSheetState extends State<_CitationSheet> {
                 height: 48,
                 child: FilledButton(
                   onPressed: () {
-                    final nav = Navigator.of(context);
-                    nav.pop();
-                    nav.push(
-                      MaterialPageRoute(
-                        builder: (_) => PageViewerScreen(citation: c),
-                      ),
-                    );
+                    Navigator.of(context).pop();
+                    widget.onOpen(c);
                   },
                   child: Text(l.openFullPage),
                 ),

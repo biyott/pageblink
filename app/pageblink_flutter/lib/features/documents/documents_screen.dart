@@ -8,7 +8,8 @@ import '../../app/l10n.dart';
 import '../../app/local_pdfs.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
-import '../notes/note_editor_screen.dart';
+import '../../app/open_item_controller.dart';
+import '../open_item/open_item_view.dart';
 import 'pdf_text.dart';
 
 /// Keep-style board of notes and PDFs (personal and project).
@@ -32,6 +33,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   void initState() {
     super.initState();
     _refresh();
+    boardRefresh.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    boardRefresh.removeListener(_refresh);
+    super.dispose();
   }
 
   Future<void> _refresh() async {
@@ -179,14 +187,26 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       if (chosen == _cancelled || !mounted) return;
       projectId = chosen;
     }
-    final saved = await Navigator.push<Document>(
+    if (!mounted) return;
+    await openItem(
       context,
-      MaterialPageRoute(
-        builder: (_) => NoteEditorScreen(note: note, projectId: projectId),
-      ),
+      OpenItem.note(note: note, projectId: projectId),
     );
-    if (saved != null) await _refresh();
   }
+
+  /// PDFs open at their first page, in the same place notes do.
+  Future<void> _openPdf(Document pdf) => openItem(
+    context,
+    OpenItem.citation(
+      Citation(
+        index: 0,
+        documentId: pdf.id!,
+        documentTitle: pdf.title,
+        page: 1,
+        quote: '',
+      ),
+    ),
+  );
 
   static const _cancelled = -1;
 
@@ -195,6 +215,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     final l = context.l;
     final result = await showModalBottomSheet<int?>(
       context: context,
+      useRootNavigator: true,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -455,7 +476,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     return _DocumentCard(
                       d,
                       widget.projects,
-                      onTap: d.kind == 'note' ? () => _openNote(d) : null,
+                      onTap: d.kind == 'note'
+                          ? () => _openNote(d)
+                          : (d.status == 'ready' ? () => _openPdf(d) : null),
                       onLongPress: () => _delete(d),
                       onRetry: d.status == 'failed' ? () => _reindex(d) : null,
                     );

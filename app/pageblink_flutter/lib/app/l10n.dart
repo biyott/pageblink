@@ -328,5 +328,7 @@ class L {
   String pageN(int n) => _t('Page $n', '$n쪽');
   String get kindNote => _t('Note', '노트');
   String get kindPdf => 'PDF';
+  String get back => _t('Back', '뒤로');
+  String get closeEsc => _t('Close (Esc)', '닫기 (Esc)');
   String get newChat => _t('New conversation', '새 대화');
 }

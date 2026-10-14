@@ -9,7 +9,8 @@ import '../../app/theme.dart';
 import '../../app/l10n.dart';
 import '../../client.dart';
 import '../viewer/citation_sheet.dart';
-import '../viewer/page_viewer_screen.dart';
+import '../../app/open_item_controller.dart';
+import '../open_item/open_item_view.dart';
 
 /// Ask a question; the answer streams in with ⚡ citations you can blink to.
 class AskScreen extends StatefulWidget {
@@ -119,15 +120,21 @@ class _AskScreenState extends State<AskScreen> {
     });
   }
 
-  /// Phones get the citation bottom sheet; wider layouts open the viewer.
+  /// Phones get the citation bottom sheet; wider layouts open the center pane.
   void _blink(List<Citation> all, Citation citation) {
     if (MediaQuery.sizeOf(context).width < 600) {
-      showCitationSheet(context, all, all.indexOf(citation));
-    } else {
-      Navigator.push(
+      showCitationSheet(
         context,
-        MaterialPageRoute(builder: (_) => PageViewerScreen(citation: citation)),
+        all,
+        all.indexOf(citation),
+        onOpen: (c) {
+          if (mounted) {
+            openItem(context, OpenItem.citation(c), inNotesTab: true);
+          }
+        },
       );
+    } else {
+      openItem(context, OpenItem.citation(citation));
     }
   }
 

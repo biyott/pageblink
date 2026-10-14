@@ -3,16 +3,24 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/l10n.dart';
+import '../../app/open_item_controller.dart';
+import '../../app/pane_header.dart';
 import '../../client.dart';
 
 /// Keep-style note editor: title + Markdown body, a small formatting toolbar
 /// and a preview toggle. Saves (and re-indexes for questions) on close.
-class NoteEditorScreen extends StatefulWidget {
-  const NoteEditorScreen({
+///
+/// Embedded in the center pane ([embedded]) it has a "← Notes / title"
+/// header with a close button; otherwise it is a full page with a back arrow.
+class NoteEditorView extends StatefulWidget {
+  const NoteEditorView({
     super.key,
     this.note,
     this.projectId,
     this.highlight,
+    required this.embedded,
+    required this.onClose,
+    this.controller,
   });
 
   final Document? note;
@@ -21,51 +29,73 @@ class NoteEditorScreen extends StatefulWidget {
   /// A cited passage to show above the note (opened from an answer).
   final String? highlight;
 
+  final bool embedded;
+
+  /// Called after the pending edits were saved (or there was nothing to save).
+  final VoidCallback onClose;
+
+  /// Lets the shell save this editor before it is replaced or closed.
+  final OpenItemController? controller;
+
   @override
-  State<NoteEditorScreen> createState() => _NoteEditorScreenState();
+  State<NoteEditorView> createState() => _NoteEditorViewState();
 }
 
-class _NoteEditorScreenState extends State<NoteEditorScreen> {
+class _NoteEditorViewState extends State<NoteEditorView> {
   late final _title = TextEditingController(text: widget.note?.title ?? '');
   late final _body = TextEditingController(text: widget.note?.body ?? '');
   late bool _preview = widget.note != null;
+  late int? _id = widget.note?.id;
+  late String _savedTitle = widget.note?.title ?? '';
+  late String _savedBody = widget.note?.body ?? '';
   bool _saving = false;
 
-  bool get _changed =>
-      _title.text != (widget.note?.title ?? '') ||
-      _body.text != (widget.note?.body ?? '');
+  bool get _changed => _title.text != _savedTitle || _body.text != _savedBody;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller?.flushHandler = _flush;
+  }
 
   @override
   void dispose() {
+    final c = widget.controller;
+    if (c != null && c.flushHandler == _flush) c.flushHandler = null;
     _title.dispose();
     _body.dispose();
     super.dispose();
   }
 
-  Future<void> _saveAndClose() async {
-    if (_saving) return;
-    if (!_changed || _body.text.trim().isEmpty) {
-      Navigator.pop(context);
-      return;
-    }
+  /// Saves pending edits. False (with a snackbar) if saving failed.
+  Future<bool> _flush() async {
+    if (_saving) return false;
+    if (!_changed || _body.text.trim().isEmpty) return true;
     final l = context.l;
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
     try {
       final saved = await client.document.saveNote(
-        widget.note?.id,
+        _id,
         _title.text,
         _body.text,
         widget.note?.projectId ?? widget.projectId,
       );
-      if (mounted) Navigator.pop(context, saved);
+      _id = saved.id;
+      _savedTitle = _title.text;
+      _savedBody = _body.text;
+      boardRefresh.value++;
+      if (mounted) setState(() => _saving = false);
+      return true;
     } catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l.saveFailed(e))));
-      }
+      if (mounted) setState(() => _saving = false);
+      messenger.showSnackBar(SnackBar(content: Text(l.saveFailed(e))));
+      return false;
     }
+  }
+
+  Future<void> _saveAndClose() async {
+    if (await _flush() && mounted) widget.onClose();
   }
 
   /// Wraps the selection (or inserts at the cursor) with Markdown syntax.
@@ -100,141 +130,148 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l;
     return PopScope(
-      canPop: false,
+      // Embedded: back is handled by the shell. Full page: save first.
+      canPop: widget.embedded,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _saveAndClose();
       },
-      child: Scaffold(
-        appBar: AppBar(
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: _saveAndClose,
-          ),
-          actions: [
-            IconButton(
-              tooltip: _preview ? context.l.edit : context.l.preview,
-              icon: Icon(
-                _preview ? Icons.edit_outlined : Icons.visibility_outlined,
+      child: Column(
+        children: [
+          PaneHeader(
+            embedded: widget.embedded,
+            onBack: _saveAndClose,
+            onClose: _saveAndClose,
+            title: ValueListenableBuilder(
+              valueListenable: _title,
+              builder: (context, value, _) => Text(
+                value.text.trim().isNotEmpty
+                    ? value.text.trim()
+                    : (widget.note == null ? l.newNote : l.titleHint),
               ),
-              onPressed: () => setState(() => _preview = !_preview),
             ),
-            if (_saving)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: SizedBox.square(
-                  dimension: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            else
+            actions: [
               IconButton(
-                tooltip: context.l.save,
-                icon: const Icon(Icons.check),
-                onPressed: _saveAndClose,
-              ),
-          ],
-        ),
-        body: Column(
-          children: [
-            if (widget.highlight != null)
-              Container(
-                width: double.infinity,
-                color: Theme.of(context).colorScheme.secondaryContainer,
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  '⚡ “${widget.highlight}”',
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
+                tooltip: _preview ? l.edit : l.preview,
+                icon: Icon(
+                  _preview ? Icons.edit_outlined : Icons.visibility_outlined,
                 ),
+                onPressed: () => setState(() => _preview = !_preview),
               ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: TextField(
-                controller: _title,
-                style: Theme.of(context).textTheme.titleLarge,
-                decoration: InputDecoration(
-                  hintText: context.l.titleHint,
-                  border: InputBorder.none,
+              if (_saving)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else
+                IconButton(
+                  tooltip: l.save,
+                  icon: const Icon(Icons.check),
+                  onPressed: _saveAndClose,
                 ),
+            ],
+          ),
+          if (widget.highlight != null)
+            Container(
+              width: double.infinity,
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                '⚡ “${widget.highlight}”',
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            Expanded(
-              child: _preview
-                  ? SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: GptMarkdown(_body.text),
-                      ),
-                    )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: TextField(
-                        controller: _body,
-                        autofocus: widget.note == null,
-                        maxLines: null,
-                        expands: true,
-                        keyboardType: TextInputType.multiline,
-                        textAlignVertical: TextAlignVertical.top,
-                        decoration: InputDecoration(
-                          hintText: context.l.noteHint,
-                          border: InputBorder.none,
-                        ),
-                      ),
-                    ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: TextField(
+              controller: _title,
+              style: Theme.of(context).textTheme.titleLarge,
+              decoration: InputDecoration(
+                hintText: context.l.titleHint,
+                border: InputBorder.none,
+              ),
             ),
-            if (!_preview)
-              SafeArea(
-                top: false,
-                child: Material(
-                  color: Theme.of(context).colorScheme.surfaceContainer,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        IconButton(
-                          tooltip: context.l.fmtHeading,
-                          icon: const Icon(Icons.title),
-                          onPressed: () => _linePrefix('## '),
-                        ),
-                        IconButton(
-                          tooltip: context.l.fmtBold,
-                          icon: const Icon(Icons.format_bold),
-                          onPressed: () => _wrap('**', '**'),
-                        ),
-                        IconButton(
-                          tooltip: context.l.fmtItalic,
-                          icon: const Icon(Icons.format_italic),
-                          onPressed: () => _wrap('_', '_'),
-                        ),
-                        IconButton(
-                          tooltip: context.l.fmtList,
-                          icon: const Icon(Icons.format_list_bulleted),
-                          onPressed: () => _linePrefix('- '),
-                        ),
-                        IconButton(
-                          tooltip: context.l.fmtCheckbox,
-                          icon: const Icon(Icons.check_box_outlined),
-                          onPressed: () => _linePrefix('- [ ] '),
-                        ),
-                        IconButton(
-                          tooltip: context.l.fmtQuote,
-                          icon: const Icon(Icons.format_quote),
-                          onPressed: () => _linePrefix('> '),
-                        ),
-                        IconButton(
-                          tooltip: context.l.fmtCode,
-                          icon: const Icon(Icons.code),
-                          onPressed: () => _wrap('`', '`'),
-                        ),
-                      ],
+          ),
+          Expanded(
+            child: _preview
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: GptMarkdown(_body.text),
                     ),
+                  )
+                : Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: _body,
+                      autofocus: widget.note == null,
+                      maxLines: null,
+                      expands: true,
+                      keyboardType: TextInputType.multiline,
+                      textAlignVertical: TextAlignVertical.top,
+                      decoration: InputDecoration(
+                        hintText: context.l.noteHint,
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+          ),
+          if (!_preview)
+            SafeArea(
+              top: false,
+              child: Material(
+                color: Theme.of(context).colorScheme.surfaceContainer,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: context.l.fmtHeading,
+                        icon: const Icon(Icons.title),
+                        onPressed: () => _linePrefix('## '),
+                      ),
+                      IconButton(
+                        tooltip: context.l.fmtBold,
+                        icon: const Icon(Icons.format_bold),
+                        onPressed: () => _wrap('**', '**'),
+                      ),
+                      IconButton(
+                        tooltip: context.l.fmtItalic,
+                        icon: const Icon(Icons.format_italic),
+                        onPressed: () => _wrap('_', '_'),
+                      ),
+                      IconButton(
+                        tooltip: context.l.fmtList,
+                        icon: const Icon(Icons.format_list_bulleted),
+                        onPressed: () => _linePrefix('- '),
+                      ),
+                      IconButton(
+                        tooltip: context.l.fmtCheckbox,
+                        icon: const Icon(Icons.check_box_outlined),
+                        onPressed: () => _linePrefix('- [ ] '),
+                      ),
+                      IconButton(
+                        tooltip: context.l.fmtQuote,
+                        icon: const Icon(Icons.format_quote),
+                        onPressed: () => _linePrefix('> '),
+                      ),
+                      IconButton(
+                        tooltip: context.l.fmtCode,
+                        icon: const Icon(Icons.code),
+                        onPressed: () => _wrap('`', '`'),
+                      ),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

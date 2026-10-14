@@ -5,10 +5,12 @@ import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import 'app/l10n.dart';
 import 'app/locale_controller.dart';
+import 'app/open_item_controller.dart';
 import 'app/theme.dart';
 import 'client.dart';
 import 'features/ask/ask_screen.dart';
 import 'features/documents/documents_screen.dart';
+import 'features/open_item/open_item_view.dart';
 import 'features/projects/projects_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'screens/sign_in_screen.dart';
@@ -64,21 +66,64 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
-  List<Project> _projects = const [];
+  final _projects = ValueNotifier<List<Project>>(const []);
+
+  /// Notes and PDFs open in the center pane on tablet/desktop...
+  final _open = OpenItemController();
+
+  /// ...and, on phones, inside the active tab's own navigator.
+  final _navKeys = [for (var i = 0; i < 3; i++) GlobalKey<NavigatorState>()];
+  late final _observers = [
+    for (var i = 0; i < 3; i++) _TabObserver(_tabStackChanged),
+  ];
 
   @override
   void initState() {
     super.initState();
+    _open.openInNotesTab = _openInNotesTab;
     _loadProjects();
+  }
+
+  @override
+  void dispose() {
+    _open.dispose();
+    _projects.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProjects() async {
     try {
       final projects = await client.project.list();
-      if (mounted) setState(() => _projects = projects);
+      if (mounted) _projects.value = projects;
     } catch (_) {
       // Shown as an empty project list; the documents tab surfaces errors.
     }
+  }
+
+  /// The tab navigators push/pop outside of this widget's build.
+  void _tabStackChanged() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  bool _tabIsDeep(int i) => _navKeys[i].currentState?.canPop() ?? false;
+
+  /// Phone: a cited note opens in the Notes tab, whichever tab asked.
+  Future<void> _openInNotesTab(OpenItem item) async {
+    if (!await _open.flush() || !mounted) return;
+    setState(() => _tab = 1);
+    final nav = _navKeys[1].currentState;
+    nav?.popUntil((route) => route.isFirst);
+    nav?.push(
+      MaterialPageRoute<void>(builder: (_) => OpenItemPage(item: item)),
+    );
+  }
+
+  /// Sidebar / rail: save and close an open pane, then switch.
+  Future<void> _select(int i) async {
+    await _open.close();
+    if (mounted && _open.item == null) setState(() => _tab = i);
   }
 
   List<({IconData icon, IconData selected, String label})> _destinations(
@@ -97,16 +142,58 @@ class _HomeShellState extends State<HomeShell> {
     ),
   ];
 
+  Widget _ask() => ValueListenableBuilder<List<Project>>(
+    valueListenable: _projects,
+    builder: (context, projects, _) => AskScreen(projects: projects),
+  );
+
+  Widget _notes() => ValueListenableBuilder<List<Project>>(
+    valueListenable: _projects,
+    builder: (context, projects, _) => DocumentsScreen(projects: projects),
+  );
+
+  Widget _projectsTab() => ValueListenableBuilder<List<Project>>(
+    valueListenable: _projects,
+    builder: (context, projects, _) =>
+        ProjectsScreen(projects: projects, onChanged: _loadProjects),
+  );
+
+  /// One navigator per tab (phones), so pushes stay inside the tab.
+  Widget _tabNavigator(int i, Widget root) => HeroControllerScope.none(
+    child: Navigator(
+      key: _navKeys[i],
+      observers: [_observers[i]],
+      onGenerateRoute: (_) => MaterialPageRoute<void>(builder: (_) => root),
+    ),
+  );
+
+  /// The tab content, with the open item layered over it (wide layouts).
+  Widget _withPane(Widget base) {
+    final item = _open.item;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Offstage(
+            offstage: item != null,
+            child: TickerMode(enabled: item == null, child: base),
+          ),
+        ),
+        if (item != null)
+          Positioned.fill(
+            child: OpenItemPane(
+              key: ObjectKey(item),
+              item: item,
+              controller: _open,
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l;
     final destinations = _destinations(l);
-    final ask = AskScreen(projects: _projects);
-    final notes = DocumentsScreen(projects: _projects);
-    final projects = ProjectsScreen(
-      projects: _projects,
-      onChanged: _loadProjects,
-    );
     final appBar = AppBar(
       title: const Text('⚡ PageBlink'),
       actions: [
@@ -126,102 +213,172 @@ class _HomeShellState extends State<HomeShell> {
       ],
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
+    return OpenItemScope(
+      controller: _open,
+      child: ListenableBuilder(
+        listenable: _open,
+        builder: (context, _) => LayoutBuilder(
+          builder: (context, constraints) =>
+              _layout(context, constraints.maxWidth, destinations, appBar),
+        ),
+      ),
+    );
+  }
 
-        // Phone: bottom navigation, one screen at a time.
-        if (width < 600) {
-          return Scaffold(
-            appBar: appBar,
-            body: IndexedStack(index: _tab, children: [ask, notes, projects]),
-            bottomNavigationBar: NavigationBar(
-              selectedIndex: _tab,
-              onDestinationSelected: (i) => setState(() => _tab = i),
-              destinations: [
-                for (final d in destinations)
-                  NavigationDestination(
-                    icon: Icon(d.icon),
-                    selectedIcon: Icon(d.selected),
-                    label: d.label,
-                  ),
-              ],
-            ),
-          );
-        }
+  Widget _layout(
+    BuildContext context,
+    double width,
+    List<({IconData icon, IconData selected, String label})> destinations,
+    AppBar appBar,
+  ) {
+    _open.wide = width >= 600;
 
-        // Desktop: custom sidebar | board | Ask (fixed 380), 24 gaps.
-        final desktop = width >= 1024;
-        if (desktop) {
-          return Scaffold(
-            body: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 240,
-                      child: _Sidebar(
+    // Phone: bottom navigation; every tab has its own navigator, so notes and
+    // PDFs open inside the tab and the bar stays.
+    if (width < 600) {
+      final deep = _tabIsDeep(_tab);
+      final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+      return PopScope(
+        // Back pops inside the active tab first; only a tab at its root exits.
+        canPop: !deep,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _navKeys[_tab].currentState?.maybePop();
+        },
+        child: Scaffold(
+          appBar: deep ? null : appBar,
+          body: IndexedStack(
+            index: _tab,
+            children: [
+              _tabNavigator(0, _ask()),
+              _tabNavigator(1, _notes()),
+              _tabNavigator(2, _projectsTab()),
+            ],
+          ),
+          // Hidden while typing, so the editor toolbar sits on the keyboard.
+          bottomNavigationBar: keyboardOpen
+              ? null
+              : NavigationBar(
+                  selectedIndex: _tab,
+                  onDestinationSelected: (i) => setState(() => _tab = i),
+                  destinations: [
+                    for (final d in destinations)
+                      NavigationDestination(
+                        icon: Icon(d.icon),
+                        selectedIcon: Icon(d.selected),
+                        label: d.label,
+                      ),
+                  ],
+                ),
+        ),
+      );
+    }
+
+    // Back / Esc-equivalent: close the open item before anything else.
+    Widget guard(Widget child) => PopScope(
+      canPop: _open.item == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _open.close();
+      },
+      child: child,
+    );
+
+    // Desktop: custom sidebar | board or open item | Ask (fixed 380), 24 gaps.
+    if (width >= 1024) {
+      return guard(
+        Scaffold(
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 240,
+                    child: ValueListenableBuilder<List<Project>>(
+                      valueListenable: _projects,
+                      builder: (context, projects, _) => _Sidebar(
                         selected: _tab == 2 ? 2 : 1,
-                        projects: _projects,
-                        onSelect: (i) => setState(() => _tab = i),
+                        projects: projects,
+                        onSelect: _select,
                       ),
                     ),
-                    const SizedBox(width: 24),
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1100),
-                          child: _tab == 2 ? projects : notes,
-                        ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1100),
+                        child: _withPane(_tab == 2 ? _projectsTab() : _notes()),
                       ),
                     ),
-                    const SizedBox(width: 24),
-                    SizedBox(width: 380, child: GlassPanel(child: ask)),
+                  ),
+                  const SizedBox(width: 24),
+                  SizedBox(width: 380, child: GlassPanel(child: _ask())),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Tablet: rail + one screen at a time (or the open item).
+    return guard(
+      Scaffold(
+        appBar: appBar,
+        body: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+          child: Row(
+            children: [
+              GlassPanel(
+                child: NavigationRail(
+                  selectedIndex: _tab,
+                  labelType: NavigationRailLabelType.all,
+                  onDestinationSelected: _select,
+                  destinations: [
+                    for (final d in destinations)
+                      NavigationRailDestination(
+                        icon: Icon(d.icon),
+                        selectedIcon: Icon(d.selected),
+                        label: Text(d.label),
+                      ),
                   ],
                 ),
               ),
-            ),
-          );
-        }
-
-        // Tablet: rail + one screen at a time.
-        return Scaffold(
-          appBar: appBar,
-          body: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: Row(
-              children: [
-                GlassPanel(
-                  child: NavigationRail(
-                    selectedIndex: _tab,
-                    labelType: NavigationRailLabelType.all,
-                    onDestinationSelected: (i) => setState(() => _tab = i),
-                    destinations: [
-                      for (final d in destinations)
-                        NavigationRailDestination(
-                          icon: Icon(d.icon),
-                          selectedIcon: Icon(d.selected),
-                          label: Text(d.label),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 24),
-                Expanded(
-                  child: IndexedStack(
+              const SizedBox(width: 24),
+              Expanded(
+                child: _withPane(
+                  IndexedStack(
                     index: _tab,
-                    children: [ask, notes, projects],
+                    children: [_ask(), _notes(), _projectsTab()],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
+}
+
+/// Tells the shell when a tab's navigator pushes or pops a page.
+class _TabObserver extends NavigatorObserver {
+  _TabObserver(this.onChanged);
+  final VoidCallback onChanged;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      onChanged();
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      onChanged();
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      onChanged();
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      onChanged();
 }
 
 /// Desktop sidebar: brand, nav, tiers (AB v2).
