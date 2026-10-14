@@ -1,0 +1,6 @@
+### One event in a streamed answer. type: token | citation | done | error
+class: AnswerEvent
+fields:
+  type: String
+  text: String?
+  citation: Citation?

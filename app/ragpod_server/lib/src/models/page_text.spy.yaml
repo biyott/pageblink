@@ -1,0 +1,5 @@
+### Text of one PDF page, extracted on the client.
+class: PageText
+fields:
+  page: int
+  text: String

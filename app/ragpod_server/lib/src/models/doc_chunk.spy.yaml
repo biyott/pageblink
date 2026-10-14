@@ -1,0 +1,20 @@
+### A searchable chunk of a document with its embedding.
+class: DocChunk
+table: doc_chunk
+fields:
+  documentId: int
+  ### Denormalized for ACL filtering in the same query as vector search.
+  projectId: int?
+  ownerId: UuidValue
+  page: int
+  ordinal: int
+  text: String
+  contentHash: String
+  embedding: Vector(768)
+indexes:
+  doc_chunk_embedding_idx:
+    fields: embedding
+    type: hnsw
+    distanceFunction: cosine
+  doc_chunk_document_idx:
+    fields: documentId

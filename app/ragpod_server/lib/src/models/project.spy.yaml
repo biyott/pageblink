@@ -1,0 +1,7 @@
+### A shared workspace whose documents are visible to its members.
+class: Project
+table: project
+fields:
+  name: String
+  ownerId: UuidValue
+  createdAt: DateTime

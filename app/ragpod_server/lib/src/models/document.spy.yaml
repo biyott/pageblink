@@ -1,0 +1,21 @@
+### An uploaded document. projectId null means a personal cloud document.
+class: Document
+table: document
+fields:
+  ownerId: UuidValue
+  projectId: int?
+  title: String
+  contentHash: String
+  version: int
+  pageCount: int
+  storagePath: String?
+  ### uploaded | indexing | ready | failed
+  status: String
+  embeddingModel: String
+  createdAt: DateTime
+  updatedAt: DateTime
+indexes:
+  document_owner_idx:
+    fields: ownerId
+  document_project_idx:
+    fields: projectId

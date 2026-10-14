@@ -1,0 +1,11 @@
+# fvm
+.fvm/
+# Serverpod secrets
+**/config/passwords.yaml
+# Dart / Flutter
+.dart_tool/
+build/
+*.iml
+.idea/
+# OS
+.DS_Store

@@ -1,0 +1,8 @@
+### A source passage backing part of an answer.
+class: Citation
+fields:
+  index: int
+  documentId: int
+  documentTitle: String
+  page: int
+  quote: String

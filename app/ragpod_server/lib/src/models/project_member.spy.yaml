@@ -1,0 +1,13 @@
+### Membership of a user in a project. role: owner | editor | viewer
+class: ProjectMember
+table: project_member
+fields:
+  projectId: int
+  userId: UuidValue
+  role: String
+indexes:
+  project_member_unique_idx:
+    fields: projectId, userId
+    unique: true
+  project_member_user_idx:
+    fields: userId
