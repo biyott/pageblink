@@ -33,7 +33,7 @@
 | [001](001-offline-retrieval-online-generation.md) | v1 온디바이스 범위: 오프라인 검색 + 온라인 생성 | 채택 |
 | [002](002-embedding-embeddinggemma-768.md) | 임베딩: EmbeddingGemma-300m 768차원 (기기·서버 공용) | 채택 |
 | [003](003-pdf-extract-on-client.md) | PDF 텍스트는 앱(pdfrx)에서 추출 | 채택 |
-| [004](004-llm-claude.md) | LLM: Claude Sonnet 5.5 (서버 경유 스트리밍) | 채택 |
+| [004](004-llm-claude.md) | LLM: Claude Sonnet 5.5 (서버 경유 스트리밍) | 대체됨 → 013 |
 | [005](005-backend-split.md) | 백엔드: Serverpod 메인 + AI 워커/외부 API | 채택 |
 | [006](006-monorepo-app-folder.md) | 모노레포: 패키지명 `ragpod`, 바깥 폴더 `app/` | 채택 |
 | [007](007-docs-structure-and-agent-files.md) | 문서 종류별 폴더 + README 정본 + AGENTS.md | 일부 대체됨 → 011 |
@@ -42,3 +42,4 @@
 | [010](010-acl-in-query.md) | 접근 제어는 검색 쿼리 안에서, 서버가 멤버십 계산 | 채택 |
 | [011](011-readme-only-folder-rules.md) | 폴더 규칙은 README.md만 (폴더별 AGENTS.md 제거) | 채택 |
 | [012](012-product-name-pageblink.md) | 제품 이름 PageBlink, 패키지명까지 변경 | 채택 (006 일부 대체) |
+| [013](013-llm-via-openrouter.md) | LLM은 OpenRouter 경유 (기본 Claude Haiku 5.5) | 채택 (004 대체) |

@@ -2,7 +2,7 @@
 
 | 상태 | 결정일 | 근거 |
 |---|---|---|
-| 채택 | 2026-10-14 | [research 006](../research/006-llm-embedding-providers.md) |
+| 대체됨: [013](013-llm-via-openrouter.md) | 2026-10-14 | [research 006](../research/006-llm-embedding-providers.md) |
 
 ## 결정
 - 기본 `claude-sonnet-5-5`, 속도·비용 우선 시 `claude-haiku-5-5`
