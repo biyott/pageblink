@@ -556,16 +556,14 @@ class _SignInCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              l.signInTitle,
-              style: theme.titleLarge?.copyWith(fontSize: 24),
-            ),
-            const SizedBox(height: 4),
+            // The sign-in widget renders its own title ("Sign Up / Sign in with
+            // email"), so the card only adds the privacy note.
             Text(
               l.signInSubtitle,
+              textAlign: TextAlign.center,
               style: theme.bodyMedium?.copyWith(color: pb.inkMuted),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
             Material(
               type: MaterialType.transparency,
               child: SizedBox(width: double.infinity, child: signIn),
