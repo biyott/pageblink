@@ -27,6 +27,7 @@ abstract class Document
     required this.pageCount,
     this.storagePath,
     required this.status,
+    this.lastError,
     required this.embeddingModel,
     required this.createdAt,
     required this.updatedAt,
@@ -44,6 +45,7 @@ abstract class Document
     required int pageCount,
     String? storagePath,
     required String status,
+    String? lastError,
     required String embeddingModel,
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -64,6 +66,7 @@ abstract class Document
       pageCount: jsonSerialization['pageCount'] as int,
       storagePath: jsonSerialization['storagePath'] as String?,
       status: jsonSerialization['status'] as String,
+      lastError: jsonSerialization['lastError'] as String?,
       embeddingModel: jsonSerialization['embeddingModel'] as String,
       createdAt: _isc.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
@@ -102,6 +105,9 @@ abstract class Document
   /// uploaded | indexing | ready | failed
   String status;
 
+  /// Why the last indexing failed (shown in the app, cleared on success).
+  String? lastError;
+
   String embeddingModel;
 
   DateTime createdAt;
@@ -123,6 +129,7 @@ abstract class Document
     int? pageCount,
     String? storagePath,
     String? status,
+    String? lastError,
     String? embeddingModel,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -142,6 +149,7 @@ abstract class Document
       'pageCount': pageCount,
       if (storagePath != null) 'storagePath': storagePath,
       'status': status,
+      if (lastError != null) 'lastError': lastError,
       'embeddingModel': embeddingModel,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
@@ -163,6 +171,7 @@ abstract class Document
       'pageCount': pageCount,
       if (storagePath != null) 'storagePath': storagePath,
       'status': status,
+      if (lastError != null) 'lastError': lastError,
       'embeddingModel': embeddingModel,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
@@ -190,6 +199,7 @@ class _DocumentImpl extends Document {
     required int pageCount,
     String? storagePath,
     required String status,
+    String? lastError,
     required String embeddingModel,
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -205,6 +215,7 @@ class _DocumentImpl extends Document {
          pageCount: pageCount,
          storagePath: storagePath,
          status: status,
+         lastError: lastError,
          embeddingModel: embeddingModel,
          createdAt: createdAt,
          updatedAt: updatedAt,
@@ -226,6 +237,7 @@ class _DocumentImpl extends Document {
     int? pageCount,
     Object? storagePath = _Undefined,
     String? status,
+    Object? lastError = _Undefined,
     String? embeddingModel,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -242,6 +254,7 @@ class _DocumentImpl extends Document {
       pageCount: pageCount ?? this.pageCount,
       storagePath: storagePath is String? ? storagePath : this.storagePath,
       status: status ?? this.status,
+      lastError: lastError is String? ? lastError : this.lastError,
       embeddingModel: embeddingModel ?? this.embeddingModel,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

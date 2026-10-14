@@ -1,6 +1,7 @@
 import 'package:serverpod/serverpod.dart';
 
 import '../generated/protocol.dart';
+import '../providers/embedding_provider.dart';
 import '../providers/llm_provider.dart';
 import '../rag/embedding_spec.dart';
 import '../services/acl.dart';
@@ -30,27 +31,61 @@ class AskEndpoint extends Endpoint {
     )).intersection(projectIds.toSet());
 
     try {
-      final queryVector = Vector(
-        (await RagServices.embedding(
-          session,
-        ).embed([EmbeddingSpec.query(question)])).single,
-      );
+      Expression<dynamic> scope(DocChunkTable t) {
+        final personal = t.ownerId.equals(userId) & t.projectId.equals(null);
+        final shared = allowed.isEmpty
+            ? t.id.equals(-1)
+            : t.projectId.inSet(allowed);
+        return includePersonal ? (personal | shared) : shared;
+      }
 
-      final hits = await DocChunk.db.find(
-        session,
-        where: (t) {
-          final personal = t.ownerId.equals(userId) & t.projectId.equals(null);
-          final shared = allowed.isEmpty
-              ? t.id.equals(-1)
-              : t.projectId.inSet(allowed);
-          return includePersonal ? (personal | shared) : shared;
-        },
-        orderBy: (t) => t.embedding.distanceCosine(queryVector),
-        limit: _topK,
-      );
+      List<DocChunk> hits;
+      try {
+        final queryVector = Vector(
+          (await RagServices.embedding(
+            session,
+          ).embed([EmbeddingSpec.query(question)])).single,
+        );
+        hits = await DocChunk.db.find(
+          session,
+          where: scope,
+          orderBy: (t) => t.embedding.distanceCosine(queryVector),
+          limit: _topK,
+        );
+      } on EmbeddingException catch (e) {
+        // Embedding service down or out of quota: degrade to keyword search
+        // over already-indexed chunks instead of failing the question.
+        session.log(
+          'Query embedding failed, using keyword fallback: $e',
+          level: LogLevel.warning,
+        );
+        final terms = question
+            .split(RegExp(r'[\s,.?!]+'))
+            .where((w) => w.length >= 2)
+            .take(6)
+            .toList();
+        hits = terms.isEmpty
+            ? []
+            : await DocChunk.db.find(
+                session,
+                where: (t) =>
+                    scope(t) &
+                    terms
+                        .map((w) => t.text.ilike('%$w%'))
+                        .reduce((a, b) => a | b),
+                limit: _topK,
+              );
+        yield AnswerEvent(
+          type: 'token',
+          text: '_(의미 검색을 잠시 쓸 수 없어 키워드 검색 결과로 답합니다.)_\n\n',
+        );
+      }
 
       if (hits.isEmpty) {
-        yield AnswerEvent(type: 'token', text: '검색할 문서가 없습니다. 먼저 PDF를 올려 주세요.');
+        yield AnswerEvent(
+          type: 'token',
+          text: '관련 내용을 찾지 못했어요. 노트를 쓰거나 PDF를 올린 뒤, 색인이 끝났는지 확인해 주세요.',
+        );
         yield AnswerEvent(type: 'done');
         return;
       }

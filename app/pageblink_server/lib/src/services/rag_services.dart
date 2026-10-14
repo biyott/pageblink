@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:serverpod/serverpod.dart';
 
 import '../providers/embedding_provider.dart';
+import '../providers/gemini_embedding_provider.dart';
 import '../providers/llm_provider.dart';
 import '../providers/openrouter_llm_provider.dart';
 import '../providers/rotating_llm_provider.dart';
@@ -19,10 +20,15 @@ class RagServices {
     return env == null || env.isEmpty ? null : env;
   }
 
+  /// Gemini (free tier) when `geminiApiKey` / GEMINI_API_KEY is set,
+  /// otherwise DeepInfra EmbeddingGemma. Pick one per deployment: vectors
+  /// from different models are not comparable.
   static EmbeddingProvider embedding(Session session) {
+    final gemini = _secret(session, 'geminiApiKey', 'GEMINI_API_KEY');
+    if (gemini != null) return GeminiEmbeddingProvider(gemini);
     final key = _secret(session, 'deepinfraApiKey', 'DEEPINFRA_API_KEY');
-    if (key == null || key.isEmpty) {
-      throw StateError('Missing password "deepinfraApiKey"');
+    if (key == null) {
+      throw StateError('Set password "geminiApiKey" or "deepinfraApiKey"');
     }
     return DeepInfraEmbeddingProvider(key);
   }

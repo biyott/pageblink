@@ -24,6 +24,7 @@ import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'answer_event.dart' as _iiosvpvg;
 import 'citation.dart' as _i7jy3rkv;
 import 'doc_chunk.dart' as _iy239l3h;
+import 'doc_page.dart' as _i92jcfzt;
 import 'document.dart' as _i674ac8o;
 import 'greetings/greeting.dart' as _izw8z7ou;
 import 'llm_model.dart' as _i52zzt9e;
@@ -33,6 +34,7 @@ import 'project_member.dart' as _i7o7d07j;
 export 'answer_event.dart';
 export 'citation.dart';
 export 'doc_chunk.dart';
+export 'doc_page.dart';
 export 'document.dart';
 export 'greetings/greeting.dart';
 export 'llm_model.dart';
@@ -84,6 +86,9 @@ class Protocol extends _isc.SerializationManager {
     if (t == _iy239l3h.DocChunk) {
       return _iy239l3h.DocChunk.fromJson(data) as T;
     }
+    if (t == _i92jcfzt.DocPage) {
+      return _i92jcfzt.DocPage.fromJson(data) as T;
+    }
     if (t == _i674ac8o.Document) {
       return _i674ac8o.Document.fromJson(data) as T;
     }
@@ -110,6 +115,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _isc.getType<_iy239l3h.DocChunk?>()) {
       return (data != null ? _iy239l3h.DocChunk.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_i92jcfzt.DocPage?>()) {
+      return (data != null ? _i92jcfzt.DocPage.fromJson(data) : null) as T;
     }
     if (t == _isc.getType<_i674ac8o.Document?>()) {
       return (data != null ? _i674ac8o.Document.fromJson(data) : null) as T;
@@ -177,6 +185,7 @@ class Protocol extends _isc.SerializationManager {
       _iiosvpvg.AnswerEvent => 'AnswerEvent',
       _i7jy3rkv.Citation => 'Citation',
       _iy239l3h.DocChunk => 'DocChunk',
+      _i92jcfzt.DocPage => 'DocPage',
       _i674ac8o.Document => 'Document',
       _izw8z7ou.Greeting => 'Greeting',
       _i52zzt9e.LlmModel => 'LlmModel',
@@ -203,6 +212,8 @@ class Protocol extends _isc.SerializationManager {
         return 'Citation';
       case _iy239l3h.DocChunk():
         return 'DocChunk';
+      case _i92jcfzt.DocPage():
+        return 'DocPage';
       case _i674ac8o.Document():
         return 'Document';
       case _izw8z7ou.Greeting():
@@ -245,6 +256,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (dataClassName == 'DocChunk') {
       return deserialize<_iy239l3h.DocChunk>(data['data']);
+    }
+    if (dataClassName == 'DocPage') {
+      return deserialize<_i92jcfzt.DocPage>(data['data']);
     }
     if (dataClassName == 'Document') {
       return deserialize<_i674ac8o.Document>(data['data']);

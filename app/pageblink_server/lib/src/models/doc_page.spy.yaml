@@ -1,0 +1,12 @@
+### Raw text of one page (PDF) or the whole note, kept so failed or stale
+### documents can be re-indexed without re-uploading.
+class: DocPage
+table: doc_page
+fields:
+  documentId: int
+  page: int
+  text: String
+indexes:
+  doc_page_document_idx:
+    fields: documentId, page
+    unique: true

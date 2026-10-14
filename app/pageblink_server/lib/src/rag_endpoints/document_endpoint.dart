@@ -185,6 +185,62 @@ class DocumentEndpoint extends Endpoint {
     return url.toString();
   }
 
+  /// Retries indexing from the stored text (failed or stale documents).
+  Future<Document> reindex(Session session, int documentId) async {
+    final userId = Acl.requireUser(session);
+    final document = await Document.db.findById(session, documentId);
+    if (document == null) throw ArgumentError('Document not found');
+    await _requireWrite(session, userId, document);
+    final pages = await DocPage.db.find(
+      session,
+      where: (t) => t.documentId.equals(documentId),
+      orderBy: (t) => t.page,
+    );
+    final texts = pages.isNotEmpty
+        ? [for (final p in pages) PageText(page: p.page, text: p.text)]
+        : document.kind == 'note'
+        ? [PageText(page: 1, text: document.body ?? '')]
+        : null;
+    if (texts == null) {
+      return Document.db.updateRow(
+        session,
+        document.copyWith(
+          status: 'failed',
+          lastError: '원본 텍스트가 없어요. PDF를 다시 올려 주세요.',
+        ),
+      );
+    }
+    final indexing = await Document.db.updateRow(
+      session,
+      document.copyWith(status: 'indexing'),
+    );
+    return _index(session, indexing, texts);
+  }
+
+  /// Retries every failed document the user can edit. Returns how many are ready now.
+  Future<int> reindexFailed(Session session) async {
+    final failed = (await list(session)).where((d) => d.status == 'failed');
+    var ready = 0;
+    for (final d in failed) {
+      try {
+        if ((await reindex(session, d.id!)).status == 'ready') ready++;
+      } on AccessDeniedException {
+        // Viewers can't re-index project documents; skip.
+      }
+    }
+    return ready;
+  }
+
+  /// Short, user-facing reason for an indexing failure.
+  static String _friendlyError(Object e) {
+    final m = '$e';
+    if (m.contains(' 402')) return '임베딩 서비스 잔액/한도 부족 — 충전 후 다시 색인하세요.';
+    if (m.contains(' 401') || m.contains(' 403')) return '임베딩 API 키가 올바르지 않아요.';
+    if (m.contains(' 429')) return '요청이 많아 잠시 막혔어요. 잠시 후 다시 색인하세요.';
+    if (RegExp(r' 5\d\d').hasMatch(m)) return '임베딩 서비스 장애 — 잠시 후 다시 색인하세요.';
+    return '색인 중 오류가 발생했어요. 다시 색인을 눌러 주세요.';
+  }
+
   static String _titleFrom(String body) {
     final firstLine = body
         .trim()
@@ -219,13 +275,30 @@ class DocumentEndpoint extends Endpoint {
     Document document,
     List<PageText> pages,
   ) async {
+    // Keep the raw text so a failed document can be retried later.
+    await session.db.transaction((tx) async {
+      await DocPage.db.deleteWhere(
+        session,
+        where: (t) => t.documentId.equals(document.id!),
+        transaction: tx,
+      );
+      await DocPage.db.insert(
+        session,
+        [
+          for (final p in pages)
+            DocPage(documentId: document.id!, page: p.page, text: p.text),
+        ],
+        transaction: tx,
+      );
+    });
     try {
       final chunks = chunkPages([
         for (final p in pages) (page: p.page, text: p.text),
       ]);
+      final embedder = RagServices.embedding(session);
       final vectors = chunks.isEmpty
           ? <List<double>>[]
-          : await RagServices.embedding(session).embed([
+          : await embedder.embed([
               for (final c in chunks)
                 EmbeddingSpec.document(document.title, c.text),
             ]);
@@ -257,6 +330,8 @@ class DocumentEndpoint extends Endpoint {
       });
       document = document.copyWith(
         status: 'ready',
+        embeddingModel: embedder.modelId,
+        lastError: null,
         updatedAt: DateTime.now().toUtc(),
       );
     } catch (e, st) {
@@ -268,6 +343,7 @@ class DocumentEndpoint extends Endpoint {
       );
       document = document.copyWith(
         status: 'failed',
+        lastError: _friendlyError(e),
         updatedAt: DateTime.now().toUtc(),
       );
     }
@@ -304,6 +380,11 @@ class DocumentEndpoint extends Endpoint {
     }
     await session.db.transaction((tx) async {
       await DocChunk.db.deleteWhere(
+        session,
+        where: (t) => t.documentId.equals(documentId),
+        transaction: tx,
+      );
+      await DocPage.db.deleteWhere(
         session,
         where: (t) => t.documentId.equals(documentId),
         transaction: tx,

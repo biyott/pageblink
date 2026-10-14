@@ -501,6 +501,35 @@ class Endpoints extends _is.EndpointDispatch {
                     params['documentId'],
                   ),
         ),
+        'reindex': _is.MethodConnector(
+          name: 'reindex',
+          params: {
+            'documentId': _is.ParameterDescription(
+              name: 'documentId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['document'] as _iw2avhc4.DocumentEndpoint).reindex(
+                    session,
+                    params['documentId'],
+                  ),
+        ),
+        'reindexFailed': _is.MethodConnector(
+          name: 'reindexFailed',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['document'] as _iw2avhc4.DocumentEndpoint)
+                  .reindexFailed(session),
+        ),
         'list': _is.MethodConnector(
           name: 'list',
           params: {},

@@ -20,6 +20,8 @@ document:
   - pdfUploadDescription:
   - confirmPdfUpload:
   - pdfUrl:
+  - reindex:
+  - reindexFailed:
   - list:
   - delete:
 model:

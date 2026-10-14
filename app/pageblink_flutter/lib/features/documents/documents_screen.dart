@@ -99,6 +99,36 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
+  Future<void> _reindex(Document document) async {
+    setState(() => _busy = '${document.title} 다시 색인 중…');
+    try {
+      final result = await client.document.reindex(document.id!);
+      _snack(
+        result.status == 'ready'
+            ? '색인 완료: ${result.title}'
+            : (result.lastError ?? '색인 실패'),
+      );
+    } catch (e) {
+      _snack('다시 색인 실패: $e');
+    } finally {
+      if (mounted) setState(() => _busy = null);
+      await _refresh();
+    }
+  }
+
+  Future<void> _reindexFailed() async {
+    setState(() => _busy = '실패한 항목 다시 색인 중…');
+    try {
+      final ready = await client.document.reindexFailed();
+      _snack('$ready개 색인 완료');
+    } catch (e) {
+      _snack('다시 색인 실패: $e');
+    } finally {
+      if (mounted) setState(() => _busy = null);
+      await _refresh();
+    }
+  }
+
   Future<void> _delete(Document document) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -213,6 +243,21 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       ),
       body: Column(
         children: [
+          if (_busy == null &&
+              (docs?.any((d) => d.status == 'failed') ?? false))
+            MaterialBanner(
+              leading: const Icon(Icons.sync_problem),
+              content: Text(
+                '색인 실패 ${docs!.where((d) => d.status == 'failed').length}개 — 질문 검색에서 빠져 있어요.\n'
+                '${docs.firstWhere((d) => d.status == 'failed').lastError ?? ''}',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: _reindexFailed,
+                  child: const Text('모두 다시 색인'),
+                ),
+              ],
+            ),
           if (_busy != null) ...[
             const LinearProgressIndicator(),
             Padding(padding: const EdgeInsets.all(8), child: Text(_busy!)),
@@ -246,6 +291,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                         ? () => _openNote(docs[i])
                         : null,
                     onLongPress: () => _delete(docs[i]),
+                    onRetry: docs[i].status == 'failed'
+                        ? () => _reindex(docs[i])
+                        : null,
                   ),
                 ),
               },
@@ -263,12 +311,14 @@ class _DocumentCard extends StatelessWidget {
     this.projects, {
     this.onTap,
     this.onLongPress,
+    this.onRetry,
   });
 
   final Document document;
   final List<Project> projects;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +392,30 @@ class _DocumentCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (status != null)
+                  if (onRetry != null)
+                    Tooltip(
+                      message: document.lastError ?? '다시 색인',
+                      child: InkWell(
+                        onTap: onRetry,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.refresh,
+                              size: 14,
+                              color: theme.colorScheme.error,
+                            ),
+                            Text(
+                              ' 다시 색인',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.error,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else if (status != null)
                     Text(
                       status,
                       style: theme.textTheme.labelSmall?.copyWith(

@@ -377,6 +377,21 @@ class EndpointDocument extends _isc.EndpointRef {
         {'documentId': documentId},
       );
 
+  /// Retries indexing from the stored text (failed or stale documents).
+  _ida.Future<_ix72owx0.Document> reindex(int documentId) =>
+      caller.callServerEndpoint<_ix72owx0.Document>(
+        'document',
+        'reindex',
+        {'documentId': documentId},
+      );
+
+  /// Retries every failed document the user can edit. Returns how many are ready now.
+  _ida.Future<int> reindexFailed() => caller.callServerEndpoint<int>(
+    'document',
+    'reindexFailed',
+    {},
+  );
+
   /// Personal documents plus documents of every project the user belongs to.
   _ida.Future<List<_ix72owx0.Document>> list() =>
       caller.callServerEndpoint<List<_ix72owx0.Document>>(
