@@ -1,6 +1,6 @@
 # 📦 해커톤 제출 키트 (Submission Kit)
 
-> **작성일**: 2026-10-15 01:41 KST · **최종 수정**: 2026-10-15 01:48 KST
+> **작성일**: 2026-10-15 01:41 KST · **최종 수정**: 2026-10-15 01:54 KST
 > **관련 문서**: [README](../../README.md) · [plan 006 데모 대본](006-demo-script.md) · [research 004 마감 시각](../research/004-hackathon-deadline.md) · [ADR 003](../adr/003-pdf-extract-on-client.md) · [ADR 010](../adr/010-acl-in-query.md) · [ADR 014](../adr/014-model-catalog-and-rotation.md) · [ADR 015](../adr/015-product-scope-notes-and-pdfs.md) · [devlog 007](../devlog/007-cloud-deploy-and-model-rotation.md) · [devlog 008](../devlog/008-notes-feature.md) · [devlog 009](../devlog/009-indexing-failure-handling.md) · [plan 007](007-landing-sign-in.md)
 > **표기**: ✅ 코드·문서로 확인 · ⚠️ 미확인/제출 전 점검 필요
 > **언어**: 문서 틀은 한국어, **복사해서 붙여넣는 텍스트(§2~§6)는 영어** (해외 심사위원용). 영어 텍스트에는 ✅/⚠️를 넣지 않았고, 근거는 §8 표에 따로 둡니다.
@@ -68,38 +68,39 @@ Ask your notes and PDFs. The source is a blink away.
 PageBlink is a Keep-style Markdown notes app that also takes PDFs. Ask a question across all your notes and documents, and the answer streams in with numbered citations. Tap a ⚡ citation to open the exact PDF page or note it came from. Built with Flutter and Serverpod 4, live on Serverpod Cloud.
 ```
 
-## 4. 전체 프로젝트 설명 (Markdown, 약 420단어)
+## 4. 전체 프로젝트 설명 (Markdown, 약 250단어)
 
-문제 → 기능 → 구현(Serverpod 중심) → 다음 단계(솔직한 한계) 순서입니다.
+BuilderBase는 이 필드에서 Markdown을 지원합니다. 심사위원이 훑어보도록 짧게 줄인 버전이며, 더 긴 설명(문제 정의, 7개 모델 카탈로그, 인덱싱 실패 원인 코드 등)은 [README](../../README.md)에 있습니다.
 
 ````markdown
-## The problem
+**Ask your notes. Blink to the source.** Every answer shows its source: tap ⚡ to open the exact PDF page or note it came from.
 
-Notes live in one app, PDFs in another, and AI answers rarely come with a source you can check in one tap.
+🔗 [Live app](https://pageblink.serverpod.space) · [Code](https://github.com/biyott/pageblink)
 
-## What PageBlink does
+## What it does
 
-PageBlink is a Google Keep–style notes app with Markdown, where you can also upload PDFs. Notes and PDFs sit on one board and are indexed together. Ask a question in plain language and the answer streams in token by token with `[n]` citations. Tap a ⚡ citation and the app opens the source: the exact PDF page with the quoted passage, or the cited note with the quote shown on top. On mobile, a citation bottom sheet shows "Source n of m". You can also create projects, invite teammates by email, and share documents with them. The UI is English by default and switches to Korean when your locale is Korean, with a language picker in Settings.
+PageBlink is a Keep-style Markdown notes app that also takes PDFs. Ask a question across all your notes and PDFs, and the answer streams in with numbered ⚡ citations. Tap one to jump to the exact PDF page or note it came from. Share documents with a project team; everyone only sees what they are allowed to see.
 
-## How it's built
+## How it uses Serverpod
 
-**Serverpod 4 does the heavy lifting:**
-- **ORM + pgvector:** chunks are stored as `Vector(768)` columns with an HNSW cosine index, queried through the Serverpod ORM.
-- **Streaming endpoint:** `ask()` returns a `Stream<AnswerEvent>`, carrying tokens, citations, and the answering model on one channel.
-- **Auth:** `serverpod_auth_idp` email sign-in with JWT.
-- **Access control inside the vector query:** the owner/project-membership filter is part of the same query as the similarity ordering, and client-sent project ids are intersected with real memberships.
-- **Private cloud storage:** original PDFs are stored privately and opened through short-lived signed URLs after an ACL check, so citations open the page on any device.
-- **Model catalog + rotation:** a model endpoint serves a 7-model catalog (5 free, 2 paid via OpenRouter). The app has a model picker, and if a model fails before streaming starts, the server rotates to the next one.
-- **Indexing-failure handling:** reason codes, Re-index and Re-index all, and a keyword-search fallback when embeddings are unavailable.
-- **Deployed on Serverpod Cloud**, with the Flutter web app served by the Serverpod server.
+- **ORM + pgvector:** 768-d embeddings with an HNSW index, queried through the Serverpod ORM
+- **Streaming endpoint:** `ask()` returns `Stream<AnswerEvent>` with tokens, citations, and the answering model
+- **Access control inside the vector query:** project membership is filtered in the same query as the similarity search
+- **Auth + cloud storage:** email sign-in, and original PDFs in private storage served via signed URLs
+- **Resilience:** automatic LLM model rotation and keyword-search fallback when embeddings are unavailable
+- **Serverpod Cloud:** server, Postgres + pgvector, storage, and the Flutter web app all deployed there
 
-**Flutter:** `pdfrx` extracts text per page on the device, so only text and a content hash go to the server. A "Glass Paper" design adapts to phone, tablet, and desktop, with a 3-pane desktop layout and a persistent Ask panel.
+API keys never leave the server; all LLM and embedding calls go through Serverpod.
 
-All LLM and embedding calls go through the server, so API keys never reach the app.
+## How it uses Flutter
+
+- On-device PDF text extraction (`pdfrx`): only text is sent to the server
+- Responsive "Glass Paper" UI: phone, tablet, and a 3-pane desktop layout with a persistent Ask panel
+- Markdown note editor, citation chips and sheet, English/Korean localization
 
 ## What's next
 
-Honest limits: notes are single-user with save-on-back, and there is no realtime sync yet. Citations are not highlighted inside the page body yet. Still planned: Cloak, a device-only offline privacy tier (shown as "coming soon"), Notion-like realtime collaborative editing over Serverpod streams, a direct Gemini provider, and inline citation highlighting.
+A device-only offline privacy tier (Cloak), realtime collaborative notes over Serverpod streams, and in-page citation highlighting.
 ````
 
 ## 5. 기술 스택 (영문, 복사용)
@@ -189,7 +190,7 @@ pageblink.serverpod.space
 |---|---|---|
 | 프로젝트 이름 | §2 `PageBlink` | ✅ |
 | 태그라인/요약 | §2 태그라인 또는 §3 짧은 설명 | ⚠️ 실제 필드 이름·글자 수 제한 확인 필요 |
-| 상세 설명 | §4 (Markdown 지원 여부 확인 필요, 미지원이면 서식 기호 제거) | ⚠️ 확인 필요 |
+| 상세 설명 | §4 (~250단어, BuilderBase가 Markdown 지원: 사용자 전달) | ✅ Markdown 지원 (사용자 전달), ⚠️ 글자 수 제한은 확인 필요 |
 | 기술 스택/태그 | §5 | ⚠️ 확인 필요 |
 | 데모 영상 링크 | 업로드한 영상 URL | ⚠️ 업로드 후 |
 | 저장소 링크 | https://github.com/biyott/pageblink | ✅ public (리드 전달) |
@@ -234,12 +235,13 @@ pageblink.serverpod.space
 | 한계: 단일 사용자 저장 방식, 실시간 동기화 없음, 본문 안 하이라이트 없음, Cloak "coming soon" | README "Known limits", 리드 전달 | ✅ |
 | 다음 단계: Cloak(기기 전용·오프라인), 실시간 협업 편집(Serverpod 스트림), 직접 Gemini 공급자, 본문 안 인용 하이라이트 | README "Planned", 리드 전달, [plan 005](005-follow-up-spec.md) | ✅ 계획일 뿐 (구현 아님) |
 | LLM·임베딩 호출은 서버 경유, 키는 앱에 없음 | README "Flow of one question", AGENTS.md | ✅ |
-| 글자·단어 수 | 셸 `wc`로 측정: 짧은 설명 53단어, 전체 설명 약 424단어(마크다운 기호 제외, 기호 포함 `wc -w`는 436), LinkedIn 107단어 | ✅ |
+| 글자·단어 수 | 셸 `wc`로 측정: 짧은 설명 53단어, 전체 설명 약 254단어(마크다운 기호 제외, 기호 포함 `wc -w`는 268), LinkedIn 107단어 | ✅ |
 
-> 영문 텍스트에는 지연 시간·정확도 같은 수치를 넣지 않았습니다 (측정 기록 없음). 넣은 숫자는 README에 있는 768차원·카탈로그 7개(무료 5·유료 2)와 2분 영상 길이뿐입니다.
+> 영문 텍스트에는 지연 시간·정확도 같은 수치를 넣지 않았습니다 (측정 기록 없음). 넣은 숫자는 README에 있는 768차원(§4)·카탈로그 7개(무료 5·유료 2, §5)와 2분 영상 길이뿐입니다. 짧아진 §4에서 빠진 내용(문제 정의, 7개 모델 수, 인덱싱 실패 원인 코드·Re-index, 한계 문장)은 README와 §5에 남아 있습니다.
 
 ## 9. 변경 이력
 
 - `2026-10-15 01:41` 최초 작성 (사실은 README·ADR 003/010/014/015·devlog 007/008·plan 006 기준. BuilderBase 필드 이름은 확인 필요)
 - `2026-10-15 01:41` 리드 전달 최신 사실 반영: 저장소 URL(`biyott/pageblink`, public), 태그라인에서 동사 "Blink" 제거, 추가 구현 항목(i18n·랜딩·Glass Paper·인용 바텀시트·인덱싱 실패 처리·모델 선택기) 반영, 영문 텍스트 재작성 및 글자·단어 수 재측정
 - `2026-10-15 01:48` §2 태그라인을 "Ask your notes. Blink to the source." + 서브라인으로 변경, 기존 "Ask your notes. Every answer shows its source."는 대체 후보로 유지, Blink 대체 후보 2개 추가. 상단 "표현 규칙"(동사 Blink 금지)을 "Blink는 항상 설명과 짝"으로 갱신 (사용자 요청)
+- `2026-10-15 01:54` §4 전체 설명을 약 420단어 → 약 250단어 버전으로 교체 (사용자 선택, 심사위원이 훑어보므로 축약). 문제 정의·7개 모델 수·인덱싱 실패 원인 코드는 README에 두고 §4 도입부에 명시. §7 상세 설명 행(Markdown 지원 확인됨)·§8 단어 수·숫자 문구 갱신
