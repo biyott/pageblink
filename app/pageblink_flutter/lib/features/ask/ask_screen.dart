@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
+import '../../app/theme.dart';
 import '../../client.dart';
 import '../viewer/page_viewer_screen.dart';
 
@@ -133,7 +134,12 @@ class _AskScreenState extends State<AskScreen> {
         ),
         Expanded(
           child: _turns.isEmpty
-              ? const _EmptyHint()
+              ? _EmptyHint(
+                  onPick: (q) {
+                    _input.text = q;
+                    _ask();
+                  },
+                )
               : ListView.builder(
                   controller: _scroll,
                   padding: const EdgeInsets.all(16),
@@ -274,13 +280,31 @@ class _TurnView extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: Container(
-            margin: const EdgeInsets.only(bottom: 8, left: 48),
-            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 10, left: 48),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: colors.primaryContainer,
-              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(colors: context.pb.accentGradient),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(18),
+                bottomRight: Radius.circular(6),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: colors.primary.withValues(alpha: 0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            child: Text(turn.question),
+            child: Text(
+              turn.question,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ),
         if (turn.answer.isEmpty && !turn.done && turn.error == null)
@@ -297,18 +321,47 @@ class _TurnView extends StatelessWidget {
             ),
           ),
         if (turn.answer.isNotEmpty)
-          GptMarkdown(_AskScreenState.renderMarkers(turn.answer.toString())),
+          Container(
+            margin: const EdgeInsets.only(right: 24),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: context.pb.glassStrong,
+              border: Border.all(color: context.pb.glassBorder),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomRight: Radius.circular(18),
+                bottomLeft: Radius.circular(6),
+              ),
+            ),
+            child: GptMarkdown(
+              _AskScreenState.renderMarkers(turn.answer.toString()),
+            ),
+          ),
         if (turn.error != null)
           Text(turn.error!, style: TextStyle(color: colors.error)),
         if (citations.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+          Text(
+            'Sources',
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: context.pb.inkMuted),
+          ),
+          const SizedBox(height: 6),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               for (final c in citations)
                 ActionChip(
-                  avatar: const Icon(Icons.bolt, size: 18),
+                  avatar: Icon(Icons.bolt, size: 16, color: colors.primary),
+                  side: BorderSide(color: colors.primary),
+                  backgroundColor: context.pb.glassStrong,
+                  labelStyle: TextStyle(
+                    color: context.pb.onAccentContainer,
+                    fontWeight: FontWeight.w500,
+                  ),
                   label: Text('${c.index} · ${c.documentTitle} p.${c.page}'),
                   onPressed: () => onBlink(c),
                 ),
@@ -322,27 +375,54 @@ class _TurnView extends StatelessWidget {
 }
 
 class _EmptyHint extends StatelessWidget {
-  const _EmptyHint();
+  const _EmptyHint({required this.onPick});
+
+  final ValueChanged<String> onPick;
+
+  static const _suggestions = [
+    '이번 주 할 일 정리해줘',
+    '회의록에서 결정된 사항은?',
+    '이 PDF의 핵심 요약',
+    '예산과 마감일 알려줘',
+  ];
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.bolt,
-            size: 48,
-            color: Theme.of(context).colorScheme.primary,
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Ask your documents.\nBlink to the page.',
-            textAlign: TextAlign.center,
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.bolt, size: 44, color: theme.colorScheme.primary),
+            const SizedBox(height: 12),
+            Text(
+              'Ask your notes & documents',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '모든 답변은 ⚡ 출처로 연결됩니다',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: context.pb.inkMuted,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                for (final s in _suggestions)
+                  ActionChip(label: Text(s), onPressed: () => onPick(s)),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

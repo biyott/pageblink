@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
+import 'app/theme.dart';
 import 'client.dart';
 import 'features/ask/ask_screen.dart';
 import 'features/documents/documents_screen.dart';
@@ -14,13 +15,6 @@ void main() async {
   runApp(const PageBlinkApp());
 }
 
-ThemeData _buildTheme(Brightness brightness) => ThemeData(
-  colorScheme: ColorScheme.fromSeed(
-    seedColor: const Color(0xFF6C4CF5),
-    brightness: brightness,
-  ),
-);
-
 class PageBlinkApp extends StatelessWidget {
   const PageBlinkApp({super.key});
 
@@ -28,8 +22,9 @@ class PageBlinkApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'PageBlink',
     debugShowCheckedModeBanner: false,
-    theme: _buildTheme(Brightness.light),
-    darkTheme: _buildTheme(Brightness.dark),
+    theme: buildPbTheme(Brightness.light),
+    darkTheme: buildPbTheme(Brightness.dark),
+    builder: (context, child) => PbBackground(child: child!),
     home: const SignInScreen(child: HomeShell()),
   );
 }
@@ -124,29 +119,37 @@ class _HomeShellState extends State<HomeShell> {
 
         return Scaffold(
           appBar: appBar,
-          body: Row(
-            children: [
-              NavigationRail(
-                selectedIndex: railIndex,
-                labelType: NavigationRailLabelType.all,
-                onDestinationSelected: (i) =>
-                    setState(() => _tab = desktop ? i + 1 : i),
-                destinations: [
-                  for (final d in railItems)
-                    NavigationRailDestination(
-                      icon: Icon(d.icon),
-                      selectedIcon: Icon(d.selected),
-                      label: Text(d.label),
-                    ),
+          body: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Row(
+              children: [
+                GlassPanel(
+                  child: NavigationRail(
+                    selectedIndex: railIndex,
+                    labelType: NavigationRailLabelType.all,
+                    onDestinationSelected: (i) =>
+                        setState(() => _tab = desktop ? i + 1 : i),
+                    destinations: [
+                      for (final d in railItems)
+                        NavigationRailDestination(
+                          icon: Icon(d.icon),
+                          selectedIcon: Icon(d.selected),
+                          label: Text(d.label),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(child: center),
+                if (desktop) ...[
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: width >= 1400 ? 420 : 380,
+                    child: GlassPanel(child: ask),
+                  ),
                 ],
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(child: center),
-              if (desktop) ...[
-                const VerticalDivider(width: 1),
-                SizedBox(width: width >= 1400 ? 520 : 420, child: ask),
               ],
-            ],
+            ),
           ),
         );
       },

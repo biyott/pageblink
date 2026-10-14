@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/local_pdfs.dart';
+import '../../app/theme.dart';
 import '../../client.dart';
 import '../notes/note_editor_screen.dart';
 import 'pdf_text.dart';
@@ -341,11 +342,19 @@ class _DocumentCard extends StatelessWidget {
               .replaceAll(RegExp(r'[#*_>`]|- \[[ x]\] '), '')
               .trim()
         : 'PDF · ${document.pageCount}쪽';
+    final pb = context.pb;
+    final failed = document.status == 'failed';
     return Card(
       clipBehavior: Clip.antiAlias,
-      color: isNote
-          ? theme.colorScheme.surfaceContainerHigh
-          : theme.colorScheme.tertiaryContainer,
+      color: isNote ? pb.noteColor(document.id) : pb.pdfPaper,
+      shadowColor: pb.ink.withValues(alpha: 0.06),
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: failed
+            ? BorderSide(color: pb.warnBorder, width: 1.5)
+            : BorderSide(color: pb.ink.withValues(alpha: 0.10)),
+      ),
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
@@ -368,7 +377,7 @@ class _DocumentCard extends StatelessWidget {
                       document.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleSmall,
+                      style: theme.textTheme.titleMedium,
                     ),
                   ),
                 ],
@@ -408,7 +417,8 @@ class _DocumentCard extends StatelessWidget {
                             Text(
                               ' 다시 색인',
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.error,
+                                color: context.pb.warn,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
