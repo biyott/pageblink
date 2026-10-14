@@ -1,6 +1,6 @@
 # 🎥 데모 영상 제작 계획 (2분 · 에이전트 자동 녹화·편집)
 
-> **작성일**: 2026-10-15 02:05 KST · **최종 수정**: 2026-10-15 02:17 KST
+> **작성일**: 2026-10-15 02:05 KST · **최종 수정**: 2026-10-15 02:23 KST
 > **관련 문서**: [데모 대본 (006)](006-demo-script.md) · [제출 키트 (008)](008-submission-kit.md) · [README](../../README.md) · [ADR 010](../adr/010-acl-in-query.md) · [ADR 014](../adr/014-model-catalog-and-rotation.md) · [research 004 (마감)](../research/004-hackathon-deadline.md)
 > **표기**: ✅ 이 세션에서 실제로 실행·확인 · ⚠️ 미확인(스파이크·리허설에서 확인)
 > **언어**: 문서는 한국어, **내레이션·화면 문구는 영어**
@@ -133,6 +133,13 @@ Ship the PageBlink public beta to 500 early users.
 
 ### 5.2 녹화 (Playwright)
 
+> **스파이크 결과 (02:23 KST, ✅ 실행 확인)**
+> - Flutter semantics: `flt-semantics-placeholder` 클릭 후 `getByRole`로 Email·Password 입력창, Sign in·Sign up 버튼을 찾음 ✅. 클릭 + `keyboard.type` 입력 ✅.
+> - 가짜 커서·클릭 파문 DOM 오버레이가 녹화 프레임에 보임 ✅.
+> - Playwright `recordVideo`는 `deviceScaleFactor`를 반영하지 않고 CSS 크기(1440×810)로 녹화한 뒤 1920×1080 회색 여백을 붙임 (VP9 약 600 kb/s) ✅ → **사용하지 않음**.
+> - 대신 **CDP `Page.startScreencast`**(JPEG 92, 프레임별 타임스탬프)로 녹화 → ffmpeg concat으로 30fps 재구성. 프레임도 CSS 크기(1440×810)로 들어오므로 편집에서 1680×945로 lanczos 확대 후 브랜드 배경 위에 얹고, 아래 띠에 자막을 둠 ✅ (대역 영상으로 조립 파이프라인 끝까지 실행: 81초, 1080p, loudnorm 적용).
+> - 녹화는 headless로 하고, 사람 로그인만 headed 창(WSLg)으로 한 번 함.
+
 - `chromium.launchPersistentContext('~/pageblink-video/profile', { channel: 'chrome', headless: false, locale: 'en-US', viewport, deviceScaleFactor, recordVideo: { dir, size: { width: 1920, height: 1080 } } })`
   - `size`를 주지 않으면 800×800 안쪽으로 축소되므로 **반드시 지정**합니다.
   - 해상도·글자 크기 후보 두 가지를 스파이크에서 비교합니다: (a) viewport 1920×1080, DSF 1 / (b) viewport 1440×810, DSF 1.333. ⚠️ 프레임을 뽑아 글자가 읽히는 쪽을 고릅니다.
@@ -239,6 +246,7 @@ Ship the PageBlink public beta to 500 early users.
 
 ## 10. 변경 이력
 
+- `2026-10-15 02:23` 스파이크 결과 기록 (§5.2): semantics·입력·커서 ✅, recordVideo 대신 CDP screencast
 - `2026-10-15 02:17` 사용자 결정 반영: **노트만** 시연(PDF·초대 장면 삭제, Higgsfield 대신 HTML 카드), 스토리보드 S1–S7(약 1:40) 재작성, 시드 노트 A·B와 질문 확정, 리허설 게이트를 "두 노트 인용"으로 변경
 - `2026-10-15 02:07` 영어 전용 규칙 추가 (UI·시드·질문·자막 모두 영어, 한국어 노출 금지), 로그인 화면 변경 메모
 - `2026-10-15 02:05` 최초 작성. 도구 확인(imageio-ffmpeg 7.0.2 필터·인코더, edge-tts 샘플, Playwright 1.64.1, cli-hub preflight)은 이 세션에서 실행. Flutter 웹 자동 조작·녹화 화질·리허설은 ⚠️ 미확인
