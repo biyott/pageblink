@@ -1,25 +1,39 @@
-# ⚡ PageBlink — Ask your notes. Every answer shows its source.
+# ⚡ PageBlink
 
-> 한국어 요약: Google Keep 스타일의 마크다운 노트 앱에 PDF도 올릴 수 있고, 노트와 PDF 전체에 질문하면 인용과 함께 답이 스트리밍됩니다. 인용(⚡)을 탭하면 PDF는 해당 페이지가, 노트는 인용 구절이 표시된 노트 편집 화면이 열려 출처를 바로 확인할 수 있습니다. Flutter + Serverpod, Serverpod Cloud에 배포됨.
+**Ask your notes. Blink to the source.**
 
-**PageBlink** is a Google Keep–style notes app with Markdown, where you can also upload PDFs, and then ask questions across **both your notes and your PDFs**. Write a quick note in a simple, mobile-friendly Markdown editor or upload a PDF, ask a question in plain language, and the answer streams in token by token with `[n]` citations to the exact sources it used. Tap a ⚡ citation chip and the app opens the source so you can check it: the cited page of the PDF, or the cited note with the quoted passage shown. Notion-like realtime sync and richer editing are planned for later ([ADR 015](docs/adr/015-product-scope-notes-and-pdfs.md)). Each note or document can live in a different privacy tier: **Cloak** (device-only, planned) → **Cloud** (your private cloud documents) → **Shared Vision** (documents shared with a project team, with access control enforced inside the vector query).
+Every answer shows its source: tap ⚡ to open the exact PDF page or note it came from.
 
-Built for **Build Something Real: The Serverpod Hackathon** with Flutter + Serverpod 4.0.4.
+[Live app](https://pageblink.serverpod.space) · [Demo video](<VIDEO_URL>) · [Source](https://github.com/biyott/pageblink)
 
-## Live demo
+**PageBlink** is a Google Keep–style Markdown notes app that also takes PDFs. Ask a question across **both your notes and your PDFs**, and the answer streams in token by token with `[n]` citations to the exact sources it used. Tap a ⚡ citation chip and the app opens the source so you can check it: the cited PDF page, or the cited note with the quoted passage shown. "Blink to the source" means exactly that: one tap from an answer to where it came from.
 
-| | |
-|---|---|
-| Web app | https://pageblink.serverpod.space (Serverpod Cloud) |
-| API | https://pageblink.api.serverpod.space |
-| Source code | https://github.com/biyott/pageblink (public) |
-| Demo video | Demo video: `<VIDEO_URL>` (placeholder, to be filled before submission) |
+Built for **Build Something Real: The Serverpod Hackathon** with Flutter + Serverpod 4.0.4. The UI is English by default and switches to Korean when the browser/device locale is `ko` (Settings has a language picker).
 
-✅ Both URLs returned HTTP 200 after the redeploy recorded in [devlog 007](docs/devlog/007-cloud-deploy-and-model-rotation.md). ⚠️ The latest deploy (notes, landing page, Glass Paper design, i18n, indexing-failure handling) has no recorded end-to-end run on the cloud deployment (sign-up → note/PDF upload → ask → citation) yet. The UI is **English by default** and switches to **Korean automatically when the browser/device locale is `ko`**; Settings has a language picker (System / English / 한국어).
+## How it works in 4 steps
 
-> Demo tip: the default answer models are OpenRouter **free** models, which may log prompts ([ADR 014](docs/adr/014-model-catalog-and-rotation.md)). Use public documents for the demo.
+1. **Write or upload.** Write a quick Markdown note or upload a PDF. Both land on one board and are indexed together.
+2. **Ask.** Ask a question in plain language. One question searches your notes and PDFs together.
+3. **Get a streamed answer with ⚡ citations.** The answer streams in token by token, with `[n]` markers rendered as ⚡ chips and the sources listed as SOURCES chips below.
+4. **Tap ⚡ to blink to the source.** The app opens the exact PDF page with the quoted passage, or the cited note with the quote shown.
+
+## How we used Serverpod
+
+| Serverpod feature | Where in PageBlink | Status |
+|---|---|---|
+| ORM + migrations | `Document` (with `kind` + `body`), `DocChunk`, `Project`, `ProjectMember` models (`*.spy.yaml`), generated migrations | ✅ in use |
+| `Vector(768)` + HNSW index (cosine) + `distanceCosine` ordering | `DocChunk.embedding`; search in [`ask_endpoint.dart`](app/pageblink_server/lib/src/rag_endpoints/ask_endpoint.dart) | ✅ in use, verified on local DB and applied by the Cloud migration |
+| Streaming endpoint (`Stream<AnswerEvent>`) | `AskEndpoint.ask`: tokens, citations, answering model, errors on one channel | ✅ in use |
+| `serverpod_auth_idp` (email) | Sign-in; endpoints use `requireLogin` and the authenticated user id for ACL | ✅ in use |
+| Generated protocol + client | `pageblink_client` is generated; the app calls `client.ask.ask(...)`, `client.document.saveNote(...)`, `client.document.upload(...)` | ✅ in use |
+| Serverpod Cloud deploy + passwords | Live at `pageblink.serverpod.space`; API keys set as Cloud passwords | ✅ in use |
+| Web server serves the Flutter web app | `FlutterRoute` in [`server.dart`](app/pageblink_server/lib/server.dart) | ✅ in use |
+| Cloud storage / file upload | Original PDFs go to private cloud storage via upload descriptions; `pdfUrl` returns a short-lived signed URL after an ACL check; deleting a document removes the stored file too | ✅ in use |
+| Future Calls | Background indexing | ⏳ planned (needs Growth plan; project is on Starter) |
 
 ## Features
+
+Each note or document can live in a different privacy tier: **Cloak** (device-only, planned) → **Cloud** (your private cloud documents) → **Shared Vision** (documents shared with a project team, with access control enforced inside the vector query).
 
 ### Implemented now
 
@@ -31,22 +45,24 @@ Built for **Build Something Real: The Serverpod Hackathon** with Flutter + Serve
 | PDF upload with on-device text extraction | `pdfrx` extracts text **per page** in the Flutter app; only text and a SHA-256 content hash are sent ([ADR 003](docs/adr/003-pdf-extract-on-client.md)) |
 | Indexing | Server chunks pages, embeds with **EmbeddingGemma-300m** (768-d, via DeepInfra; optional Gemini embeddings when a key is configured), stores in Postgres with **pgvector** (HNSW, cosine) through the Serverpod ORM |
 | Streaming answers with ⚡ citations + SOURCES chips | `Stream<AnswerEvent>` endpoint: top-8 chunks by cosine distance over notes and PDFs together → LLM → tokens + `[n]` markers → `citation` events (each carries `kind`: `note` or `pdf`). The app renders `[n]` as ⚡ chips and lists the sources as SOURCES chips under the answer |
-| ⚡ Answers you can check | Tapping a citation opens the exact PDF page with the quoted passage, or the cited note with the quote shown at the top. On mobile, a citation bottom sheet shows the source ("Source n of m") |
-| Original PDFs in Serverpod cloud storage | PDFs are stored in private cloud storage. The viewer uses the local copy if present, otherwise the server copy via a short-lived signed URL after an ACL check, so a citation opens the page on any device and for teammates. ⚠️ CORS for the web upload is unverified (see limits) |
+| ⚡ Blink to the source | Every answer shows its source: tapping a ⚡ citation opens the exact PDF page with the quoted passage, or the cited note with the quote shown. On mobile, a citation bottom sheet shows the source ("Source n of m") |
+| Original PDFs in Serverpod cloud storage | PDFs are stored in private cloud storage. The viewer uses the local copy if present, otherwise the server copy via a short-lived signed URL after an ACL check, so a citation opens the page on any device and for teammates.|
 | Projects + invites with ACL inside the vector query | Create a project, invite a registered user by email (owner only; the UI invites as editor). Roles owner / editor / viewer. The `WHERE` on owner / project membership is part of the same query as the similarity ordering; client-sent project ids are intersected with real memberships ([ADR 010](docs/adr/010-acl-in-query.md)) |
 | Model picker + automatic rotation | Backend serves a 7-model catalog (5 free, 2 paid via OpenRouter). On 402/404/408/429/5xx **before any text streams**, the server rotates to the next model; the app shows which model answered ([ADR 014](docs/adr/014-model-catalog-and-rotation.md)) |
 | Indexing-failure handling | Failures carry reason codes; per-document **Re-index** and **Re-index all**; when query embedding is unavailable, `ask` falls back to keyword search and says so in the answer ([devlog 009](docs/devlog/009-indexing-failure-handling.md)) |
 | AB "Glass Paper" responsive design | Warm gradient, glass shell, pastel note cards. Phone: bottom navigation; tablet: navigation rail; desktop: 3-pane layout with a persistent Ask panel |
 | i18n (EN / KO) | English by default; Korean automatically when the browser/device locale is `ko`; Settings language picker (System / English / 한국어) |
 
-**Known limits (honest):**
-- Notes are single-user editing with save-on-back. There is no realtime sync or collaborative editing, no images, no labels/colors/pin/archive, no version history, and checkboxes cannot be toggled in the preview. Those are planned ([plan 005](docs/plan/005-follow-up-spec.md)).
-- ⚠️ The notes UI and the sign-up password rule change (12–50 chars, lowercase + number, uppercase or special; client-side only) are not covered by automated tests or a recorded end-to-end run (확인 필요).
-- Original PDFs are stored server-side in private cloud storage (`document.pdfUploadDescription` / `confirmPdfUpload` / `pdfUrl`). ⚠️ CORS for the web upload is still unverified (확인 필요); if the server copy is unavailable (for example a failed upload), the viewer shows the cited quote instead of the page. Citation highlight inside the page body is not implemented yet.
-- **Known issue during judging:** embeddings need a funded DeepInfra account (402 when balance is 0), so uploads and note indexing fail until the balance is topped up.
-- OpenRouter free quota is per account (50/day, 1,000/day after buying ≥ $10 credits; 20/min), so rotation helps with congestion, not with the daily cap.
-- The Cloak tier (device-only, offline) appears in the tier picker as "coming soon" (disabled); it is not implemented.
-- No mobile store builds; the demo is the Flutter web app on Serverpod Cloud.
+### Known limits
+
+- **Embeddings need a funded DeepInfra account.** If the balance runs out (HTTP 402), new uploads and note saves fail to index and Ask falls back to keyword search over the chunks that are already indexed, and tells you so ([devlog 009](docs/devlog/009-indexing-failure-handling.md)). The per-document **Re-index** button recovers failed documents once the balance is topped up. The keyword fallback is implemented, but it has no recorded end-to-end run on the cloud deployment.
+- **OpenRouter free quota is per account** (50/day, 1,000/day after buying ≥ $10 credits; 20/min), so model rotation helps with congestion, not with the daily cap.
+- **Default answer models are OpenRouter free models, which may log prompts** ([ADR 014](docs/adr/014-model-catalog-and-rotation.md)). Use public documents for the demo.
+- **Verification status.** Both live URLs returned HTTP 200 after the redeploy recorded in [devlog 007](docs/devlog/007-cloud-deploy-and-model-rotation.md). The latest deploy (notes, landing page, Glass Paper design, i18n, indexing-failure handling) has no recorded end-to-end run on the cloud deployment yet (sign-up → note/PDF upload → ask → citation). The notes UI and the sign-up password rule (12–50 chars, lowercase + number, uppercase or special; client-side only) are not covered by automated tests.
+- **Original PDFs and web upload.** PDFs are stored server-side in private cloud storage (`document.pdfUploadDescription` / `confirmPdfUpload` / `pdfUrl`). CORS for the web upload is not verified yet. If the server copy is unavailable (for example a failed upload), the viewer shows the cited quote instead of the page. Citation highlight inside the page body is not implemented yet.
+- **Notes are single-user editing with save-on-back.** There is no realtime sync or collaborative editing, no images, no labels/colors/pin/archive, no version history, and checkboxes cannot be toggled in the preview. These are planned ([plan 005](docs/plan/005-follow-up-spec.md), [ADR 015](docs/adr/015-product-scope-notes-and-pdfs.md)).
+- **The Cloak tier** (device-only, offline) appears in the tier picker as "coming soon" (disabled); it is not implemented.
+- **No mobile store builds.** The demo is the Flutter web app on Serverpod Cloud.
 
 ### Planned
 
@@ -83,21 +99,9 @@ flowchart LR
 
 Notes and PDFs share one pipeline: a saved note is indexed as a single page (`kind: 'note'`), an uploaded PDF as one chunk set per page (`kind: 'pdf'`); both end up as `DocChunk` rows in the same vector index.
 
-Flow of one question: embed the query → ACL-filtered pgvector search (top 8) → numbered sources into the prompt → stream tokens → emit a `citation` event on the first `[n]` of each source → the app renders `[n]` as ⚡ chips (PDF citation → viewer at the page; note citation → note editor). All LLM and embedding calls go through the Serverpod server; API keys never reach the app.
+Flow of one question: embed the query → ACL-filtered pgvector search (top 8) → numbered sources into the prompt → stream tokens → emit a `citation` event on the first `[n]` of each source → the app renders `[n]` as ⚡ chips (PDF citation → viewer at the page; note citation → opens the cited note with the quote shown). All LLM and embedding calls go through the Serverpod server; API keys never reach the app.
 
-## How we used Serverpod
-
-| Serverpod feature | Where in PageBlink | Status |
-|---|---|---|
-| ORM + migrations | `Document` (with `kind` + `body`), `DocChunk`, `Project`, `ProjectMember` models (`*.spy.yaml`), generated migrations | ✅ in use |
-| `Vector(768)` + HNSW index (cosine) + `distanceCosine` ordering | `DocChunk.embedding`; search in [`ask_endpoint.dart`](app/pageblink_server/lib/src/rag_endpoints/ask_endpoint.dart) | ✅ in use, verified on local DB and applied by the Cloud migration |
-| Streaming endpoint (`Stream<AnswerEvent>`) | `AskEndpoint.ask`: tokens, citations, answering model, errors on one channel | ✅ in use |
-| `serverpod_auth_idp` (email) | Sign-in; endpoints use `requireLogin` and the authenticated user id for ACL | ✅ in use |
-| Generated protocol + client | `pageblink_client` is generated; the app calls `client.ask.ask(...)`, `client.document.saveNote(...)`, `client.document.upload(...)` | ✅ in use |
-| Serverpod Cloud deploy + passwords | Live at `pageblink.serverpod.space`; API keys set as Cloud passwords | ✅ in use |
-| Web server serves the Flutter web app | `FlutterRoute` in [`server.dart`](app/pageblink_server/lib/server.dart) | ✅ in use |
-| Cloud storage / file upload | Original PDFs go to private cloud storage via upload descriptions; `pdfUrl` returns a short-lived signed URL after an ACL check; deleting a document removes the stored file too | ✅ in use (web upload CORS unverified) |
-| Future Calls | Background indexing | ⏳ planned (needs Growth plan; project is on Starter) |
+Deployed on Serverpod Cloud: web app `https://pageblink.serverpod.space`, API `https://pageblink.api.serverpod.space`.
 
 ## Run locally
 
@@ -140,16 +144,20 @@ The criteria below come from participant-reported material, not the official rul
 
 | Criterion (weight) | Where to look |
 |---|---|
-| Works (30%) | Live demo above (cloud E2E 확인 필요); ask → streamed answer → ⚡ → page. Server tests: `app/pageblink_server/test/` |
+| Works (30%) | [Live app](https://pageblink.serverpod.space); ask → streamed answer → ⚡ → source. Server tests: `app/pageblink_server/test/`. Verification status: [Known limits](#known-limits) |
 | Serverpod stack usage (25%) | [How we used Serverpod](#how-we-used-serverpod) · [`app/pageblink_server/lib/src/`](app/pageblink_server/lib/src/) (`rag_endpoints/`, `models/`) · [devlog 003](docs/devlog/003-server-rag-pipeline.md) |
 | Completeness & technical creativity (25%) | Citation-aware streaming protocol (`AnswerEvent`), ACL inside the vector query ([ADR 010](docs/adr/010-acl-in-query.md)), pre-text model rotation ([`rotating_llm_provider.dart`](app/pageblink_server/lib/src/providers/rotating_llm_provider.dart)), per-document privacy tiers ([ADR 009](docs/adr/009-device-tier-privacy-and-sync.md)) |
 | Usefulness (20%) | Personal and team Q&A over notes and PDFs with verifiable citations; roadmap in [plan 005](docs/plan/005-follow-up-spec.md) and market gaps in [research 003](docs/research/003-competitors-and-gaps.md) |
 
 ## Built with Claude Code
 
-This project was planned, researched, and built with [Claude Code](https://claude.com/claude-code) agents. The decision trail is in the repo: 16 research notes with sources, 15 ADRs, 8 plan documents, and a timestamped devlog (9 entries) (all times KST) — see below.
+This project was planned, researched, and built with [Claude Code](https://claude.com/claude-code) agents. The decision trail is in the repo: 16 research notes with sources, 15 ADRs, 8 plan documents, and a timestamped devlog (9 entries) (all times KST). See the [docs registry](docs/README.md).
 
 ---
+
+## 한국어
+
+> **한국어 요약**: Google Keep 스타일의 마크다운 노트 앱에 PDF도 올릴 수 있고, 노트와 PDF 전체에 질문하면 인용과 함께 답이 스트리밍됩니다. 인용(⚡)을 탭하면 PDF는 해당 페이지가, 노트는 인용 구절이 표시된 노트가 열려 출처를 바로 확인할 수 있습니다("Blink to the source" = 답변에서 출처까지 탭 한 번). Flutter + Serverpod, Serverpod Cloud에 배포됨.
 
 ## 문서
 

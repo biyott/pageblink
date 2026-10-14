@@ -12,7 +12,7 @@
 | 항목 | 값 |
 |---|---|
 | 길이 | 2:00 이내 (목표 1:55 내외) |
-| 한 줄 메시지 | **Ask your notes. Every answer shows its source.** |
+| 한 줄 메시지 | **Ask your notes. Blink to the source.** (Every answer shows its source — README 헤더와 동일) |
 | 보여줄 흐름 | 문제 제기 → 로그인 → 노트 작성 → PDF 업로드(계층 선택) → 질문 → ⚡ 인용으로 출처 점프 → 프로젝트 공유 → 아키텍처 → 마무리 |
 | 영상 언어 | 내레이션 영어, 화면 UI는 한국어 (자막으로 영어 보조 권장) |
 | 데모 환경 | 웹 앱 (Cloud). 기본 모델은 OpenRouter **무료** 모델이라 프롬프트가 기록될 수 있음 → **공개 PDF만 사용** ([ADR 014](../adr/014-model-catalog-and-rotation.md)) |
@@ -31,7 +31,7 @@
 | 1:15–1:30 | ⚡ PDF 칩 탭 → PDF 뷰어가 인용 페이지로 점프(인용 구절 표시) → 뒤로 → ⚡ 노트 칩 탭 → 노트 편집 화면 상단에 인용 구절 | "Tap a bolt, and the app opens the exact page of the PDF. Tap the note's bolt, and it opens the note with the quote shown on top. Every claim is one tap from its source." | **핵심 장면**. PDF는 해당 페이지로, 노트는 편집 화면(인용 구절이 상단 배너) ✅. ⚠️ 본문 안 하이라이트는 아님. 서버에 저장된 원본을 뷰어가 가져옴 ✅(다른 기기 시나리오 검증은 확인 필요) |
 | 1:30–1:42 | "프로젝트" 탭 → 프로젝트 생성 → 이메일로 멤버 초대 → 문서를 Shared Vision(프로젝트)으로 올린 카드 | "Create a project and invite a teammate by email. Shared Vision documents are searchable by the whole team, and access control is enforced on the server, inside the vector query itself." | 프로젝트 생성 + 이메일 초대(소유자만, UI는 editor로 초대) ✅. ACL이 벡터 검색 쿼리 `WHERE` 안에 있음 ✅ ([ADR 010](../adr/010-acl-in-query.md)). 초대받은 계정 화면 전환은 시간상 생략 가능 |
 | 1:42–1:53 | **아키텍처 슬라이드** (아래 §3 다이어그램을 정적 이미지로) | "Under the hood it's Flutter talking to Serverpod: the ORM with pgvector and an HNSW index, a streaming endpoint for answers, built-in auth, cloud storage for the original PDFs — all deployed on Serverpod Cloud." | Flutter ↔ Serverpod: ORM + pgvector HNSW ✅, 스트리밍 엔드포인트 ✅, 인증 ✅, 비공개 클라우드 스토리지 ✅, Serverpod Cloud 배포 ✅ |
-| 1:53–2:00 | 타이틀 카드: 로고 + 태그라인 + URL | "PageBlink. Ask your notes. Every answer shows its source." | 태그라인 + <https://pageblink.serverpod.space> 를 2초 이상 노출. 2:00 넘기지 않기 |
+| 1:53–2:00 | 타이틀 카드: 로고 + 태그라인 + URL | "PageBlink. Ask your notes. Blink to the source — every answer shows exactly where it came from." | 태그라인 + <https://pageblink.serverpod.space> 를 2초 이상 노출. 2:00 넘기지 않기 |
 
 ### 구간별 길이 요약
 
