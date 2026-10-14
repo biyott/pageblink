@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:serverpod/serverpod.dart';
 
 import '../providers/embedding_provider.dart';
@@ -8,8 +10,17 @@ import 'llm_catalog.dart';
 
 /// Builds providers from server passwords (config/passwords.yaml or Cloud).
 class RagServices {
+  /// Serverpod password (passwords.yaml, Cloud, or SERVERPOD_PASSWORD_<name>),
+  /// falling back to a conventional environment variable.
+  static String? _secret(Session session, String password, String envVar) {
+    final value = session.passwords[password];
+    if (value != null && value.isNotEmpty) return value;
+    final env = Platform.environment[envVar];
+    return env == null || env.isEmpty ? null : env;
+  }
+
   static EmbeddingProvider embedding(Session session) {
-    final key = session.passwords['deepinfraApiKey'];
+    final key = _secret(session, 'deepinfraApiKey', 'DEEPINFRA_API_KEY');
     if (key == null || key.isEmpty) {
       throw StateError('Missing password "deepinfraApiKey"');
     }
@@ -19,7 +30,11 @@ class RagServices {
   /// OpenRouter (with model rotation) when `openrouterApiKey` is set,
   /// otherwise Claude direct. [modelId] comes from the app's model picker.
   static LlmProvider llm(Session session, {String? modelId}) {
-    final openRouterKey = session.passwords['openrouterApiKey'];
+    final openRouterKey = _secret(
+      session,
+      'openrouterApiKey',
+      'OPENROUTER_API_KEY',
+    );
     if (openRouterKey != null && openRouterKey.isNotEmpty) {
       final chosen =
           modelId ?? session.passwords['llmModel'] ?? LlmCatalog.defaultModelId;
@@ -37,7 +52,11 @@ class RagServices {
         ),
       );
     }
-    final anthropicKey = session.passwords['anthropicApiKey'];
+    final anthropicKey = _secret(
+      session,
+      'anthropicApiKey',
+      'ANTHROPIC_API_KEY',
+    );
     if (anthropicKey != null && anthropicKey.isNotEmpty) {
       return ClaudeLlmProvider(
         anthropicKey,
