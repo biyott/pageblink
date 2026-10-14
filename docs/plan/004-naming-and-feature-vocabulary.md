@@ -3,7 +3,7 @@
 | 항목 | 값 |
 |---|---|
 | 작성일 | 2026-10-14 (KST) |
-| 최종 수정 | 2026-10-14 23:30 (KST) |
+| 최종 수정 | 2026-10-14 23:39 KST |
 | 근거 | [research 010](../research/010-product-naming.md) · [011](../research/011-product-naming-global.md) · [012](../research/012-product-naming-burrow-game-terms.md) · [013](../research/013-product-naming-warp-game-skills.md) |
 | 관련 문서 | [002 기획·아키텍처](002-rag-assistant-plan.md) (프라이버시 3계층) · [003 기술 스택](003-tech-stack-and-prep.md) |
 | 상태 | **결정 대기** (이름 미확정 → 확정 시 ADR 작성 후 이 문서에 반영) |
@@ -56,6 +56,15 @@
 | **Docparty** (독파티) | 팀 공유가 직관적, 동명 앱 미발견. 영/한 상/상 | 오프라인·점프 미반영, 가벼운 인상 | 낮음 | — | [012](../research/012-product-naming-burrow-game-terms.md), [013](../research/013-product-naming-warp-game-skills.md) |
 | **Pagewarp** (페이지워프) | 인용 탭 → 페이지 순간이동 장면을 그대로 설명. 한영 발음 쉬움. `page`가 앞이라 warp.dev 연상 완화. 기능 어휘(아래 §4)로 동기화·공유 보완 | 프라이버시·동기화·공유 메시지 없음 | 낮음(012) → **013에서 재평가**: ⚠️ warp.dev(개발자에게 유명, Warp Drive Notebooks = 팀 동기화 Markdown 문서), PDFwarp(PDF AI 채팅), Docuwarp(PyPI) 유사 | **"Ask. Warp to the page."** | [012](../research/012-product-naming-burrow-game-terms.md), [013](../research/013-product-naming-warp-game-skills.md) |
 | **Savepoint** (세이브포인트) | 친숙·신뢰감. 기기 세이브 → 클라우드 세이브 → 파티 공유 서사가 자연스러움. 한영 쉬움 | **저장만 연상**(동기화·공유 부족), 일반어라 구별력 약함 | 중 — 일반어, SQL `SAVEPOINT` / 일반어 상표 확인 필요 ⚠️ | **"Save. Sync. Share. Jump."** | [012](../research/012-product-naming-burrow-game-terms.md), [013](../research/013-product-naming-warp-game-skills.md) |
+
+### 추가 숏리스트 후보: PageBlink ([research 014](../research/014-blink-name-conflicts.md))
+
+| 이름 | 한글 | 장점 | 약점 | 충돌 |
+|---|---|---|---|---|
+| **PageBlink** | 페이지블링크 | LoL 점멸(Blink)로 "인용 탭 → 페이지 순간이동"을 그대로 표현. 한영 발음 쉬움. 앱 이름과 기능 용어 Blink가 한 세계관으로 이어짐 | 동기화·공유는 이름에 없음. Blinkist(PDF 요약 기능 보유)와 "Blink~" 소리 근접 | 낮음 (동명 미발견, pub 404) |
+| Blinkpage | 블링크페이지 | 의미 동일 | 앞소리가 Blinkist와 더 가까움 | 낮음 |
+| ~~Blink it / Blinkit~~ | 블링크잇 | — | Zomato 인도 퀵커머스 앱 | **제외** |
+| ~~BlinkNote~~ | 블링크노트 | — | iOS 노트 앱 동명 | **제외** |
 
 ### Burrow를 쓴다면 (012 정리)
 - 단독 Burrow 충돌 2건: ① Chrome 확장 Burrow ② 한국어 슬랭 "버로우 타다"(잠수·잠적 은어, 존버 어원설) — 약한 부정이고 유머로 읽힘
@@ -216,3 +225,4 @@ flowchart LR
 | 일시 (KST) | 변경 |
 |---|---|
 | 2026-10-14 23:30 | 최초 작성 (research 010–013 통합, 후보 50개, 기능 용어집) |
+- `2026-10-14 23:39` PageBlink·Blink 계열 추가 (research 014)
