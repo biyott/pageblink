@@ -1,5 +1,7 @@
 # ⚡ PageBlink
 
+**English** · [한국어](README.ko.md)
+
 **Ask your notes. Blink to the source.**
 
 Every answer shows its source: tap ⚡ to open the exact PDF page or note it came from.
@@ -155,31 +157,27 @@ This project was planned, researched, and built with [Claude Code](https://claud
 
 ---
 
-## 한국어
+## Documentation
 
-> **한국어 요약**: Google Keep 스타일의 마크다운 노트 앱에 PDF도 올릴 수 있고, 노트와 PDF 전체에 질문하면 인용과 함께 답이 스트리밍됩니다. 인용(⚡)을 탭하면 PDF는 해당 페이지가, 노트는 인용 구절이 표시된 노트가 열려 출처를 바로 확인할 수 있습니다("Blink to the source" = 답변에서 출처까지 탭 한 번). Flutter + Serverpod, Serverpod Cloud에 배포됨.
+Docs are split by type (the documents themselves are written in Korean) → [📂 Docs registry](docs/README.md)
 
-## 문서
-
-문서는 종류별 폴더로 나뉩니다 → [📂 문서 레지스트리](docs/README.md)
-
-| 폴더 | 내용 |
+| Folder | Contents |
 |---|---|
-| 📐 [docs/plan](docs/plan/README.md) | 기획·설계 8건: [주제 선정](docs/plan/001-hackathon-topic-report.md) · [RAG 비서 기획·아키텍처](docs/plan/002-rag-assistant-plan.md) · [기술 스택 & 준비](docs/plan/003-tech-stack-and-prep.md) · [이름 후보 & 기능 용어집](docs/plan/004-naming-and-feature-vocabulary.md) · [후속 기능 명세](docs/plan/005-follow-up-spec.md) · [데모 대본](docs/plan/006-demo-script.md) · [랜딩·로그인](docs/plan/007-landing-sign-in.md) · [제출 키트](docs/plan/008-submission-kit.md) |
-| 🔎 [docs/research](docs/research/README.md) | 서브에이전트 조사 결과 16건 (출처 포함) |
-| ⚖️ [docs/adr](docs/adr/README.md) | 결정 기록 15건 |
-| 🧪 [docs/devlog](docs/devlog/README.md) | 개발 과정 기록 9건 (수행 일시 포함) |
+| 📐 [docs/plan](docs/plan/README.md) | 8 plan and design docs: [Topic selection](docs/plan/001-hackathon-topic-report.md) · [RAG assistant plan & architecture](docs/plan/002-rag-assistant-plan.md) · [Tech stack & prep](docs/plan/003-tech-stack-and-prep.md) · [Naming candidates & feature vocabulary](docs/plan/004-naming-and-feature-vocabulary.md) · [Follow-up feature spec](docs/plan/005-follow-up-spec.md) · [Demo script](docs/plan/006-demo-script.md) · [Landing & sign-in](docs/plan/007-landing-sign-in.md) · [Submission kit](docs/plan/008-submission-kit.md) |
+| 🔎 [docs/research](docs/research/README.md) | 16 sub-agent research notes (with sources) |
+| ⚖️ [docs/adr](docs/adr/README.md) | 15 decision records |
+| 🧪 [docs/devlog](docs/devlog/README.md) | 9 development logs (with timestamps) |
 
-## 개요
+## Overview
 
-| 항목 | 내용 |
+| Item | Details |
 | ---- | ---- |
-| 행사 | Build Something Real: The Serverpod Hackathon |
-| 마감 | 2026-10-14 21:59 UTC (= 10/14 23:59 CEST · **10/15 06:59 KST**) |
-| 팀 | 웹 + Flutter 개발자 (1인 또는 소규모 팀) |
-| 스택 | Serverpod (Dart 백엔드) + Flutter |
+| Event | Build Something Real: The Serverpod Hackathon |
+| Deadline | 2026-10-14 21:59 UTC (= 10/14 23:59 CEST · **10/15 06:59 KST**) |
+| Team | Web + Flutter developers (solo or small team) |
+| Stack | Serverpod (Dart backend) + Flutter |
 
-## 참고 링크
+## Links
 
-- 행사 페이지: https://builderbase.com/event/build-something-real-the-serverpod-hackathon
-- Serverpod 문서: https://docs.serverpod.dev/overview
+- Event page: https://builderbase.com/event/build-something-real-the-serverpod-hackathon
+- Serverpod docs: https://docs.serverpod.dev/overview
