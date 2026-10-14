@@ -1,61 +1,104 @@
 import 'package:flutter/material.dart';
+import 'package:pageblink_client/pageblink_client.dart';
+import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import 'client.dart';
-import 'screens/greetings_screen.dart';
+import 'features/ask/ask_screen.dart';
+import 'features/documents/documents_screen.dart';
+import 'features/projects/projects_screen.dart';
+import 'screens/sign_in_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeClient();
-  runApp(const MyApp());
+  runApp(const PageBlinkApp());
 }
 
-/// Builds a theme for the given [brightness].
-ThemeData _buildTheme(Brightness brightness) {
-  return ThemeData(
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: Colors.blue,
-      brightness: brightness,
-    ),
+ThemeData _buildTheme(Brightness brightness) => ThemeData(
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: const Color(0xFF6C4CF5),
+    brightness: brightness,
+  ),
+);
+
+class PageBlinkApp extends StatelessWidget {
+  const PageBlinkApp({super.key});
+
+  @override
+  Widget build(BuildContext context) => MaterialApp(
+    title: 'PageBlink',
+    debugShowCheckedModeBanner: false,
+    theme: _buildTheme(Brightness.light),
+    darkTheme: _buildTheme(Brightness.dark),
+    home: const SignInScreen(child: HomeShell()),
   );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// Ask · Documents · Projects.
+class HomeShell extends StatefulWidget {
+  const HomeShell({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Serverpod Demo',
-      theme: _buildTheme(Brightness.light),
-      darkTheme: _buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
-      home: const MyHomePage(title: 'Serverpod Example'),
-    );
-  }
+  State<HomeShell> createState() => _HomeShellState();
 }
 
-class MyHomePage extends StatelessWidget {
-  const MyHomePage({super.key, required this.title});
+class _HomeShellState extends State<HomeShell> {
+  int _tab = 0;
+  List<Project> _projects = const [];
 
-  final String title;
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    try {
+      final projects = await client.project.list();
+      if (mounted) setState(() => _projects = projects);
+    } catch (_) {
+      // Shown as an empty project list; the documents tab surfaces errors.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      AskScreen(projects: _projects),
+      DocumentsScreen(projects: _projects),
+      ProjectsScreen(projects: _projects, onChanged: _loadProjects),
+    ];
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: const GreetingsScreen(),
-      // To test authentication in this example app, uncomment the line below
-      // and comment out the line above. This wraps the GreetingsScreen with a
-      // SignInScreen, which automatically shows a sign-in UI when the user is
-      // not authenticated and displays the GreetingsScreen once they sign in.
-      //
-      // body: SignInScreen(
-      //   child: GreetingsScreen(
-      //     onSignOut: () async {
-      //       await client.auth.signOutDevice();
-      //     },
-      //   ),
-      // ),
+      appBar: AppBar(
+        title: const Text('⚡ PageBlink'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: '로그아웃',
+            onPressed: () => client.auth.signOutDevice(),
+          ),
+        ],
+      ),
+      body: IndexedStack(index: _tab, children: pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: (i) => setState(() => _tab = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.bolt_outlined),
+            selectedIcon: Icon(Icons.bolt),
+            label: '질문',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.description_outlined),
+            label: '문서',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            label: '프로젝트',
+          ),
+        ],
+      ),
     );
   }
 }

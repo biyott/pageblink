@@ -70,7 +70,7 @@ class AskEndpoint extends Endpoint {
           SourcePassage(title: '${titleOf(h)} (p.${h.page})', text: h.text),
       ];
 
-      var citationIndex = 0;
+      final cited = <int>{};
       await for (final event in RagServices.llm(
         session,
       ).answer(question, sources)) {
@@ -78,12 +78,17 @@ class AskEndpoint extends Endpoint {
           case LlmText(:final text):
             yield AnswerEvent(type: 'token', text: text);
           case LlmCitation(:final sourceIndex, :final citedText):
-            if (sourceIndex < 0 || sourceIndex >= hits.length) break;
+            if (sourceIndex < 0 ||
+                sourceIndex >= hits.length ||
+                !cited.add(sourceIndex)) {
+              break;
+            }
             final hit = hits[sourceIndex];
             yield AnswerEvent(
               type: 'citation',
               citation: Citation(
-                index: ++citationIndex,
+                // Matches the [n] marker the model writes (n = sourceIndex + 1).
+                index: sourceIndex + 1,
                 documentId: hit.documentId,
                 documentTitle: titleOf(hit),
                 page: hit.page,
