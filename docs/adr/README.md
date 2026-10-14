@@ -44,3 +44,4 @@
 | [012](012-product-name-pageblink.md) | 제품 이름 PageBlink, 패키지명까지 변경 | 채택 (006 일부 대체) |
 | [013](013-llm-via-openrouter.md) | LLM은 OpenRouter 경유 (기본 Claude Haiku 5.5) | 채택 (004 대체) · 일부 대체됨 → 014 |
 | [014](014-model-catalog-and-rotation.md) | 모델 카탈로그 + 자동 로테이션 (무료 모델 기본) | 채택 (013 일부 대체) |
+| [015](015-product-scope-notes-and-pdfs.md) | 제품 범위: Keep 스타일 마크다운 노트 + PDF 업로드, 둘 다에 RAG (실시간 협업 보류) | 채택 |

@@ -352,6 +352,31 @@ class EndpointDocument extends _isc.EndpointRef {
         {'documentId': documentId},
       );
 
+  /// Upload description for the original PDF of [documentId] (direct upload
+  /// to cloud storage; API requests are capped at 512 KiB).
+  _ida.Future<String> pdfUploadDescription(int documentId) =>
+      caller.callServerEndpoint<String>(
+        'document',
+        'pdfUploadDescription',
+        {'documentId': documentId},
+      );
+
+  /// Confirms the upload and records where the original is stored.
+  _ida.Future<bool> confirmPdfUpload(int documentId) =>
+      caller.callServerEndpoint<bool>(
+        'document',
+        'confirmPdfUpload',
+        {'documentId': documentId},
+      );
+
+  /// Short-lived download URL for the original PDF, after an access check.
+  _ida.Future<String?> pdfUrl(int documentId) =>
+      caller.callServerEndpoint<String?>(
+        'document',
+        'pdfUrl',
+        {'documentId': documentId},
+      );
+
   /// Personal documents plus documents of every project the user belongs to.
   _ida.Future<List<_ix72owx0.Document>> list() =>
       caller.callServerEndpoint<List<_ix72owx0.Document>>(

@@ -33,6 +33,7 @@ dependencies:
     sdk: flutter
   google_fonts: ^8.1.0
   gpt_markdown: ^1.3.4
+  http: ^1.6.0
   pageblink_client:
     path: ../pageblink_client
   path_provider: ^2.1.6

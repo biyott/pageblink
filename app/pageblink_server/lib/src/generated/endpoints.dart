@@ -444,6 +444,63 @@ class Endpoints extends _is.EndpointDispatch {
                     params['documentId'],
                   ),
         ),
+        'pdfUploadDescription': _is.MethodConnector(
+          name: 'pdfUploadDescription',
+          params: {
+            'documentId': _is.ParameterDescription(
+              name: 'documentId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['document'] as _iw2avhc4.DocumentEndpoint)
+                  .pdfUploadDescription(
+                    session,
+                    params['documentId'],
+                  ),
+        ),
+        'confirmPdfUpload': _is.MethodConnector(
+          name: 'confirmPdfUpload',
+          params: {
+            'documentId': _is.ParameterDescription(
+              name: 'documentId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['document'] as _iw2avhc4.DocumentEndpoint)
+                  .confirmPdfUpload(
+                    session,
+                    params['documentId'],
+                  ),
+        ),
+        'pdfUrl': _is.MethodConnector(
+          name: 'pdfUrl',
+          params: {
+            'documentId': _is.ParameterDescription(
+              name: 'documentId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['document'] as _iw2avhc4.DocumentEndpoint).pdfUrl(
+                    session,
+                    params['documentId'],
+                  ),
+        ),
         'list': _is.MethodConnector(
           name: 'list',
           params: {},

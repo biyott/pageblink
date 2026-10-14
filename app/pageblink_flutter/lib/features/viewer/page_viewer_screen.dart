@@ -21,7 +21,7 @@ class PageViewerScreen extends StatelessWidget {
         title: Text('${citation.documentTitle} · p.${citation.page}'),
       ),
       body: FutureBuilder(
-        future: LocalPdfs.load(citation.documentId),
+        future: LocalPdfs.fetch(citation.documentId),
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Center(child: CircularProgressIndicator());

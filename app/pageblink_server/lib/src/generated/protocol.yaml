@@ -17,6 +17,9 @@ document:
   - upload:
   - saveNote:
   - get:
+  - pdfUploadDescription:
+  - confirmPdfUpload:
+  - pdfUrl:
   - list:
   - delete:
 model:

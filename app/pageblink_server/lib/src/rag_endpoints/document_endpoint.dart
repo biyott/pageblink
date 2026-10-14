@@ -135,6 +135,56 @@ class DocumentEndpoint extends Endpoint {
     return projects.contains(document.projectId) ? document : null;
   }
 
+  static const _storageId = 'private';
+  static String _pdfPath(int documentId) => 'pdfs/$documentId.pdf';
+
+  /// Upload description for the original PDF of [documentId] (direct upload
+  /// to cloud storage; API requests are capped at 512 KiB).
+  Future<String> pdfUploadDescription(Session session, int documentId) async {
+    final userId = Acl.requireUser(session);
+    final document = await Document.db.findById(session, documentId);
+    if (document == null || document.kind != 'pdf') {
+      throw ArgumentError('PDF not found');
+    }
+    await _requireWrite(session, userId, document);
+    return session.storage.createUploadDescription(
+      storageId: _storageId,
+      path: _pdfPath(documentId),
+    );
+  }
+
+  /// Confirms the upload and records where the original is stored.
+  Future<bool> confirmPdfUpload(Session session, int documentId) async {
+    final userId = Acl.requireUser(session);
+    final document = await Document.db.findById(session, documentId);
+    if (document == null) return false;
+    await _requireWrite(session, userId, document);
+    final path = _pdfPath(documentId);
+    final ok = await session.storage.verifyUpload(
+      storageId: _storageId,
+      path: path,
+    );
+    if (ok) {
+      await Document.db.updateRow(
+        session,
+        document.copyWith(storagePath: path),
+      );
+    }
+    return ok;
+  }
+
+  /// Short-lived download URL for the original PDF, after an access check.
+  Future<String?> pdfUrl(Session session, int documentId) async {
+    final document = await get(session, documentId);
+    final path = document?.storagePath;
+    if (path == null) return null;
+    final url = await session.storage.temporaryDownloadUrl(
+      storageId: _storageId,
+      path: path,
+    );
+    return url.toString();
+  }
+
   static String _titleFrom(String body) {
     final firstLine = body
         .trim()
@@ -243,15 +293,14 @@ class DocumentEndpoint extends Endpoint {
     final userId = Acl.requireUser(session);
     final document = await Document.db.findById(session, documentId);
     if (document == null) return;
-    if (document.projectId == null) {
-      if (document.ownerId != userId) throw AccessDeniedException();
-    } else {
-      await Acl.requireRole(
-        session,
-        userId,
-        document.projectId!,
-        roles: {'owner', 'editor'},
-      );
+    await _requireWrite(session, userId, document);
+    final path = document.storagePath;
+    if (path != null) {
+      try {
+        await session.storage.deleteFile(storageId: _storageId, path: path);
+      } catch (e) {
+        session.log('Could not delete $path: $e', level: LogLevel.warning);
+      }
     }
     await session.db.transaction((tx) async {
       await DocChunk.db.deleteWhere(

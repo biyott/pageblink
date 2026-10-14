@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
@@ -69,6 +71,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         projectId,
       );
       await LocalPdfs.save(document.id!, bytes);
+      setState(() => _busy = '${file.name} 원본 저장 중…');
+      await _storeOriginal(document.id!, bytes);
       if (document.status == 'failed') {
         _snack('색인에 실패했습니다. 서버 로그를 확인해 주세요.');
       }
@@ -78,6 +82,48 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       if (mounted) setState(() => _busy = null);
       await _refresh();
     }
+  }
+
+  /// Uploads the original so citations open on any device. Non-fatal.
+  Future<void> _storeOriginal(int documentId, Uint8List bytes) async {
+    try {
+      final description = await client.document.pdfUploadDescription(
+        documentId,
+      );
+      final ok = await FileUploader(
+        description,
+      ).uploadByteData(ByteData.sublistView(bytes));
+      if (ok) await client.document.confirmPdfUpload(documentId);
+    } catch (e) {
+      _snack('원본 저장은 건너뛰었어요 (이 기기에서는 열람 가능): $e');
+    }
+  }
+
+  Future<void> _delete(Document document) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('삭제할까요?'),
+        content: Text(document.title),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await client.document.delete(document.id!);
+    } catch (e) {
+      _snack('삭제 실패: $e');
+    }
+    await _refresh();
   }
 
   Future<void> _openNote(Document? note) async {
@@ -199,6 +245,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     onTap: docs[i].kind == 'note'
                         ? () => _openNote(docs[i])
                         : null,
+                    onLongPress: () => _delete(docs[i]),
                   ),
                 ),
               },
@@ -211,11 +258,17 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 }
 
 class _DocumentCard extends StatelessWidget {
-  const _DocumentCard(this.document, this.projects, {this.onTap});
+  const _DocumentCard(
+    this.document,
+    this.projects, {
+    this.onTap,
+    this.onLongPress,
+  });
 
   final Document document;
   final List<Project> projects;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -245,6 +298,7 @@ class _DocumentCard extends StatelessWidget {
           : theme.colorScheme.tertiaryContainer,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
