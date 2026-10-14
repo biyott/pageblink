@@ -169,7 +169,7 @@ flowchart TB
 ### 3-2. 디렉터리 트리
 
 ```
-serverpod-hack-2026/                  # 저장소 루트 (= 모노레포)
+pageblink/                            # 저장소 루트 (= 모노레포, GitHub biyott/pageblink)
 ├── .fvmrc                            # Flutter 3.47.7 고정
 ├── .gitignore                        # .fvm/, passwords.yaml, build/ …
 ├── pubspec.yaml                      # Dart pub workspace 루트 ⚠️ (3-4 참고)
