@@ -49,3 +49,4 @@
 | [012](012-product-naming-burrow-game-terms.md) | 제품 이름 3차: Burrow 변형 · 게임 용어 | Top 5: Pinpage · Burrowpin · Savepoint · Questpage · Pagewarp | 결정 대기 |
 | [013](013-product-naming-warp-game-skills.md) | 제품 이름 4차: Warp 변형 · 게임 용어 · 기능 용어집 | Top 5: Pagewarp · Docparty · Savepoint · Pinpage · Blinkpage | 결정 대기 |
 | [014](014-blink-name-conflicts.md) | Blink 계열 이름 충돌 확인 | PageBlink 1순위, Blinkit·BlinkNote 제외 | plan 004 |
+| [015](015-game-skill-names.md) | 실제 게임 스킬·아이템 이름 30선 | Blink 유지(PageBlink), 기능 용어 Recall·Infrasight·Fog of War | ADR 012 |
