@@ -61,44 +61,95 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  static const _destinations = [
+    (icon: Icons.bolt_outlined, selected: Icons.bolt, label: '질문'),
+    (
+      icon: Icons.sticky_note_2_outlined,
+      selected: Icons.sticky_note_2,
+      label: '노트',
+    ),
+    (icon: Icons.groups_outlined, selected: Icons.groups, label: '프로젝트'),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      AskScreen(projects: _projects),
-      DocumentsScreen(projects: _projects),
-      ProjectsScreen(projects: _projects, onChanged: _loadProjects),
-    ];
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('⚡ PageBlink'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: '로그아웃',
-            onPressed: () => client.auth.signOutDevice(),
+    final ask = AskScreen(projects: _projects);
+    final notes = DocumentsScreen(projects: _projects);
+    final projects = ProjectsScreen(
+      projects: _projects,
+      onChanged: _loadProjects,
+    );
+    final appBar = AppBar(
+      title: const Text('⚡ PageBlink'),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.logout),
+          tooltip: '로그아웃',
+          onPressed: () => client.auth.signOutDevice(),
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        // Phone: bottom navigation, one screen at a time.
+        if (width < 600) {
+          return Scaffold(
+            appBar: appBar,
+            body: IndexedStack(index: _tab, children: [ask, notes, projects]),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: _tab,
+              onDestinationSelected: (i) => setState(() => _tab = i),
+              destinations: [
+                for (final d in _destinations)
+                  NavigationDestination(
+                    icon: Icon(d.icon),
+                    selectedIcon: Icon(d.selected),
+                    label: d.label,
+                  ),
+              ],
+            ),
+          );
+        }
+
+        // Desktop: notes/projects in the middle, Ask always open on the right.
+        final desktop = width >= 1024;
+        final railItems = desktop ? _destinations.sublist(1) : _destinations;
+        final railIndex = desktop ? (_tab == 0 ? 0 : _tab - 1) : _tab;
+        final center = desktop
+            ? (railIndex == 0 ? notes : projects)
+            : IndexedStack(index: _tab, children: [ask, notes, projects]);
+
+        return Scaffold(
+          appBar: appBar,
+          body: Row(
+            children: [
+              NavigationRail(
+                selectedIndex: railIndex,
+                labelType: NavigationRailLabelType.all,
+                onDestinationSelected: (i) =>
+                    setState(() => _tab = desktop ? i + 1 : i),
+                destinations: [
+                  for (final d in railItems)
+                    NavigationRailDestination(
+                      icon: Icon(d.icon),
+                      selectedIcon: Icon(d.selected),
+                      label: Text(d.label),
+                    ),
+                ],
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(child: center),
+              if (desktop) ...[
+                const VerticalDivider(width: 1),
+                SizedBox(width: width >= 1400 ? 520 : 420, child: ask),
+              ],
+            ],
           ),
-        ],
-      ),
-      body: IndexedStack(index: _tab, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.bolt_outlined),
-            selectedIcon: Icon(Icons.bolt),
-            label: '질문',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.description_outlined),
-            label: '문서',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.groups_outlined),
-            label: '프로젝트',
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
