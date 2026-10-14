@@ -252,9 +252,8 @@ class L {
     '프로젝트로 공유하지 않는 한 노트는 나만 볼 수 있어요.',
   );
   String get signInHelper => _t(
-    'Already registered? Sign in with your password — a code is only emailed '
-        'for new accounts or password resets.',
-    '이미 가입하셨나요? 비밀번호로 로그인하세요. 인증 메일은 새 가입이나 비밀번호 재설정 때만 발송돼요.',
+    'New here? Tap Sign up below the button — we\'ll email you a verification code.',
+    '처음이신가요? 로그인 버튼 아래의 가입을 누르면 인증 코드를 메일로 보내 드려요.',
   );
   String get landingFooterCredit => _t(
     'Built for Build Something Real: The Serverpod Hackathon',

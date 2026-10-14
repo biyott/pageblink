@@ -62,6 +62,9 @@ class _SignInScreenState extends State<SignInScreen> {
         client: client,
         emailSignInWidget: EmailSignInWidget(
           client: client,
+          // Returning users are the common case: open on sign-in; the form
+          // shows "Don't have an account? Sign up" below the button.
+          startScreen: EmailFlowScreen.login,
           passwordRequirements: pageBlinkPasswordRequirements(l),
         ),
         onAuthenticated: () {
