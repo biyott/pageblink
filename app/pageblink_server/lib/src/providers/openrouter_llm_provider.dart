@@ -13,11 +13,17 @@ class OpenRouterLlmProvider implements LlmProvider {
   OpenRouterLlmProvider(
     this._apiKey, {
     this.model = 'anthropic/claude-haiku-5.5',
+    this.denyDataCollection = true,
     http.Client? client,
   }) : _client = client ?? http.Client();
 
   final String _apiKey;
   final String model;
+
+  /// Route only to providers that neither store nor train on prompts.
+  /// Free (`:free`) models are often served only by such providers, so the
+  /// catalog turns this off for them (demo with public documents only).
+  final bool denyDataCollection;
   final http.Client _client;
 
   static final _endpoint = Uri.parse(
@@ -51,8 +57,7 @@ class OpenRouterLlmProvider implements LlmProvider {
       ..body = jsonEncode({
         'model': model,
         'stream': true,
-        // Personal documents: never route to providers that keep or train on data.
-        'provider': {'data_collection': 'deny'},
+        if (denyDataCollection) 'provider': {'data_collection': 'deny'},
         'messages': [
           {'role': 'system', 'content': _system},
           {
@@ -65,7 +70,10 @@ class OpenRouterLlmProvider implements LlmProvider {
     final response = await _client.send(request);
     if (response.statusCode != 200) {
       final body = await response.stream.bytesToString();
-      throw LlmException('OpenRouter ${response.statusCode}: $body');
+      throw LlmException(
+        'OpenRouter ${response.statusCode} ($model): $body',
+        retryable: _retryableStatus(response.statusCode),
+      );
     }
 
     final text = StringBuffer();
@@ -82,8 +90,13 @@ class OpenRouterLlmProvider implements LlmProvider {
       if (data == '[DONE]') break;
 
       final chunk = jsonDecode(data) as Map<String, dynamic>;
-      if (chunk['error'] != null) {
-        throw LlmException('OpenRouter stream error: ${chunk['error']}');
+      final error = chunk['error'];
+      if (error != null) {
+        final code = error is Map ? error['code'] : null;
+        throw LlmException(
+          'OpenRouter stream error ($model): $error',
+          retryable: text.isEmpty && (code is! int || _retryableStatus(code)),
+        );
       }
       final choices = chunk['choices'] as List? ?? const [];
       if (choices.isEmpty) continue;
@@ -110,4 +123,8 @@ class OpenRouterLlmProvider implements LlmProvider {
     }
     yield LlmDone(finishReason);
   }
+
+  /// Rate limit, payment/quota, no endpoint for the model, timeout, upstream.
+  static bool _retryableStatus(int code) =>
+      code == 402 || code == 404 || code == 408 || code == 429 || code >= 500;
 }

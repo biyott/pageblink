@@ -17,6 +17,9 @@ document:
   - upload:
   - list:
   - delete:
+model:
+  - list:
+  - defaultModel:
 project:
   - create:
   - list:

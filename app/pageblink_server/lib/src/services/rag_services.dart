@@ -3,6 +3,8 @@ import 'package:serverpod/serverpod.dart';
 import '../providers/embedding_provider.dart';
 import '../providers/llm_provider.dart';
 import '../providers/openrouter_llm_provider.dart';
+import '../providers/rotating_llm_provider.dart';
+import 'llm_catalog.dart';
 
 /// Builds providers from server passwords (config/passwords.yaml or Cloud).
 class RagServices {
@@ -14,13 +16,25 @@ class RagServices {
     return DeepInfraEmbeddingProvider(key);
   }
 
-  /// OpenRouter when `openrouterApiKey` is set (default), otherwise Claude direct.
-  static LlmProvider llm(Session session) {
+  /// OpenRouter (with model rotation) when `openrouterApiKey` is set,
+  /// otherwise Claude direct. [modelId] comes from the app's model picker.
+  static LlmProvider llm(Session session, {String? modelId}) {
     final openRouterKey = session.passwords['openrouterApiKey'];
     if (openRouterKey != null && openRouterKey.isNotEmpty) {
-      return OpenRouterLlmProvider(
-        openRouterKey,
-        model: session.passwords['llmModel'] ?? 'anthropic/claude-haiku-5.5',
+      final chosen =
+          modelId ?? session.passwords['llmModel'] ?? LlmCatalog.defaultModelId;
+      final mode = session.passwords['llmRotation'] ?? 'free';
+      return RotatingLlmProvider(
+        LlmCatalog.rotation(chosen, mode: mode),
+        (id) => OpenRouterLlmProvider(
+          openRouterKey,
+          model: id,
+          denyDataCollection: !(LlmCatalog.byId(id)?.free ?? false),
+        ),
+        onRotate: (failed, error) => session.log(
+          'LLM $failed unavailable, rotating: $error',
+          level: LogLevel.warning,
+        ),
       );
     }
     final anthropicKey = session.passwords['anthropicApiKey'];

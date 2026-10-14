@@ -22,6 +22,7 @@ class _Turn {
   final String question;
   final answer = StringBuffer();
   final citations = <int, Citation>{};
+  String? modelId;
   String? error;
   bool done = false;
 }
@@ -33,6 +34,25 @@ class _AskScreenState extends State<AskScreen> {
   final _selectedProjects = <int>{};
   bool _includePersonal = true;
   StreamSubscription<AnswerEvent>? _subscription;
+  List<LlmModel> _models = const [];
+  String? _modelId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadModels();
+  }
+
+  Future<void> _loadModels() async {
+    try {
+      final models = await client.model.list();
+      final fallback = await client.model.defaultModel();
+      if (mounted) setState(() => _models = models);
+      if (mounted) setState(() => _modelId ??= fallback);
+    } catch (_) {
+      // Picker stays hidden; the server default model is used.
+    }
+  }
 
   static final _marker = RegExp(r'\[(\d{1,2})\]');
 
@@ -57,7 +77,7 @@ class _AskScreenState extends State<AskScreen> {
         ? <int>[]
         : _selectedProjects.toList();
     _subscription = client.ask
-        .ask(question, projectIds, _includePersonal)
+        .ask(question, projectIds, _includePersonal, _modelId)
         .listen(
           (event) => setState(() {
             switch (event.type) {
@@ -96,6 +116,12 @@ class _AskScreenState extends State<AskScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        if (_models.isNotEmpty)
+          _ModelPicker(
+            models: _models,
+            selected: _modelId,
+            onChanged: (id) => setState(() => _modelId = id),
+          ),
         _ScopeBar(
           projects: widget.projects,
           selected: _selectedProjects,
@@ -150,6 +176,44 @@ class _AskScreenState extends State<AskScreen> {
   /// Renders `[n]` markers as ⚡n so they read as tappable citation numbers.
   static String renderMarkers(String text) =>
       text.replaceAllMapped(_marker, (m) => ' `⚡${m[1]}`');
+}
+
+class _ModelPicker extends StatelessWidget {
+  const _ModelPicker({
+    required this.models,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<LlmModel> models;
+  final String? selected;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+    child: DropdownButtonFormField<String>(
+      initialValue: models.any((m) => m.id == selected) ? selected : null,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: '답변 모델',
+        prefixIcon: Icon(Icons.memory),
+        border: OutlineInputBorder(),
+        isDense: true,
+      ),
+      items: [
+        for (final m in models)
+          DropdownMenuItem(
+            value: m.id,
+            child: Text(
+              '${m.free ? '🆓' : '💳'} ${m.label} · ${m.note ?? ''}',
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: onChanged,
+    ),
+  );
 }
 
 class _ScopeBar extends StatelessWidget {
@@ -223,6 +287,14 @@ class _TurnView extends StatelessWidget {
           const Padding(
             padding: EdgeInsets.all(8),
             child: LinearProgressIndicator(),
+          ),
+        if (turn.modelId != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Text(
+              '⚡ ${turn.modelId}',
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
           ),
         if (turn.answer.isNotEmpty)
           GptMarkdown(_AskScreenState.renderMarkers(turn.answer.toString())),

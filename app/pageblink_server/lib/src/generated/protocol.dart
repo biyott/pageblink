@@ -12,6 +12,7 @@
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:pageblink_server/src/generated/document.dart' as _iloq337r;
+import 'package:pageblink_server/src/generated/llm_model.dart' as _iladjzkp;
 import 'package:pageblink_server/src/generated/page_text.dart' as _ibhttuac;
 import 'package:pageblink_server/src/generated/project.dart' as _ik18e4tv;
 import 'package:pageblink_server/src/generated/project_member.dart'
@@ -27,6 +28,7 @@ import 'citation.dart' as _i7jy3rkv;
 import 'doc_chunk.dart' as _iy239l3h;
 import 'document.dart' as _i674ac8o;
 import 'greetings/greeting.dart' as _izw8z7ou;
+import 'llm_model.dart' as _i52zzt9e;
 import 'page_text.dart' as _it8u2rte;
 import 'project.dart' as _ifiazq2p;
 import 'project_member.dart' as _i7o7d07j;
@@ -35,6 +37,7 @@ export 'citation.dart';
 export 'doc_chunk.dart';
 export 'document.dart';
 export 'greetings/greeting.dart';
+export 'llm_model.dart';
 export 'page_text.dart';
 export 'project.dart';
 export 'project_member.dart';
@@ -404,6 +407,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _izw8z7ou.Greeting) {
       return _izw8z7ou.Greeting.fromJson(data) as T;
     }
+    if (t == _i52zzt9e.LlmModel) {
+      return _i52zzt9e.LlmModel.fromJson(data) as T;
+    }
     if (t == _it8u2rte.PageText) {
       return _it8u2rte.PageText.fromJson(data) as T;
     }
@@ -428,6 +434,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _is.getType<_izw8z7ou.Greeting?>()) {
       return (data != null ? _izw8z7ou.Greeting.fromJson(data) : null) as T;
     }
+    if (t == _is.getType<_i52zzt9e.LlmModel?>()) {
+      return (data != null ? _i52zzt9e.LlmModel.fromJson(data) : null) as T;
+    }
     if (t == _is.getType<_it8u2rte.PageText?>()) {
       return (data != null ? _it8u2rte.PageText.fromJson(data) : null) as T;
     }
@@ -450,6 +459,12 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == List<_iloq337r.Document>) {
       return (data as List)
               .map((e) => deserialize<_iloq337r.Document>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_iladjzkp.LlmModel>) {
+      return (data as List)
+              .map((e) => deserialize<_iladjzkp.LlmModel>(e))
               .toList()
           as T;
     }
@@ -484,6 +499,7 @@ class Protocol extends _is.DatabaseSerializationManager {
       _iy239l3h.DocChunk => 'DocChunk',
       _i674ac8o.Document => 'Document',
       _izw8z7ou.Greeting => 'Greeting',
+      _i52zzt9e.LlmModel => 'LlmModel',
       _it8u2rte.PageText => 'PageText',
       _ifiazq2p.Project => 'Project',
       _i7o7d07j.ProjectMember => 'ProjectMember',
@@ -511,6 +527,8 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'Document';
       case _izw8z7ou.Greeting():
         return 'Greeting';
+      case _i52zzt9e.LlmModel():
+        return 'LlmModel';
       case _it8u2rte.PageText():
         return 'PageText';
       case _ifiazq2p.Project():
@@ -557,6 +575,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'Greeting') {
       return deserialize<_izw8z7ou.Greeting>(data['data']);
+    }
+    if (dataClassName == 'LlmModel') {
+      return deserialize<_i52zzt9e.LlmModel>(data['data']);
     }
     if (dataClassName == 'PageText') {
       return deserialize<_it8u2rte.PageText>(data['data']);

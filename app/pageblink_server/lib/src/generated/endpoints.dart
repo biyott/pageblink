@@ -21,6 +21,7 @@ import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../greetings/greeting_endpoint.dart' as _il624ik7;
 import '../rag_endpoints/ask_endpoint.dart' as _ijowjyl9;
 import '../rag_endpoints/document_endpoint.dart' as _iw2avhc4;
+import '../rag_endpoints/model_endpoint.dart' as _i7hb4uwm;
 import '../rag_endpoints/project_endpoint.dart' as _ik8zva9b;
 
 class Endpoints extends _is.EndpointDispatch {
@@ -55,6 +56,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'document',
+          null,
+        ),
+      'model': _i7hb4uwm.ModelEndpoint()
+        ..initialize(
+          server,
+          'model',
           null,
         ),
       'project': _ik8zva9b.ProjectEndpoint()
@@ -317,6 +324,11 @@ class Endpoints extends _is.EndpointDispatch {
               type: _is.getType<bool>(),
               nullable: false,
             ),
+            'modelId': _is.ParameterDescription(
+              name: 'modelId',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
           },
           streamParams: {},
           returnType: _is.MethodStreamReturnType.streamType,
@@ -330,6 +342,7 @@ class Endpoints extends _is.EndpointDispatch {
                 params['question'],
                 params['projectIds'],
                 params['includePersonal'],
+                params['modelId'],
               ),
         ),
       },
@@ -403,6 +416,32 @@ class Endpoints extends _is.EndpointDispatch {
                     session,
                     params['documentId'],
                   ),
+        ),
+      },
+    );
+    connectors['model'] = _is.EndpointConnector(
+      name: 'model',
+      endpoint: endpoints['model']!,
+      methodConnectors: {
+        'list': _is.MethodConnector(
+          name: 'list',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['model'] as _i7hb4uwm.ModelEndpoint).list(session),
+        ),
+        'defaultModel': _is.MethodConnector(
+          name: 'defaultModel',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['model'] as _i7hb4uwm.ModelEndpoint)
+                  .defaultModel(session),
         ),
       },
     );

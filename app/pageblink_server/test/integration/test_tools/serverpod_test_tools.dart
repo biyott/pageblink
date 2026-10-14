@@ -17,6 +17,7 @@ import 'package:pageblink_server/src/generated/answer_event.dart' as _i16h3xsg;
 import 'package:pageblink_server/src/generated/document.dart' as _iloq337r;
 import 'package:pageblink_server/src/generated/greetings/greeting.dart'
     as _i23xf59p;
+import 'package:pageblink_server/src/generated/llm_model.dart' as _iladjzkp;
 import 'package:pageblink_server/src/generated/page_text.dart' as _ibhttuac;
 import 'package:pageblink_server/src/generated/project.dart' as _ik18e4tv;
 import 'package:pageblink_server/src/generated/project_member.dart'
@@ -168,6 +169,8 @@ class TestEndpoints {
 
   late final _DocumentEndpoint document;
 
+  late final _ModelEndpoint model;
+
   late final _ProjectEndpoint project;
 }
 
@@ -195,6 +198,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     document = _DocumentEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    model = _ModelEndpoint(
       endpoints,
       serializationManager,
     );
@@ -580,6 +587,7 @@ class _AskEndpoint {
     String question,
     List<int> projectIds,
     bool includePersonal,
+    String? modelId,
   ) {
     var _localTestStreamManager =
         _ist.TestStreamManager<_i16h3xsg.AnswerEvent>();
@@ -599,6 +607,7 @@ class _AskEndpoint {
                 'question': question,
                 'projectIds': projectIds,
                 'includePersonal': includePersonal,
+                'modelId': modelId,
               },
               requestedInputStreams: [],
               serializationManager: _serializationManager,
@@ -718,6 +727,77 @@ class _DocumentEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _ModelEndpoint {
+  _ModelEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<List<_iladjzkp.LlmModel>> list(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'model',
+            method: 'list',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'model',
+          methodName: 'list',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_iladjzkp.LlmModel>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<String> defaultModel(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'model',
+            method: 'defaultModel',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'model',
+          methodName: 'defaultModel',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<String>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

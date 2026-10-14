@@ -1,0 +1,11 @@
+### A model the app can choose for answers. Served by ModelEndpoint.list.
+class: LlmModel
+fields:
+  ### Provider model id, e.g. google/gemma-4-26b-a4b-it:free
+  id: String
+  label: String
+  ### openrouter | gemini | anthropic
+  provider: String
+  free: bool
+  ### Short note shown in the picker (speed, quality, privacy).
+  note: String?

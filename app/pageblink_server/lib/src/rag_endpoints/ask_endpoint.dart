@@ -20,6 +20,7 @@ class AskEndpoint extends Endpoint {
     String question,
     List<int> projectIds,
     bool includePersonal,
+    String? modelId,
   ) async* {
     final userId = Acl.requireUser(session);
     // Intersect with real memberships: client-sent ids are never trusted.
@@ -95,6 +96,8 @@ class AskEndpoint extends Endpoint {
                 quote: citedText.isEmpty ? hit.text : citedText,
               ),
             );
+          case LlmModelUsed(:final modelId):
+            yield AnswerEvent(type: 'model', text: modelId);
           case LlmDone():
             yield AnswerEvent(type: 'done');
         }

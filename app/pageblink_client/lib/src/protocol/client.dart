@@ -16,6 +16,7 @@ import 'package:pageblink_client/src/protocol/answer_event.dart' as _iv9ukj64;
 import 'package:pageblink_client/src/protocol/document.dart' as _ix72owx0;
 import 'package:pageblink_client/src/protocol/greetings/greeting.dart'
     as _ibcu9c6c;
+import 'package:pageblink_client/src/protocol/llm_model.dart' as _ikmj492w;
 import 'package:pageblink_client/src/protocol/page_text.dart' as _iu4vwvb3;
 import 'package:pageblink_client/src/protocol/project.dart' as _id2xbn90;
 import 'package:pageblink_client/src/protocol/project_member.dart' as _ijtrgq11;
@@ -283,6 +284,7 @@ class EndpointAsk extends _isc.EndpointRef {
     String question,
     List<int> projectIds,
     bool includePersonal,
+    String? modelId,
   ) =>
       caller.callStreamingServerEndpoint<
         _ida.Stream<_iv9ukj64.AnswerEvent>,
@@ -294,6 +296,7 @@ class EndpointAsk extends _isc.EndpointRef {
           'question': question,
           'projectIds': projectIds,
           'includePersonal': includePersonal,
+          'modelId': modelId,
         },
         {},
       );
@@ -336,6 +339,28 @@ class EndpointDocument extends _isc.EndpointRef {
     'document',
     'delete',
     {'documentId': documentId},
+  );
+}
+
+/// Lists answer models for the in-app model picker.
+/// {@category Endpoint}
+class EndpointModel extends _isc.EndpointRef {
+  EndpointModel(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'model';
+
+  _ida.Future<List<_ikmj492w.LlmModel>> list() =>
+      caller.callServerEndpoint<List<_ikmj492w.LlmModel>>(
+        'model',
+        'list',
+        {},
+      );
+
+  _ida.Future<String> defaultModel() => caller.callServerEndpoint<String>(
+    'model',
+    'defaultModel',
+    {},
   );
 }
 
@@ -427,6 +452,7 @@ class Client extends _isc.ServerpodClientShared {
     greeting = EndpointGreeting(this);
     ask = EndpointAsk(this);
     document = EndpointDocument(this);
+    model = EndpointModel(this);
     project = EndpointProject(this);
     modules = Modules(this);
   }
@@ -441,6 +467,8 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointDocument document;
 
+  late final EndpointModel model;
+
   late final EndpointProject project;
 
   late final Modules modules;
@@ -452,6 +480,7 @@ class Client extends _isc.ServerpodClientShared {
     'greeting': greeting,
     'ask': ask,
     'document': document,
+    'model': model,
     'project': project,
   };
 

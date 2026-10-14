@@ -29,9 +29,18 @@ class LlmDone extends LlmEvent {
   final String? stopReason;
 }
 
+/// The model that is actually answering (may differ after rotation).
+class LlmModelUsed extends LlmEvent {
+  LlmModelUsed(this.modelId);
+  final String modelId;
+}
+
 class LlmException implements Exception {
-  LlmException(this.message);
+  /// [retryable]: failed before any output for a reason another model may not
+  /// have (rate limit, quota, provider unavailable) — safe to rotate.
+  LlmException(this.message, {this.retryable = false});
   final String message;
+  final bool retryable;
   @override
   String toString() => 'LlmException: $message';
 }
