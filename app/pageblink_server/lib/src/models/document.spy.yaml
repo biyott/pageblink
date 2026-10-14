@@ -1,10 +1,14 @@
-### An uploaded document. projectId null means a personal cloud document.
+### A note (markdown) or an uploaded PDF. projectId null means personal.
 class: Document
 table: document
 fields:
   ownerId: UuidValue
   projectId: int?
+  ### note | pdf
+  kind: String, default='pdf'
   title: String
+  ### Markdown body for notes; null for PDFs.
+  body: String?
   contentHash: String
   version: int
   pageCount: int

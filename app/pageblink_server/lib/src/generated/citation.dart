@@ -19,14 +19,16 @@ abstract class Citation
     required this.index,
     required this.documentId,
     required this.documentTitle,
+    String? kind,
     required this.page,
     required this.quote,
-  });
+  }) : kind = kind ?? 'pdf';
 
   factory Citation({
     required int index,
     required int documentId,
     required String documentTitle,
+    String? kind,
     required int page,
     required String quote,
   }) = _CitationImpl;
@@ -36,6 +38,7 @@ abstract class Citation
       index: jsonSerialization['index'] as int,
       documentId: jsonSerialization['documentId'] as int,
       documentTitle: jsonSerialization['documentTitle'] as String,
+      kind: jsonSerialization['kind'] as String?,
       page: jsonSerialization['page'] as int,
       quote: jsonSerialization['quote'] as String,
     );
@@ -46,6 +49,9 @@ abstract class Citation
   int documentId;
 
   String documentTitle;
+
+  /// note | pdf — notes open in the note view, PDFs at the page.
+  String kind;
 
   int page;
 
@@ -58,6 +64,7 @@ abstract class Citation
     int? index,
     int? documentId,
     String? documentTitle,
+    String? kind,
     int? page,
     String? quote,
   });
@@ -68,6 +75,7 @@ abstract class Citation
       'index': index,
       'documentId': documentId,
       'documentTitle': documentTitle,
+      'kind': kind,
       'page': page,
       'quote': quote,
     };
@@ -80,6 +88,7 @@ abstract class Citation
       'index': index,
       'documentId': documentId,
       'documentTitle': documentTitle,
+      'kind': kind,
       'page': page,
       'quote': quote,
     };
@@ -96,12 +105,14 @@ class _CitationImpl extends Citation {
     required int index,
     required int documentId,
     required String documentTitle,
+    String? kind,
     required int page,
     required String quote,
   }) : super._(
          index: index,
          documentId: documentId,
          documentTitle: documentTitle,
+         kind: kind,
          page: page,
          quote: quote,
        );
@@ -114,6 +125,7 @@ class _CitationImpl extends Citation {
     int? index,
     int? documentId,
     String? documentTitle,
+    String? kind,
     int? page,
     String? quote,
   }) {
@@ -121,6 +133,7 @@ class _CitationImpl extends Citation {
       index: index ?? this.index,
       documentId: documentId ?? this.documentId,
       documentTitle: documentTitle ?? this.documentTitle,
+      kind: kind ?? this.kind,
       page: page ?? this.page,
       quote: quote ?? this.quote,
     );

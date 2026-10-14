@@ -14,7 +14,7 @@ import 'package:pageblink_client/src/protocol/protocol.dart' as _igm2snhz;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'citation.dart' as _i7jy3rkv;
 
-/// One event in a streamed answer. type: token | citation | done | error
+/// One event in a streamed answer. type: token | citation | model | done | error
 abstract class AnswerEvent
     implements _isc.SerializableModel, _isc.ProtocolSerialization {
   AnswerEvent._({

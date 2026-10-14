@@ -68,7 +68,12 @@ class AskEndpoint extends Endpoint {
 
       final sources = [
         for (final h in hits)
-          SourcePassage(title: '${titleOf(h)} (p.${h.page})', text: h.text),
+          SourcePassage(
+            title: documents[h.documentId]?.kind == 'note'
+                ? '${titleOf(h)} (note)'
+                : '${titleOf(h)} (p.${h.page})',
+            text: h.text,
+          ),
       ];
 
       final cited = <int>{};
@@ -92,6 +97,7 @@ class AskEndpoint extends Endpoint {
                 index: sourceIndex + 1,
                 documentId: hit.documentId,
                 documentTitle: titleOf(hit),
+                kind: documents[hit.documentId]?.kind ?? 'pdf',
                 page: hit.page,
                 quote: citedText.isEmpty ? hit.text : citedText,
               ),

@@ -4,5 +4,7 @@ fields:
   index: int
   documentId: int
   documentTitle: String
+  ### note | pdf — notes open in the note view, PDFs at the page.
+  kind: String, default='pdf'
   page: int
   quote: String

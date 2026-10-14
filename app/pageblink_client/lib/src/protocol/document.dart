@@ -12,14 +12,16 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 
-/// An uploaded document. projectId null means a personal cloud document.
+/// A note (markdown) or an uploaded PDF. projectId null means personal.
 abstract class Document
     implements _isc.SerializableModel, _isc.ProtocolSerialization {
   Document._({
     this.id,
     required this.ownerId,
     this.projectId,
+    String? kind,
     required this.title,
+    this.body,
     required this.contentHash,
     required this.version,
     required this.pageCount,
@@ -28,13 +30,15 @@ abstract class Document
     required this.embeddingModel,
     required this.createdAt,
     required this.updatedAt,
-  });
+  }) : kind = kind ?? 'pdf';
 
   factory Document({
     int? id,
     required _isc.UuidValue ownerId,
     int? projectId,
+    String? kind,
     required String title,
+    String? body,
     required String contentHash,
     required int version,
     required int pageCount,
@@ -52,7 +56,9 @@ abstract class Document
         jsonSerialization['ownerId'],
       ),
       projectId: jsonSerialization['projectId'] as int?,
+      kind: jsonSerialization['kind'] as String?,
       title: jsonSerialization['title'] as String,
+      body: jsonSerialization['body'] as String?,
       contentHash: jsonSerialization['contentHash'] as String,
       version: jsonSerialization['version'] as int,
       pageCount: jsonSerialization['pageCount'] as int,
@@ -77,7 +83,13 @@ abstract class Document
 
   int? projectId;
 
+  /// note | pdf
+  String kind;
+
   String title;
+
+  /// Markdown body for notes; null for PDFs.
+  String? body;
 
   String contentHash;
 
@@ -103,7 +115,9 @@ abstract class Document
     int? id,
     _isc.UuidValue? ownerId,
     int? projectId,
+    String? kind,
     String? title,
+    String? body,
     String? contentHash,
     int? version,
     int? pageCount,
@@ -120,7 +134,9 @@ abstract class Document
       if (id != null) 'id': id,
       'ownerId': ownerId.toJson(),
       if (projectId != null) 'projectId': projectId,
+      'kind': kind,
       'title': title,
+      if (body != null) 'body': body,
       'contentHash': contentHash,
       'version': version,
       'pageCount': pageCount,
@@ -139,7 +155,9 @@ abstract class Document
       if (id != null) 'id': id,
       'ownerId': ownerId.toJson(),
       if (projectId != null) 'projectId': projectId,
+      'kind': kind,
       'title': title,
+      if (body != null) 'body': body,
       'contentHash': contentHash,
       'version': version,
       'pageCount': pageCount,
@@ -164,7 +182,9 @@ class _DocumentImpl extends Document {
     int? id,
     required _isc.UuidValue ownerId,
     int? projectId,
+    String? kind,
     required String title,
+    String? body,
     required String contentHash,
     required int version,
     required int pageCount,
@@ -177,7 +197,9 @@ class _DocumentImpl extends Document {
          id: id,
          ownerId: ownerId,
          projectId: projectId,
+         kind: kind,
          title: title,
+         body: body,
          contentHash: contentHash,
          version: version,
          pageCount: pageCount,
@@ -196,7 +218,9 @@ class _DocumentImpl extends Document {
     Object? id = _Undefined,
     _isc.UuidValue? ownerId,
     Object? projectId = _Undefined,
+    String? kind,
     String? title,
+    Object? body = _Undefined,
     String? contentHash,
     int? version,
     int? pageCount,
@@ -210,7 +234,9 @@ class _DocumentImpl extends Document {
       id: id is int? ? id : this.id,
       ownerId: ownerId ?? this.ownerId,
       projectId: projectId is int? ? projectId : this.projectId,
+      kind: kind ?? this.kind,
       title: title ?? this.title,
+      body: body is String? ? body : this.body,
       contentHash: contentHash ?? this.contentHash,
       version: version ?? this.version,
       pageCount: pageCount ?? this.pageCount,

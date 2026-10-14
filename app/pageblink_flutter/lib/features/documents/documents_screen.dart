@@ -4,9 +4,10 @@ import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/local_pdfs.dart';
 import '../../client.dart';
+import '../notes/note_editor_screen.dart';
 import 'pdf_text.dart';
 
-/// Lists personal and project documents and uploads new PDFs.
+/// Keep-style board of notes and PDFs (personal and project).
 class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key, required this.projects});
 
@@ -79,6 +80,22 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
+  Future<void> _openNote(Document? note) async {
+    int? projectId;
+    if (note == null && widget.projects.isNotEmpty) {
+      final chosen = await _chooseTier();
+      if (chosen == _cancelled || !mounted) return;
+      projectId = chosen;
+    }
+    final saved = await Navigator.push<Document>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NoteEditorScreen(note: note, projectId: projectId),
+      ),
+    );
+    if (saved != null) await _refresh();
+  }
+
   static const _cancelled = -1;
 
   /// Returns null for personal cloud, a project id, or [_cancelled].
@@ -129,10 +146,24 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   Widget build(BuildContext context) {
     final docs = _documents;
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _busy == null ? _upload : null,
-        icon: const Icon(Icons.upload_file),
-        label: const Text('PDF 올리기'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.small(
+            heroTag: 'pdf',
+            tooltip: 'PDF 올리기',
+            onPressed: _busy == null ? _upload : null,
+            child: const Icon(Icons.picture_as_pdf_outlined),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'note',
+            onPressed: () => _openNote(null),
+            icon: const Icon(Icons.edit_note),
+            label: const Text('새 노트'),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -149,14 +180,26 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 ),
                 null => const Center(child: CircularProgressIndicator()),
                 [] => ListView(
-                  children: const [_Message('아직 문서가 없어요.\nPDF를 올리고 질문해 보세요.')],
+                  children: const [
+                    _Message('아직 노트가 없어요.\n메모를 쓰거나 PDF를 올리고 질문해 보세요.'),
+                  ],
                 ),
-                _ => ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 96),
+                _ => GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 140),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 260,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.9,
+                  ),
                   itemCount: docs.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (context, i) =>
-                      _DocumentTile(docs[i], widget.projects),
+                  itemBuilder: (context, i) => _DocumentCard(
+                    docs[i],
+                    widget.projects,
+                    onTap: docs[i].kind == 'note'
+                        ? () => _openNote(docs[i])
+                        : null,
+                  ),
                 ),
               },
             ),
@@ -167,37 +210,97 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 }
 
-class _DocumentTile extends StatelessWidget {
-  const _DocumentTile(this.document, this.projects);
+class _DocumentCard extends StatelessWidget {
+  const _DocumentCard(this.document, this.projects, {this.onTap});
 
   final Document document;
   final List<Project> projects;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isNote = document.kind == 'note';
     final project = projects
         .where((p) => p.id == document.projectId)
         .firstOrNull;
-    final (icon, tier) = document.projectId == null
+    final (tierIcon, tier) = document.projectId == null
         ? (Icons.cloud_outlined, '내 클라우드')
-        : (Icons.groups_outlined, project?.name ?? '공유 프로젝트');
+        : (Icons.groups_outlined, project?.name ?? '공유');
     final status = switch (document.status) {
       'ready' => null,
       'indexing' => '색인 중',
-      'failed' => '실패',
+      'failed' => '색인 실패',
       _ => document.status,
     };
-    return ListTile(
-      leading: const Icon(Icons.picture_as_pdf_outlined),
-      title: Text(document.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Row(
-        children: [
-          Icon(icon, size: 14),
-          const SizedBox(width: 4),
-          Text('$tier · ${document.pageCount}쪽'),
-        ],
+    final preview = isNote
+        ? (document.body ?? '')
+              .replaceAll(RegExp(r'[#*_>`]|- \[[ x]\] '), '')
+              .trim()
+        : 'PDF · ${document.pageCount}쪽';
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      color: isNote
+          ? theme.colorScheme.surfaceContainerHigh
+          : theme.colorScheme.tertiaryContainer,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    isNote
+                        ? Icons.sticky_note_2_outlined
+                        : Icons.picture_as_pdf_outlined,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      document.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Text(
+                  preview,
+                  overflow: TextOverflow.fade,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(tierIcon, size: 14),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      tier,
+                      style: theme.textTheme.labelSmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (status != null)
+                    Text(
+                      status,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
-      trailing: status == null ? null : Chip(label: Text(status)),
     );
   }
 }

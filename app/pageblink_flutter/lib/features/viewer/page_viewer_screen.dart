@@ -3,6 +3,8 @@ import 'package:pageblink_client/pageblink_client.dart';
 import 'package:pdfrx/pdfrx.dart';
 
 import '../../app/local_pdfs.dart';
+import '../../client.dart';
+import '../notes/note_editor_screen.dart';
 
 /// Blink: opens the cited PDF right at the cited page.
 /// Falls back to the quoted passage when the original isn't on this device.
@@ -13,6 +15,7 @@ class PageViewerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (citation.kind == 'note') return _NoteCitation(citation);
     return Scaffold(
       appBar: AppBar(
         title: Text('${citation.documentTitle} · p.${citation.page}'),
@@ -76,5 +79,26 @@ class _QuoteView extends StatelessWidget {
       const SizedBox(height: 16),
       Text('“${citation.quote}”', style: Theme.of(context).textTheme.bodyLarge),
     ],
+  );
+}
+
+/// Notes open in the editor with the cited passage highlighted on top.
+class _NoteCitation extends StatelessWidget {
+  const _NoteCitation(this.citation);
+  final Citation citation;
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder(
+    future: client.document.get(citation.documentId),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState != ConnectionState.done) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      final note = snapshot.data;
+      if (note == null) {
+        return Scaffold(appBar: AppBar(), body: _QuoteView(citation));
+      }
+      return NoteEditorScreen(note: note, highlight: citation.quote);
+    },
   );
 }

@@ -327,6 +327,31 @@ class EndpointDocument extends _isc.EndpointRef {
     },
   );
 
+  /// Creates or updates a markdown note and (re)indexes it as one page.
+  _ida.Future<_ix72owx0.Document> saveNote(
+    int? documentId,
+    String title,
+    String body,
+    int? projectId,
+  ) => caller.callServerEndpoint<_ix72owx0.Document>(
+    'document',
+    'saveNote',
+    {
+      'documentId': documentId,
+      'title': title,
+      'body': body,
+      'projectId': projectId,
+    },
+  );
+
+  /// One document the user can read (notes are opened in the editor).
+  _ida.Future<_ix72owx0.Document?> get(int documentId) =>
+      caller.callServerEndpoint<_ix72owx0.Document?>(
+        'document',
+        'get',
+        {'documentId': documentId},
+      );
+
   /// Personal documents plus documents of every project the user belongs to.
   _ida.Future<List<_ix72owx0.Document>> list() =>
       caller.callServerEndpoint<List<_ix72owx0.Document>>(

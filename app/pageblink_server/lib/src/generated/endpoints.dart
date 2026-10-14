@@ -388,6 +388,62 @@ class Endpoints extends _is.EndpointDispatch {
                     params['projectId'],
                   ),
         ),
+        'saveNote': _is.MethodConnector(
+          name: 'saveNote',
+          params: {
+            'documentId': _is.ParameterDescription(
+              name: 'documentId',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+            'title': _is.ParameterDescription(
+              name: 'title',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'body': _is.ParameterDescription(
+              name: 'body',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+            'projectId': _is.ParameterDescription(
+              name: 'projectId',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['document'] as _iw2avhc4.DocumentEndpoint)
+                  .saveNote(
+                    session,
+                    params['documentId'],
+                    params['title'],
+                    params['body'],
+                    params['projectId'],
+                  ),
+        ),
+        'get': _is.MethodConnector(
+          name: 'get',
+          params: {
+            'documentId': _is.ParameterDescription(
+              name: 'documentId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['document'] as _iw2avhc4.DocumentEndpoint).get(
+                    session,
+                    params['documentId'],
+                  ),
+        ),
         'list': _is.MethodConnector(
           name: 'list',
           params: {},
