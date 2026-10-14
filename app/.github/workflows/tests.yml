@@ -11,8 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: '4.0.4'
-      SERVERPOD_PASSWORD_database: 'MIYS66giR5HGlRfacIHiupT-MqR13R0-'
-      SERVERPOD_PASSWORD_redis: 'xAk_OUzmrPdonxBJQ988nW05FUMg4rPD'
+      SERVERPOD_PASSWORD_database: '44Sn0pbfBcaNg5cX9hJGI9RSyEOQgcrc'
+      SERVERPOD_PASSWORD_redis: 'fKe1iaNWG5OtT4RSM-eAVQipP9KnxKs0'
 
     steps:
       - uses: actions/checkout@v4
@@ -42,9 +42,9 @@ jobs:
           echo "${XDG_STATE_HOME:-$HOME/.local/state}/Dart/install/bin" >> "$GITHUB_PATH"
 
       - name: Run Serverpod generator
-        working-directory: ragpod_server
+        working-directory: pageblink_server
         run: serverpod generate
 
       - name: Run tests
-        working-directory: ragpod_server
+        working-directory: pageblink_server
         run: dart test

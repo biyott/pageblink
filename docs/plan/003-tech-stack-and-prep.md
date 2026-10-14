@@ -61,8 +61,8 @@ dart install serverpod_cli   # 실패 시: dart pub global activate serverpod_cl
 serverpod version            # 4.0.4 확인
 
 # ③ 프로젝트 생성 (저장소 루트에서)
-serverpod create ragpod      # ragpod/{ragpod_server, ragpod_client, ragpod_flutter}
-mv ragpod app                # 바깥 폴더만 app/으로 (패키지명은 ragpod 유지)
+serverpod create pageblink      # pageblink/{pageblink_server, pageblink_client, pageblink_flutter}
+mv pageblink app                # 바깥 폴더만 app/으로 (패키지명은 pageblink)
 cd app && serverpod start    # 생성 + 서버 기동 + 웹 앱 실행 (R: 핫리스타트, M: 마이그레이션)
 ```
 
@@ -76,14 +76,14 @@ cd app && serverpod start    # 생성 + 서버 기동 + 웹 앱 실행 (R: 핫�
 
 ```mermaid
 flowchart TB
-  subgraph Client["📱 ragpod_flutter (Flutter 3.47.7)"]
+  subgraph Client["📱 pageblink_flutter (Flutter 3.47.7)"]
     direction LR
     R[Riverpod 3 · go_router]
     P[pdfrx<br/>추출 + 뷰어]
     M[gpt_markdown<br/>스트리밍 답변]
     AU[serverpod_auth_idp_flutter<br/>SignInWidget]
   end
-  subgraph Server["☁️ ragpod_server (Serverpod 4.0.4 @ Cloud)"]
+  subgraph Server["☁️ pageblink_server (Serverpod 4.0.4 @ Cloud)"]
     direction LR
     E1[DocumentEndpoint<br/>upload · list · delete]
     E2[AskEndpoint<br/>스트리밍 응답]
@@ -102,7 +102,7 @@ flowchart TB
   E3 --> DB
 ```
 
-### 2-2. 서버 (`ragpod_server`)
+### 2-2. 서버 (`pageblink_server`)
 
 | 구분 | 선택 | 버전 | 비고 |
 |---|---|---|---|
@@ -130,7 +130,7 @@ flowchart TB
 - 5.5 세대는 thinking이 기본으로 켜져 있습니다. 채팅 RAG는 지연이 중요하므로 `thinking: {type: "adaptive"}` + 낮은 effort로 설정합니다. **`budget_tokens`를 쓰면 400 에러가 납니다** ✅.
 - 시스템 프롬프트는 고정해 두고 prompt caching을 적용합니다. 매번 바뀌는 top-k 청크는 캐시 효과가 없습니다.
 
-### 2-4. 클라이언트 (`ragpod_flutter`)
+### 2-4. 클라이언트 (`pageblink_flutter`)
 
 | 용도 | 패키지 | 버전 | 메모 |
 |---|---|---|---|
@@ -163,7 +163,7 @@ flowchart TB
 | P1 | **`serverpod create` 결과물(server/client/flutter 3종)은 한 폴더에 그대로 둡니다** | `serverpod start`·`generate`는 이 형제 구조를 전제로 합니다(`config/generator.yaml`의 상대 경로). 옮기면 툴링이 깨질 위험이 있습니다 |
 | P2 | **기기와 서버가 "반드시 똑같아야 하는" 로직은 순수 Dart 패키지 하나로 모읍니다** | 청킹, 텍스트 정규화, `contentHash`, 임베딩 프리픽스가 기기와 서버에서 어긋나면 벡터 공간과 중복 제거가 **조용히** 깨집니다 (5-3 임베딩 일관성) |
 | P3 | 공유 패키지는 **Flutter·Serverpod에 의존하지 않습니다** | 서버, 앱, 평가 스크립트 어디서나 import할 수 있어야 합니다 |
-| P4 | 생성 코드(`ragpod_client`, `*.g.dart`)는 **손대지 않는 영역**으로 구분합니다 | 재생성할 때 덮어씌워집니다 |
+| P4 | 생성 코드(`pageblink_client`, `*.g.dart`)는 **손대지 않는 영역**으로 구분합니다 | 재생성할 때 덮어씌워집니다 |
 | P5 | 오늘 밤에 필요 없는 폴더는 **만들지 않습니다** (Phase 표시) | 빈 폴더는 심사위원에게 미완성처럼 보입니다 |
 
 ### 3-2. 디렉터리 트리
@@ -185,7 +185,7 @@ serverpod-hack-2026/                  # 저장소 루트 (= 모노레포)
 │       (각 폴더: README.md = 규칙·템플릿·목차의 유일한 정본)
 │
 ├── app/                              # ── Serverpod 프로젝트 (create 결과, 바깥 폴더명만 변경) ──
-│   ├── ragpod_server/
+│   ├── pageblink_server/
 │   │   ├── bin/main.dart
 │   │   ├── config/
 │   │   │   ├── development.yaml · production.yaml
@@ -213,8 +213,8 @@ serverpod-hack-2026/                  # 저장소 루트 (= 모노레포)
 │   │   │       │   └── llm_provider.dart       # interface + Claude 구현
 │   │   │       └── generated/        # 🤖 자동 생성 (수정 금지)
 │   │   └── test/                     # integration test (serverpod test tools)
-│   ├── ragpod_client/                # 🤖 자동 생성 (수정 금지)
-│   └── ragpod_flutter/
+│   ├── pageblink_client/                # 🤖 자동 생성 (수정 금지)
+│   └── pageblink_flutter/
 │       ├── android/ · ios/ · web/
 │       ├── assets/                   # 아이콘, 데모용 샘플 PDF 1~2개
 │       ├── l10n/                     # app_ko.arb · app_en.arb
@@ -231,14 +231,14 @@ serverpod-hack-2026/                  # 저장소 루트 (= 모노레포)
 │               └── tiers/            # 🅿️1 Device 계층 · 승격 · 원장
 │
 ├── packages/                         # ── 공유 Dart/Flutter 패키지 ──
-│   ├── ragpod_core/                  # 🅿️0.5 순수 Dart (서버 + 앱 공용)
+│   ├── pageblink_core/                  # 🅿️0.5 순수 Dart (서버 + 앱 공용)
 │   │   └── lib/src/
 │   │       ├── chunker.dart          # 페이지 → 문단 → ~400토큰, overlap 15%
 │   │       ├── normalize.dart        # 유니코드 NFC, 공백 정리 (한글 자모 분리 방지)
 │   │       ├── hashing.dart          # contentHash (SHA-256)
 │   │       ├── embedding_spec.dart   # 모델명 · 차원 768 · 프리픽스 · 정규화 규칙
 │   │       └── citation.dart         # 인용 마커 파싱 (서버/앱 동일 해석)
-│   └── ragpod_ondevice/              # 🅿️1 Flutter 패키지: flutter_edge_ai + sqlite-vec 래퍼
+│   └── pageblink_ondevice/              # 🅿️1 Flutter 패키지: flutter_edge_ai + sqlite-vec 래퍼
 │
 ├── services/                         # 🅿️1 Serverpod 밖에서 도는 보조 서비스
 │   └── embedder/                     # EmbeddingGemma 자체 호스팅 (TEI/Ollama Dockerfile)
@@ -256,11 +256,11 @@ serverpod-hack-2026/                  # 저장소 루트 (= 모노레포)
 
 ```mermaid
 flowchart LR
-  core["packages/ragpod_core<br/>(순수 Dart)"]
-  server["ragpod_server"]
-  client["ragpod_client<br/>🤖 생성"]
-  app["ragpod_flutter"]
-  ondev["packages/ragpod_ondevice<br/>🅿️1"]
+  core["packages/pageblink_core<br/>(순수 Dart)"]
+  server["pageblink_server"]
+  client["pageblink_client<br/>🤖 생성"]
+  app["pageblink_flutter"]
+  ondev["packages/pageblink_ondevice<br/>🅿️1"]
   eval["tools/eval"]
   server --> core
   app --> core
@@ -270,8 +270,8 @@ flowchart LR
   client -. 생성 .- server
 ```
 
-- `ragpod_core`는 **아무것에도 의존하지 않습니다** (`crypto` 정도만 허용).
-- `ragpod_server`는 `ragpod_flutter`를 모르고, 앱은 서버 코드를 직접 import하지 않습니다 (반드시 `ragpod_client` 경유).
+- `pageblink_core`는 **아무것에도 의존하지 않습니다** (`crypto` 정도만 허용).
+- `pageblink_server`는 `pageblink_flutter`를 모르고, 앱은 서버 코드를 직접 import하지 않습니다 (반드시 `pageblink_client` 경유).
 - 앱 내부에서도 `features/*` 사이 import는 금지하고, 공통은 `core/`로 올립니다.
 
 ### 3-4. 워크스페이스 도구 & ⚠️ 오늘 밤 주의점
@@ -281,16 +281,16 @@ flowchart LR
 | 워크스페이스 | **Dart pub workspace** (Dart 3.6+ 기본 기능). 루트 `pubspec.yaml`의 `workspace:`에 패키지 경로를 나열하고, 각 패키지에는 `resolution: workspace`. 의존성 해석이 하나로 모여 버전 충돌을 막습니다 |
 | 스크립트 실행 | 처음에는 `tools/scripts/*.sh`로 충분합니다. 패키지가 4개를 넘으면 `melos` 도입을 검토 |
 | ⚠️ Serverpod 템플릿 | `serverpod create`가 이미 자체 workspace를 쓰는지 확인 전입니다. **생성 후 `app/pubspec.yaml` 존재 여부를 보고** 루트 workspace에 합칠지, `app/`을 workspace 루트로 쓸지 정합니다 |
-| ⚠️ **Cloud 배포와 경로 의존성** | `ragpod_server`가 `../../packages/ragpod_core`를 경로 의존성으로 쓰면 **`serverpod cloud deploy`가 서버 폴더 밖 파일을 함께 올리는지 확인되지 않았습니다** |
+| ⚠️ **Cloud 배포와 경로 의존성** | `pageblink_server`가 `../../packages/pageblink_core`를 경로 의존성으로 쓰면 **`serverpod cloud deploy`가 서버 폴더 밖 파일을 함께 올리는지 확인되지 않았습니다** |
 
-> 🧭 **PM 판단 (오늘 밤)**: `ragpod_core`를 **아직 분리하지 않습니다.** 대신 같은 코드를 `ragpod_server/lib/src/rag/`에 두되, **Serverpod import 없이 순수 Dart로만** 작성합니다. 그러면 Phase 1에서 폴더만 옮겨도 패키지가 됩니다.
+> 🧭 **PM 판단 (오늘 밤)**: `pageblink_core`를 **아직 분리하지 않습니다.** 대신 같은 코드를 `pageblink_server/lib/src/rag/`에 두되, **Serverpod import 없이 순수 Dart로만** 작성합니다. 그러면 Phase 1에서 폴더만 옮겨도 패키지가 됩니다.
 > 게이트 **G2**(Cloud 더미 배포) 때 경로 의존성 하나를 함께 넣어 시험하고, 통과하면 내일 바로 분리합니다.
 
 ### 3-5. 이름과 명명 규칙
 
 | 대상 | 규칙 | 예 |
 |---|---|---|
-| 프로젝트명 | **`ragpod`로 확정** (패키지명·DB명에 박힘). 바깥 폴더는 `app/` | `app/ragpod_server` |
+| 프로젝트명 | **`pageblink`로 확정** (제품명 PageBlink, 패키지명·DB명에 박힘, ADR 012). 바깥 폴더는 `app/` | `app/pageblink_server` |
 | Serverpod 모델 | 파일 `snake_case.spy.yaml`, 클래스 `PascalCase`, 테이블 `snake_case` | `doc_chunk.spy.yaml` → `DocChunk` / `doc_chunk` |
 | 엔드포인트 | `<도메인>_endpoint.dart` → 클라이언트에서 `client.<도메인>.<메서드>` | `client.ask.ask(...)` |
 | Flutter 기능 폴더 | `features/<기능>/{data,state,ui}` | `features/chat/state/chat_controller.dart` |

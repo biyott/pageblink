@@ -1,4 +1,6 @@
-# Serverpod Hack 2026
+# ⚡ PageBlink — Serverpod Hack 2026
+
+> **Ask your documents. Blink to the page.** 내 문서에 질문하고, 인용을 탭하면 그 페이지로 점멸.
 
 **Build Something Real: The Serverpod Hackathon** 준비를 위한 리포지토리입니다.
 
@@ -10,7 +12,7 @@
 |---|---|
 | 📐 [docs/plan](docs/plan/README.md) | 기획·설계: [주제 선정](docs/plan/001-hackathon-topic-report.md) · [RAG 비서 기획·아키텍처](docs/plan/002-rag-assistant-plan.md) · [기술 스택 & 준비](docs/plan/003-tech-stack-and-prep.md) · [이름 후보 & 기능 용어집](docs/plan/004-naming-and-feature-vocabulary.md) |
 | 🔎 [docs/research](docs/research/README.md) | 서브에이전트 조사 결과 14건 (출처 포함) |
-| ⚖️ [docs/adr](docs/adr/README.md) | 결정 기록 11건 |
+| ⚖️ [docs/adr](docs/adr/README.md) | 결정 기록 12건 |
 | 🧪 [docs/devlog](docs/devlog/README.md) | 개발 과정 기록 (수행 일시 포함) |
 
 ## 개요

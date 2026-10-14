@@ -1,9 +1,9 @@
-# AGENTS.md — ragpod 에이전트 공통 지침
+# AGENTS.md — PageBlink 에이전트 공통 지침
 
-이 저장소는 **ragpod**(Flutter + Serverpod 하이브리드 문서 RAG 앱, Serverpod 해커톤 2026)의 모노레포입니다.
+이 저장소는 **PageBlink**(Flutter + Serverpod 하이브리드 문서 RAG 앱, Serverpod 해커톤 2026)의 모노레포입니다.
 
 ## 구조
-- `app/` — Serverpod 프로젝트 (`ragpod_server`, `ragpod_client`(자동 생성, 수정 금지), `ragpod_flutter`)
+- `app/` — Serverpod 프로젝트 (`pageblink_server`, `pageblink_client`(자동 생성, 수정 금지), `pageblink_flutter`)
 - `packages/` — 공유 패키지 (Phase 1부터)
 - `docs/` — 문서. **종류별 폴더 규칙은 `docs/README.md`와 각 폴더 `README.md`가 정본**입니다
 

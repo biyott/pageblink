@@ -3,10 +3,10 @@
 | 항목 | 값 |
 |---|---|
 | 작성일 | 2026-10-14 (KST) |
-| 최종 수정 | 2026-10-14 23:39 KST |
+| 최종 수정 | 2026-10-14 23:44 KST |
 | 근거 | [research 010](../research/010-product-naming.md) · [011](../research/011-product-naming-global.md) · [012](../research/012-product-naming-burrow-game-terms.md) · [013](../research/013-product-naming-warp-game-skills.md) |
 | 관련 문서 | [002 기획·아키텍처](002-rag-assistant-plan.md) (프라이버시 3계층) · [003 기술 스택](003-tech-stack-and-prep.md) |
-| 상태 | **결정 대기** (이름 미확정 → 확정 시 ADR 작성 후 이 문서에 반영) |
+| 상태 | **✅ PageBlink 확정 (ADR 012)** (이름 미확정 → 확정 시 ADR 작성 후 이 문서에 반영) |
 
 > 이 문서는 4차례 조사한 이름 후보를 **한곳에서 훑어보기 위한 목록**입니다. 평가·위험은 research에서 그대로 가져왔고, 새로 확인한 충돌 사실은 없습니다.
 > 표기: ✅ 확인 · ⚠️ 미확인 · `—` research에 정보 없음
@@ -217,7 +217,7 @@ flowchart LR
 | 4 | **도메인** (.app / .dev) 확인 | 미확인 ⚠️ |
 | 5 | **Serverpod Cloud ID** 사용 가능 여부 | `serverpod cloud project create <id>` 로 확인 (010) |
 | 6 | 결정 후 **ADR 작성** → 이 문서·README 반영 | [`../adr/`](../adr/) |
-| 7 | 코드 패키지명 **`ragpod_*` 유지 권장** | 앱 표시 이름·Cloud 프로젝트 ID만 새 이름 적용 (010) |
+| 7 | ~~코드 패키지명 `ragpod_*` 유지~~ → **PageBlink 확정, 패키지까지 `pageblink_*`로 변경 (ADR 012)** | 사용자 결정 2026-10-14 |
 | 8 | 선택한 이름과 §4 용어의 조합 확정 (예: Pagewarp + "Ask. Warp to the page.") | 태그라인은 research에 있는 2개만 존재 |
 
 ## 변경 이력
@@ -226,3 +226,4 @@ flowchart LR
 |---|---|
 | 2026-10-14 23:30 | 최초 작성 (research 010–013 통합, 후보 50개, 기능 용어집) |
 - `2026-10-14 23:39` PageBlink·Blink 계열 추가 (research 014)
+- `2026-10-14 23:44` 이름 PageBlink 확정, 패키지명까지 변경 (ADR 012)

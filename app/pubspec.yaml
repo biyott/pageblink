@@ -5,7 +5,7 @@ environment:
   sdk: '^3.12.2'
 
 workspace:
-  - ragpod_client
-  - ragpod_server
-  - ragpod_flutter
+  - pageblink_client
+  - pageblink_server
+  - pageblink_flutter
 

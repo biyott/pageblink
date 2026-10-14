@@ -1,0 +1,30 @@
+services:
+  # Development services
+  postgres:
+    image: ghcr.io/serverpod/postgres:16
+    ports:
+      - "8090:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: pageblink
+      POSTGRES_PASSWORD: "ccdXAGg3QDbW8w62NSq70ygJUDCVGXfh"
+    volumes:
+      - pageblink_data:/var/lib/postgresql/data
+
+
+  # Test services
+  postgres_test:
+    image: ghcr.io/serverpod/postgres:16
+    ports:
+      - "9090:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: pageblink_test
+      POSTGRES_PASSWORD: "44Sn0pbfBcaNg5cX9hJGI9RSyEOQgcrc"
+    volumes:
+      - pageblink_test_data:/var/lib/postgresql/data
+
+
+volumes:
+  pageblink_data:
+  pageblink_test_data:

@@ -7,9 +7,9 @@
       "command": "serverpod",
       "args": ["start"],
       "options": {
-        "cwd": "${workspaceFolder}/ragpod_server",
+        "cwd": "${workspaceFolder}/pageblink_server",
         "env": {
-          "SERVERPOD_PASSWORD_database": "U1hsIjgxLB8AlnclwUvbrYHoJ4VFrXXN",
+          "SERVERPOD_PASSWORD_database": "ccdXAGg3QDbW8w62NSq70ygJUDCVGXfh",
           // Marks a `serverpod start` launched from the IDE, which is the
           // only kind that honors the Flutter device picked in VS Code. A run
           // started from a plain terminal carries no marker, so a device file

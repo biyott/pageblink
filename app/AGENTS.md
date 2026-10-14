@@ -19,7 +19,7 @@ ALWAYS use the MCP server instead of the command line. Use the MCP server to:
 - `spawn_flutter_app` to start a Flutter app declared under `serverpod: flutter_apps:` in the server `pubspec.yaml`.
 - `get_flutter_app_dtd` (Dart tooling daemon) for connecting to the app through the `dart` MCP.
 
-NEVER edit generated code. The server's `lib/src/generated/` directory and the whole `ragpod_client` package are rewritten by the code generator. Change the `.spy.yaml` models, the endpoints, or `lib/server.dart` instead.
+NEVER edit generated code. The server's `lib/src/generated/` directory and the whole `pageblink_client` package are rewritten by the code generator. Change the `.spy.yaml` models, the endpoints, or `lib/server.dart` instead.
 
 Migrations are a narrow exception: the `migration.sql` of a generated migration MAY be edited by hand when the generated SQL would lose data — to add a data transformation, or to reach a destructive change through non-destructive steps. Never touch the other files in the migration directory, and keep the schema the SQL ends up with identical to `definition.sql` — new databases are created from that file and never run `migration.sql`.
 
@@ -45,6 +45,6 @@ If the user asks you to test the app:
 2. Pass the DTD to `connect_dart_tooling_daemon` (`dart` MCP) to connect to the app
 3. Use `flutter_driver` (`dart` MCP) to navigate through the app
 
-The app is launched from `ragpod_flutter/lib/driver.dart`, which starts the Flutter driver extension with text entry emulation turned off so the app stays usable by hand. To let the driver type, set `enableTextEntryEmulation: true` there and `hot_restart` the app.
+The app is launched from `pageblink_flutter/lib/driver.dart`, which starts the Flutter driver extension with text entry emulation turned off so the app stays usable by hand. To let the driver type, set `enableTextEntryEmulation: true` there and `hot_restart` the app.
 
 IMPORTANT: After building the first version of the app, update this AGENTS.md file with information about the app we're building. KEEP the info about the MCP server and the checklist. Remove this paragraph.

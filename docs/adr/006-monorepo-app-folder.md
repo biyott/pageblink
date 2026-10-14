@@ -2,7 +2,7 @@
 
 | 상태 | 결정일 | 근거 |
 |---|---|---|
-| 채택 | 2026-10-14 | 사용자 결정 · [plan 003 §3](../plan/003-tech-stack-and-prep.md) |
+| 일부 대체됨: [012](012-product-name-pageblink.md) (패키지명) | 2026-10-14 | 사용자 결정 · [plan 003 §3](../plan/003-tech-stack-and-prep.md) |
 
 ## 결정
 - `serverpod create ragpod` 후 바깥 폴더만 `app/`으로 변경 → `app/{ragpod_server, ragpod_client, ragpod_flutter}`

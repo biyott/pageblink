@@ -41,3 +41,4 @@
 | [009](009-device-tier-privacy-and-sync.md) | Device 계층 프라이버시 · 승격 · 동기화 원칙 | 채택 |
 | [010](010-acl-in-query.md) | 접근 제어는 검색 쿼리 안에서, 서버가 멤버십 계산 | 채택 |
 | [011](011-readme-only-folder-rules.md) | 폴더 규칙은 README.md만 (폴더별 AGENTS.md 제거) | 채택 |
+| [012](012-product-name-pageblink.md) | 제품 이름 PageBlink, 패키지명까지 변경 | 채택 (006 일부 대체) |
