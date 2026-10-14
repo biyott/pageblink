@@ -587,8 +587,9 @@ class _AskEndpoint {
     String question,
     List<int> projectIds,
     bool includePersonal,
-    String? modelId,
-  ) {
+    String? modelId, [
+    String? locale,
+  ]) {
     var _localTestStreamManager =
         _ist.TestStreamManager<_i16h3xsg.AnswerEvent>();
     _ist.callStreamFunctionAndHandleExceptions(
@@ -608,6 +609,7 @@ class _AskEndpoint {
                 'projectIds': projectIds,
                 'includePersonal': includePersonal,
                 'modelId': modelId,
+                'locale': locale,
               },
               requestedInputStreams: [],
               serializationManager: _serializationManager,

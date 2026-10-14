@@ -1,0 +1,777 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PageBlink · AB v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=Noto+Serif+KR:wght@600&family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --s1:8px;--s2:16px;--s3:24px;--s4:32px;
+  --r-card:16px;--r-panel:24px;--r-btn:14px;--r-frame:28px;
+  color-scheme:light dark;
+
+  --bg0:#EDE6FA; --bg1:#F7E8EE; --bg2:#FFE9DC;
+  --blobL:rgba(205,187,250,.55); --blobP:rgba(255,201,168,.55);
+  --glass:rgba(255,255,255,.62); --glass2:rgba(255,255,255,.74); --glass-b:rgba(255,255,255,.80); --glass-hl:rgba(255,255,255,.65);
+  --glass-sh:0 8px 24px rgba(108,76,245,.10);
+  --ink:#1F1B16; --ink2:#4A4238; --muted:#6B6358; --hair:#E4DDD0; --hair2:rgba(31,27,22,.16);
+  --accent:#6C4CF5; --on-accent:#FFFFFF; --accent-c:#EAE4FD; --on-accent-c:#2E1F85; --accent-line:rgba(108,76,245,.55);
+  --grad:linear-gradient(135deg,#6C4CF5,#8F6BFF); --on-grad:#fff; --accent-glow:rgba(108,76,245,.35); --hl:rgba(108,76,245,.18);
+  --note-butter:#FFF1B8; --note-mint:#D9F0E1; --note-peach:#FFDCCB; --note-sky:#D6E8F8; --note-lilac:#E9E3FC;
+  --note-border:rgba(31,27,22,.10); --note-sh:0 2px 8px rgba(31,27,22,.06); --note-sh-h:0 6px 16px rgba(31,27,22,.10);
+  --tile:rgba(31,27,22,.08); --badge:rgba(31,27,22,.06);
+  --paper:#FFFFFF; --thumb-bg:rgba(31,27,22,.045);
+  --warn:#B45309; --warn-c:#FEF3C7; --warn-line:rgba(180,83,9,.55); --warn-tint:#FFF8EC; --success:#16A34A;
+  --chip-bg:rgba(255,255,255,.55); --scrim:rgba(30,22,12,.40); --sheet:rgba(255,253,250,.86);
+  --page:#EFE9E1; --page-ink:#3a342b; --seg-on:#1F1B16; --seg-on-ink:#FFFDF8; --grain:.045;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg0:#1E1830; --bg1:#231B2A; --bg2:#2A1F1C;
+  --blobL:rgba(108,76,245,.22); --blobP:rgba(255,154,107,.14);
+  --glass:rgba(255,255,255,.08); --glass2:rgba(255,255,255,.12); --glass-b:rgba(255,255,255,.16); --glass-hl:rgba(255,255,255,.10);
+  --glass-sh:0 8px 24px rgba(0,0,0,.30);
+  --ink:#F2EDE3; --ink2:#D6CFC2; --muted:#A59D8F; --hair:rgba(255,255,255,.14); --hair2:rgba(255,255,255,.22);
+  --accent:#B7A6FF; --on-accent:#251A63; --accent-c:#3A2F7A; --on-accent-c:#E9E3FC; --accent-line:rgba(183,166,255,.5);
+  --grad:linear-gradient(135deg,#6C4CF5,#7A5CFF); --on-grad:#fff; --accent-glow:rgba(150,128,255,.45); --hl:rgba(108,76,245,.18);
+  --note-butter:#4A3F16; --note-mint:#1F3D2C; --note-peach:#4D2E21; --note-sky:#1F3548; --note-lilac:#35295E;
+  --note-border:rgba(255,255,255,.12); --note-sh:0 2px 8px rgba(0,0,0,.35); --note-sh-h:0 8px 18px rgba(0,0,0,.5);
+  --tile:rgba(255,255,255,.12); --badge:rgba(255,255,255,.10);
+  --paper:#2A2620; --thumb-bg:rgba(255,255,255,.05);
+  --warn:#FBBF24; --warn-c:#3A2A0A; --warn-line:rgba(251,191,36,.5); --warn-tint:#2D2410; --success:#4ADE80;
+  --chip-bg:rgba(255,255,255,.05); --scrim:rgba(0,0,0,.55); --sheet:rgba(40,33,44,.88);
+  --page:#0F0D0B; --page-ink:#cfc7b8; --seg-on:#F2EDE3; --seg-on-ink:#1B1814; --grain:.07;
+}}
+:root[data-theme="dark"]{
+  --bg0:#1E1830; --bg1:#231B2A; --bg2:#2A1F1C;
+  --blobL:rgba(108,76,245,.22); --blobP:rgba(255,154,107,.14);
+  --glass:rgba(255,255,255,.08); --glass2:rgba(255,255,255,.12); --glass-b:rgba(255,255,255,.16); --glass-hl:rgba(255,255,255,.10);
+  --glass-sh:0 8px 24px rgba(0,0,0,.30);
+  --ink:#F2EDE3; --ink2:#D6CFC2; --muted:#A59D8F; --hair:rgba(255,255,255,.14); --hair2:rgba(255,255,255,.22);
+  --accent:#B7A6FF; --on-accent:#251A63; --accent-c:#3A2F7A; --on-accent-c:#E9E3FC; --accent-line:rgba(183,166,255,.5);
+  --grad:linear-gradient(135deg,#6C4CF5,#7A5CFF); --on-grad:#fff; --accent-glow:rgba(150,128,255,.45); --hl:rgba(108,76,245,.18);
+  --note-butter:#4A3F16; --note-mint:#1F3D2C; --note-peach:#4D2E21; --note-sky:#1F3548; --note-lilac:#35295E;
+  --note-border:rgba(255,255,255,.12); --note-sh:0 2px 8px rgba(0,0,0,.35); --note-sh-h:0 8px 18px rgba(0,0,0,.5);
+  --tile:rgba(255,255,255,.12); --badge:rgba(255,255,255,.10);
+  --paper:#2A2620; --thumb-bg:rgba(255,255,255,.05);
+  --warn:#FBBF24; --warn-c:#3A2A0A; --warn-line:rgba(251,191,36,.5); --warn-tint:#2D2410; --success:#4ADE80;
+  --chip-bg:rgba(255,255,255,.05); --scrim:rgba(0,0,0,.55); --sheet:rgba(40,33,44,.88);
+  --page:#0F0D0B; --page-ink:#cfc7b8; --seg-on:#F2EDE3; --seg-on-ink:#1B1814; --grain:.07;
+}
+:root[data-theme="light"]{color-scheme:light}
+
+*{box-sizing:border-box;margin:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--page);color:var(--page-ink);font:14px/1.45 Inter,"Noto Sans KR",system-ui,sans-serif;padding:0 16px 56px}
+.serif{font-family:Fraunces,"Noto Serif KR",Georgia,serif}
+.i{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.i.bolt,.bolt{fill:currentColor;stroke:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+
+/* page chrome */
+.top{max-width:1440px;margin:0 auto;padding:24px 0 16px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+.top h1{font-size:28px;line-height:1.2;font-weight:600;color:var(--ink)}
+.top p{color:var(--muted);margin-top:4px;max-width:760px}
+.ctl{display:flex;gap:8px;flex-wrap:wrap}
+.seg{display:inline-flex;padding:4px;border-radius:999px;background:var(--badge);gap:2px}
+.seg button{padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:500;color:var(--muted)}
+.seg button.on{background:var(--seg-on);color:var(--seg-on-ink)}
+section.sec{max-width:1440px;margin:40px auto 0}
+.sec-h{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.sec-h .n,.plabel .n{width:28px;height:28px;border-radius:50%;background:var(--seg-on);color:var(--seg-on-ink);display:grid;place-items:center;font-size:13px;font-weight:600;flex:none}
+.sec-h h2{font-size:22px;font-weight:600;color:var(--ink)}
+.sec-h .d{color:var(--muted);font-size:13px}
+.row{display:flex;gap:44px;flex-wrap:wrap;align-items:flex-start;padding:11px}
+.plabel{display:flex;align-items:center;gap:12px;margin:0 0 22px;font-weight:600;font-size:15px;color:var(--ink)}
+.cap{margin-top:16px;max-width:390px;color:var(--muted);font-size:12.5px}
+.cap b{color:var(--ink);font-weight:600}
+
+/* frame = gradient + corner glows + grain */
+.frame{position:relative;overflow:hidden;color:var(--ink);isolation:isolate;
+  background:
+    radial-gradient(58% 62% at 0% 0%,var(--blobL),transparent 72%),
+    radial-gradient(56% 62% at 100% 100%,var(--blobP),transparent 72%),
+    linear-gradient(155deg,var(--bg0),var(--bg1) 52%,var(--bg2));
+  box-shadow:0 30px 60px -28px rgba(60,40,10,.4),0 0 0 1px var(--hair)}
+.frame::after{content:"";position:absolute;inset:0;z-index:60;pointer-events:none;opacity:var(--grain);mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .3  0 0 0 0 .22  0 0 0 0 .12  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+.frame>*{position:relative;z-index:1}
+
+/* glass: only on shell surfaces. L1 62% (sidebar/panel/nav) < L2 74% (answer, composer, suggestion cards) */
+.glass{background:var(--glass);border:1px solid var(--glass-b);border-radius:var(--r-panel);box-shadow:var(--glass-sh),inset 0 1px 0 var(--glass-hl);
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4)}
+.glass2{background:var(--glass2);border:1px solid var(--glass-b);box-shadow:var(--glass-sh),inset 0 1px 0 var(--glass-hl)}
+
+/* ---------- shared components ---------- */
+.logo{display:flex;align-items:center;gap:8px}
+.logo .bolt{width:24px;height:24px;color:var(--accent)}
+.logo b{font-family:Fraunces,"Noto Serif KR",serif;font-size:22px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:var(--r-btn);font-weight:600;font-size:14px;white-space:nowrap;transition:background .16s,box-shadow .16s,transform .08s}
+.btn-primary{color:var(--on-accent);background:var(--accent);box-shadow:0 8px 20px -8px var(--accent-glow)}
+.btn-primary:hover{box-shadow:0 10px 24px -6px var(--accent-glow)}
+.btn-secondary{color:var(--ink);background:var(--glass2);border:1px solid var(--glass-b);box-shadow:0 1px 2px rgba(31,27,22,.05)}
+.btn-secondary:hover{background:var(--glass-b)}
+.btn-warn{height:32px;padding:0 12px;font-size:12.5px;color:var(--warn);border:1px solid var(--warn-line);background:transparent;border-radius:999px}
+
+.search{display:flex;align-items:center;gap:12px;height:44px;padding:0 16px;border-radius:16px;color:var(--muted);flex:1;min-width:0;font-size:14px}
+.search .kbd{margin-left:auto}
+.kbd{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:6px;border:1px solid var(--hair2);font-size:11px;font-weight:500;color:var(--muted);background:var(--chip-bg)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:999px;font-size:13px;font-weight:500;background:var(--glass2);border:1px solid var(--hair);color:var(--ink);white-space:nowrap}
+.chip .ct{opacity:.65;font-weight:400}
+.chip.on{background:var(--accent-c);border-color:var(--accent-line);color:var(--on-accent-c)}
+.chip.on .i{width:14px;height:14px;stroke-width:2.4;color:var(--accent)}
+.chip.sm{height:28px;padding:0 10px;font-size:12.5px}
+.chip.warn{background:var(--warn-c);color:var(--warn);border-color:var(--warn-line)}
+.chip .i{width:14px;height:14px}
+
+.badge{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--badge);font-size:12px;font-weight:500;color:var(--ink)}
+.badge .i{width:13px;height:13px;stroke-width:2}
+
+.icb{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--ink2);background:var(--glass2);border:1px solid var(--glass-b)}
+.icb .i{width:18px;height:18px}
+.round-plus{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--hair2);color:var(--ink2);background:var(--chip-bg)}
+.round-plus .i{width:15px;height:15px;stroke-width:2.2}
+
+/* inline citation + bottom citation chip (violet = citations only) */
+.nw{white-space:nowrap}
+.cite{display:inline-flex;align-items:center;gap:1px;height:18px;padding:0 6px 0 4px;margin:0 0 0 3px;border-radius:999px;background:var(--accent-c);color:var(--on-accent-c);font-size:12px;font-weight:600;line-height:1;vertical-align:-3px;cursor:pointer}
+.cite .bolt{width:12px;height:12px;color:var(--accent)}
+.cchip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 9px;border-radius:999px;background:var(--chip-bg);color:var(--on-accent-c);border:1px solid var(--accent-line);font-size:13px;font-weight:500;white-space:nowrap}
+.cchip .bolt{width:13px;height:13px;color:var(--accent)}
+.cchip i{font-style:normal;color:var(--muted);font-weight:400}
+:root[data-theme="dark"] .cchip{color:var(--accent)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .cchip{color:var(--accent)}}
+
+/* ---------- note / pdf cards: solid pastel + hairline, never glass ---------- */
+.note{position:relative;border-radius:var(--r-card);padding:16px;background:var(--c);border:1px solid var(--note-border);box-shadow:var(--note-sh);color:var(--ink);transition:box-shadow .16s}
+.note:hover{box-shadow:var(--note-sh-h)}
+.butter{--c:var(--note-butter)}.mint{--c:var(--note-mint)}.peach{--c:var(--note-peach)}.sky{--c:var(--note-sky)}.lilac{--c:var(--note-lilac)}
+.note.pdf{--c:var(--paper)}
+.nh{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.kt{width:32px;height:32px;border-radius:10px;background:var(--tile);display:grid;place-items:center;color:var(--ink);flex:none}
+.kt .i{width:17px;height:17px}
+.km{font-size:12px;color:var(--muted);line-height:1.2}
+.note-title{font-family:Fraunces,"Noto Serif KR",serif;font-size:18px;line-height:1.25;font-weight:600;color:var(--ink);word-break:keep-all;overflow-wrap:break-word}
+.note-prev{margin-top:8px;font-size:14px;line-height:1.5;color:var(--ink2)}
+.note-prev b{color:var(--ink);font-weight:600}
+.checks{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:2px}
+.checks li{display:flex;align-items:center;gap:8px;min-height:28px;font-size:14px;color:var(--ink)}
+.checks .bx{width:16px;height:16px;border-radius:5px;border:1.6px solid var(--muted);flex:none;display:grid;place-items:center}
+.checks .done{color:var(--muted);text-decoration:line-through}
+.checks .done .bx{background:var(--ink);border-color:var(--ink);color:var(--c,var(--paper))}
+.checks .done .bx .i{width:11px;height:11px;stroke-width:3}
+.bullets{list-style:none;padding:0;margin:8px 0 0;display:grid;gap:6px;font-size:14px;color:var(--ink2)}
+.bullets li{position:relative;padding-left:14px}
+.bullets li::before{content:"";position:absolute;left:1px;top:.62em;width:5px;height:5px;border-radius:50%;background:var(--muted)}
+.note-foot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:8px}
+.cited{box-shadow:0 0 0 1.5px var(--accent-line),0 6px 18px -6px var(--accent-glow)}
+.tag{position:absolute;top:-10px;right:14px;display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 8px 0 6px;border-radius:999px;background:var(--accent);color:var(--on-accent);font-size:11.5px;font-weight:600;box-shadow:0 4px 10px -2px var(--accent-glow)}
+.tag .bolt{width:11px;height:11px}
+
+.thumbwrap{margin-top:12px;height:116px;border-radius:12px;background:var(--thumb-bg);padding:14px 22px 0;overflow:hidden}
+.page{position:relative;background:#fff;border-radius:6px 6px 0 0;box-shadow:0 2px 8px rgba(31,27,22,.14);padding:12px 12px 8px;height:140px;overflow:hidden}
+:root[data-theme="dark"] .page{background:#F7F3EA}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .page{background:#F7F3EA}}
+.page .h{height:6px;width:46%;border-radius:2px;background:#2a2620;margin-bottom:8px}
+.page .ln{height:30px;background:repeating-linear-gradient(to bottom,rgba(40,34,26,.2) 0 2px,transparent 2px 7px);margin-bottom:6px}
+.page .hl{background:var(--hl);border-radius:3px;margin:0 -4px 6px;padding:3px 4px}
+.page .hl .ln{margin:0;height:22px}
+.page .pn{position:absolute;right:8px;bottom:5px;font-size:9px;color:#8a8478}
+.pdfrow{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.page.sm{width:44px;height:58px;padding:7px 6px;border-radius:5px;flex:none;box-shadow:0 2px 6px rgba(31,27,22,.18)}
+.page.sm .h{height:3px;margin-bottom:5px}
+.page.sm .ln{height:26px;background:repeating-linear-gradient(to bottom,rgba(40,34,26,.22) 0 1.5px,transparent 1.5px 5px);margin:0}
+.fail{border:1.5px solid var(--warn-line);background:var(--warn-tint)}
+.fail .state{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin-top:12px;padding:10px;border-radius:12px;background:var(--warn-c);color:var(--warn);font-weight:600;font-size:13px}
+.fail .state .t{display:flex;align-items:center;gap:8px}
+.fail .state .i{width:16px;height:16px}
+
+.fail .why{margin-top:8px;font-size:12px;color:var(--ink2)}
+
+/* ---------- desktop ---------- */
+.desk-holder{max-width:100%;overflow-x:hidden}
+.desk{width:1440px;height:900px;display:grid;grid-template-columns:240px 1fr 380px;gap:24px;padding:24px;border-radius:var(--r-frame);font-size:14px}
+.desk.ask-view{grid-template-columns:240px 1fr}
+.side{display:flex;flex-direction:column;padding:24px 16px 16px;height:100%}
+.tagline{margin:10px 0 0 2px;font-size:12px;line-height:1.45;color:var(--muted)}
+.nav{margin-top:28px;display:grid;gap:4px}
+.nav a{display:flex;align-items:center;gap:12px;height:40px;padding:0 12px;border-radius:12px;font-weight:500;color:var(--ink2)}
+.nav a.on{background:var(--accent);color:var(--on-accent);box-shadow:0 6px 16px -8px var(--accent-glow)}
+.nav a .k{margin-left:auto;font-size:11.5px;opacity:.8}
+.side .lbl{margin:28px 0 8px 12px}
+.tier{display:flex;align-items:center;gap:12px;min-height:44px;padding:6px 12px;border-radius:12px}
+.tier .dot{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none;background:var(--c);border:1px solid var(--note-border);color:var(--ink)}
+.tier .dot .i{width:15px;height:15px}
+.tier b{display:block;font-weight:500;font-size:13.5px;line-height:1.25}
+.tier small{display:block;font-size:11.5px;color:var(--muted);line-height:1.3}
+.tier .n{margin-left:auto;font-size:11.5px;color:var(--muted)}
+.tier.off{opacity:.62}
+.soon{margin-left:auto;font-size:10px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--badge);color:var(--muted)}
+.hints{margin-top:auto;display:grid;gap:8px;padding:14px 12px 0;border-top:1px solid var(--hair);font-size:12px;color:var(--muted)}
+.hints div{display:flex;align-items:center;gap:8px}
+
+.board{display:flex;flex-direction:column;min-width:0;height:100%;overflow:hidden;padding-top:8px}
+.board-h h1{font-size:32px;line-height:1.2;font-weight:600;letter-spacing:-.3px;color:var(--ink)}
+.board-h p{color:var(--muted);margin-top:4px;font-size:13px}
+.toolbar{display:flex;gap:12px;margin-top:20px}
+.filters{display:flex;gap:8px;margin-top:16px}
+.sect{display:flex;align-items:center;justify-content:space-between;margin-top:22px}
+.masonry{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start;margin-top:14px;padding-top:12px;flex:1;min-height:0;overflow:hidden;
+  -webkit-mask-image:linear-gradient(#000 90%,transparent);mask-image:linear-gradient(#000 90%,transparent)}
+.col{display:grid;gap:16px}
+
+.ask{display:flex;flex-direction:column;height:100%;padding:20px 20px 16px}
+.ask-h{display:flex;align-items:center;justify-content:space-between;padding-top:4px}
+.ask-h h2{font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-.3px;display:flex;align-items:center;gap:8px;color:var(--ink)}
+.ask-h h2 .bolt{width:22px;height:22px;color:var(--accent)}
+.ask-h .acts{display:flex;gap:8px}
+.convo{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:12px;padding-top:20px}
+.stamp{align-self:center;font-size:11.5px;color:var(--muted)}
+.ub{align-self:flex-end;max-width:80%;padding:12px 16px;border-radius:18px 18px 6px 18px;background:var(--grad);color:var(--on-grad);font-size:15px;line-height:1.45;font-weight:500;box-shadow:0 8px 20px -10px var(--accent-glow)}
+.steps{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);padding-left:4px}
+.steps .i{width:14px;height:14px;color:var(--success);stroke-width:2.4}
+.steps .i.c{color:var(--muted);margin-left:2px;stroke-width:2}
+.ab{align-self:flex-start;max-width:92%;padding:16px;border-radius:6px 18px 18px 18px;color:var(--ink);font-size:15px;line-height:1.55}
+.ab p+p{margin-top:10px}
+.ab b{font-weight:600}
+.ab hr{border:0;border-top:1px solid var(--hair);margin:14px 0 12px}
+.ab .lbl{margin-bottom:8px}
+.src{display:flex;flex-wrap:wrap;gap:8px}
+.acts-row{display:flex;align-items:center;gap:4px;margin-top:12px;color:var(--muted)}
+.acts-row .i{width:20px;height:20px}
+.acts-row .ab-i{width:32px;height:32px;display:grid;place-items:center;border-radius:8px}
+.acts-row small{margin-left:auto;font-size:11.5px}
+
+/* composer: scope chips / input / [attach · model · send] */
+.composer{position:relative;border-radius:20px;padding:12px 12px 10px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--glass-b)}
+.composer .scopes{display:flex;gap:6px;flex-wrap:wrap}
+.composer .in{display:flex;align-items:center;min-height:56px;padding:0 4px;font-size:15px;color:var(--muted)}
+.composer.m .in{min-height:52px}
+.composer .bot{display:flex;align-items:center;gap:8px}
+.attach{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:var(--ink2);border:1px solid var(--hair)}
+.attach .i{width:18px;height:18px}
+.model{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 8px 0 12px;border-radius:999px;border:1px solid var(--hair);font-weight:500;font-size:12.5px;color:var(--ink2)}
+.model em{font-style:normal;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:999px;background:var(--note-mint);color:var(--ink);border:1px solid var(--note-border)}
+.model .i{width:15px;height:15px;color:var(--muted)}
+.send{margin-left:auto;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--on-accent);background:var(--accent);box-shadow:0 8px 16px -6px var(--accent-glow)}
+.send .i{width:18px;height:18px;stroke-width:2.2}
+.send.off{background:var(--hair);color:var(--muted);box-shadow:none}
+.composer.focus::after{content:"";position:absolute;left:18px;right:18px;bottom:-1px;height:2px;border-radius:2px;background:var(--accent);box-shadow:0 0 16px 2px var(--accent-glow);opacity:.9}
+.disc{margin-top:10px;text-align:center;font-size:11.5px;color:var(--muted)}
+.caretbar{display:inline-block;width:1.5px;height:18px;background:var(--accent);margin-right:2px;vertical-align:-4px}
+
+/* ask empty state */
+.stage{display:flex;flex-direction:column;height:100%;padding:20px 28px 20px;
+  background-image:radial-gradient(60% 38% at 50% 0%,rgba(205,187,250,.40),transparent 72%),radial-gradient(40% 30% at 82% 0%,rgba(255,201,168,.30),transparent 72%)}
+.stage .topbar{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted)}
+.stage .mid{margin:auto;width:760px;max-width:100%;display:flex;flex-direction:column;align-items:center;padding-bottom:12px}
+.emblem{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;color:var(--accent);box-shadow:var(--glass-sh)}
+.emblem .bolt{width:28px;height:28px}
+.hero{margin-top:22px;font-size:40px;line-height:1.15;font-weight:600;letter-spacing:-.4px;text-align:center;color:var(--ink)}
+.herosub{margin-top:10px;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:center}
+.sug{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:32px;width:100%}
+.sugc{height:124px;border-radius:16px;padding:14px;display:flex;flex-direction:column}
+.sugc .kt{width:32px;height:32px;background:var(--c);border:1px solid var(--note-border)}
+.sugc b{margin-top:10px;font-size:14px;font-weight:600;line-height:1.25}
+.sugc small{margin-top:2px;font-size:12px;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.stage .composer{width:100%;margin-top:28px}
+
+/* ---------- phones ---------- */
+.phone{width:390px;height:844px;border-radius:44px;box-shadow:0 0 0 10px #1d1a17,0 0 0 11px #4a443c,0 40px 70px -24px rgba(40,25,10,.55)}
+.sb{position:absolute;top:0;left:0;right:0;height:44px;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:6px 28px 0 32px;font-size:15px;font-weight:600;color:var(--ink)}
+.sb svg{width:66px;height:12px;fill:currentColor}
+.home{position:absolute;bottom:8px;left:50%;width:134px;height:5px;margin-left:-67px;border-radius:3px;background:var(--ink);opacity:.85;z-index:55}
+.m-head{position:absolute;top:44px;left:0;right:0;padding:8px 16px 0}
+.m-title{display:flex;align-items:center;justify-content:space-between}
+.m-title small{display:block;font-size:14px;color:var(--muted);margin-bottom:2px}
+.m-title h1{font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-.3px;color:var(--ink);display:flex;align-items:center;gap:8px}
+.m-title h1 .bolt{width:24px;height:24px;color:var(--accent)}
+.askpill{display:flex;align-items:center;gap:10px;height:48px;margin-top:14px;padding:0 6px 0 16px;border-radius:999px;color:var(--muted);font-size:14.5px}
+.askpill>span:first-child{flex:1}
+.askpill .go{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--on-accent);box-shadow:0 6px 14px -6px var(--accent-glow)}
+.askpill .go .bolt{width:16px;height:16px}
+.m-scroll{position:absolute;top:196px;left:0;right:0;bottom:0;padding:0 16px 176px;overflow:hidden}
+.m-sect{display:flex;justify-content:space-between;align-items:center;margin:0 0 10px}
+.m-sect a{font-size:12.5px;font-weight:500;color:var(--muted)}
+.m-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.m-grid .col{gap:12px}
+.m .note{padding:12px}
+.m .nh{margin-bottom:10px;gap:8px}
+.m .kt{width:28px;height:28px;border-radius:9px}
+.m .kt .i{width:15px;height:15px}
+.m .km{font-size:11.5px}
+.m .note-title{font-size:16px}
+.m .note-prev{font-size:12.5px;margin-top:6px;line-height:1.45}
+.m .checks{margin-top:8px}
+.m .checks li{min-height:24px;font-size:12.5px;gap:6px}
+.m .checks .bx{width:15px;height:15px}
+.m .bullets{font-size:12.5px;gap:4px;margin-top:6px}
+.m .note-foot{margin-top:8px}
+.m .badge{height:22px;padding:0 8px;font-size:11px}
+.m .fail .state{margin-top:8px;font-size:12px;padding:8px;gap:6px}
+.m .fail .btn-warn{height:28px}
+.m .tag{right:12px}
+
+.bnav{position:absolute;left:0;right:0;bottom:0;height:84px;z-index:20;display:flex;justify-content:space-around;padding:8px 16px 0;border-radius:24px 24px 0 0;border-bottom:0}
+.bnav a{width:96px;height:54px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:500;color:var(--muted)}
+.bnav a .pill{width:56px;height:30px;border-radius:15px;display:grid;place-items:center}
+.bnav a.on{color:var(--accent);font-weight:600}
+:root[data-theme="light"] .bnav a.on,:root:not([data-theme]) .bnav a.on{color:var(--on-accent-c)}
+.bnav a.on .pill{background:var(--accent-c)}
+.bnav a.on .pill .i{color:var(--accent)}
+.bnav .i{width:22px;height:22px}
+.fabs{position:absolute;right:16px;bottom:100px;z-index:25;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.fab-s{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;color:var(--ink)}
+.fab-x{display:inline-flex;align-items:center;gap:8px;height:52px;padding:0 20px 0 16px;border-radius:var(--r-btn);color:var(--on-grad);font-weight:600;font-size:14.5px;background:var(--grad);box-shadow:0 12px 24px -8px var(--accent-glow)}
+.fab-x .i{stroke-width:2.2}
+
+/* mobile ask */
+.m-convo{position:absolute;top:104px;left:0;right:0;bottom:262px;padding:8px 16px;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+.m-convo .ab{max-width:96%;padding:14px}
+.m-in{position:absolute;left:12px;right:12px;bottom:96px;z-index:20}
+.m-in .composer{padding:10px 10px 8px}
+.m-in .disc{display:none}
+
+/* citation sheet */
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:40}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:50;border-radius:24px 24px 0 0;background:var(--sheet);border:1px solid var(--glass-b);border-bottom:0;
+  -webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);box-shadow:0 -16px 40px -12px rgba(0,0,0,.35);padding:10px 16px 28px}
+.sheet.cite-s{height:523px}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--hair2);margin:0 auto 14px}
+.sh-top{display:flex;align-items:center;justify-content:space-between}
+.counter{display:inline-flex;align-items:center;gap:2px;height:28px;padding:0 4px;border-radius:999px;background:var(--accent-c);color:var(--on-accent-c);font-size:12.5px;font-weight:600}
+.counter .i{width:16px;height:16px;color:var(--accent)}
+.counter span{padding:0 4px}
+.srcrow{display:flex;align-items:center;gap:12px;margin-top:14px}
+.srcrow .kt{width:40px;height:40px;border-radius:12px;background:var(--paper);border:1px solid var(--note-border)}
+.srcrow b{font-family:Fraunces,"Noto Serif KR",serif;font-size:18px;font-weight:600;display:block;line-height:1.2}
+.srcrow small{font-size:12px;color:var(--muted)}
+.pagesel{margin-left:auto;display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 8px 0 12px;border-radius:999px;border:1px solid var(--hair2);font-size:12.5px;font-weight:500;background:var(--glass2)}
+.pagesel .i{width:15px;height:15px;color:var(--muted)}
+.paper{position:relative;margin-top:14px;background:#fff;border-radius:12px;padding:16px 16px 22px;box-shadow:0 2px 10px rgba(31,27,22,.14);color:#2a2620;overflow:hidden;height:236px}
+:root[data-theme="dark"] .paper{background:#F7F3EA}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .paper{background:#F7F3EA}}
+.paper h4{font-family:Fraunces,"Noto Serif KR",serif;font-size:15px;font-weight:600;margin-bottom:8px;color:#1f1b16}
+.paper p{font-size:13px;line-height:1.6;color:#3b352c}
+.paper mark{background:var(--hl);color:#1f1b16;border-radius:4px;padding:2px 3px;margin:0 -3px;-webkit-box-decoration-break:clone;box-decoration-break:clone;font-weight:500}
+.paper .pn{position:absolute;right:14px;bottom:8px;font-size:10px;color:#8a8478}
+.paper .fade{position:absolute;left:0;right:0;bottom:0;height:46px;background:linear-gradient(transparent,#fff 90%)}
+:root[data-theme="dark"] .paper .fade{background:linear-gradient(transparent,#F7F3EA 90%)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .paper .fade{background:linear-gradient(transparent,#F7F3EA 90%)}}
+.sheet .btn-primary{width:100%;height:48px;margin-top:14px;font-size:15px}
+.sh-foot{display:flex;justify-content:center;gap:6px;margin-top:10px;font-size:12px;color:var(--muted)}
+
+/* editor */
+.editor{background:var(--note-butter)}
+.editor::before{content:"";position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,rgba(255,255,255,.32),transparent 45%)}
+:root[data-theme="dark"] .editor::before{background:linear-gradient(180deg,rgba(255,255,255,.05),transparent 45%)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .editor::before{background:linear-gradient(180deg,rgba(255,255,255,.05),transparent 45%)}}
+.e-top{position:absolute;top:44px;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:8px 16px}
+.ib{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:var(--ink)}
+.e-top .seg{background:var(--tile)}
+.e-top .seg button{padding:6px 16px}
+.e-body{position:absolute;top:104px;left:0;right:0;bottom:116px;padding:16px 24px;overflow:hidden}
+.e-meta{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.e-meta .badge{background:var(--tile)}
+.e-meta .when{font-size:12px;color:var(--muted)}
+.e-title{font-family:Fraunces,"Noto Serif KR",serif;font-size:28px;line-height:1.2;font-weight:600;letter-spacing:-.3px;color:var(--ink)}
+.dots{display:flex;gap:10px;margin:16px 0 22px}
+.dots i{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--note-border);background:var(--c);display:block}
+.dots i.sel{box-shadow:0 0 0 2px var(--note-butter),0 0 0 3.5px var(--ink)}
+.md{font-size:16px;line-height:1.5;color:var(--ink)}
+.md p{margin-bottom:12px}
+.md .mk{color:var(--muted)}
+.md h2{font-family:Fraunces,serif;font-size:21px;font-weight:600;line-height:1.3;margin-bottom:8px}
+.md b{font-weight:600}
+.md code{font-family:ui-monospace,Menlo,monospace;font-size:13.5px;background:var(--tile);padding:1px 6px;border-radius:6px}
+.md blockquote{border-left:3px solid var(--hair2);padding-left:12px;color:var(--ink2);font-style:italic;margin-bottom:12px;font-family:Fraunces,serif}
+.md .checks li{font-size:16px;min-height:34px}
+.md .checks .bx{width:19px;height:19px;border-radius:6px}
+.md .checks{margin:0 0 12px}
+.caret{display:inline-block;width:2px;height:1.1em;vertical-align:-.2em;background:var(--ink);animation:blink 1s steps(2,start) infinite}
+@keyframes blink{to{visibility:hidden}}
+@media (prefers-reduced-motion:reduce){.caret{animation:none}}
+.tb{position:absolute;left:12px;right:12px;bottom:28px;height:56px;z-index:20;display:flex;align-items:center;gap:2px;padding:0 8px 0 8px;border-radius:20px}
+.tb button{width:36px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--ink);font-weight:600;font-size:16px}
+.tb button.act{background:var(--seg-on);color:var(--seg-on-ink)}
+.tb .aichip{width:auto;height:36px;padding:0 12px 0 10px;margin-right:6px;border-radius:999px;display:inline-flex;gap:5px;align-items:center;font-size:13px;font-weight:600;background:var(--accent-c);color:var(--on-accent-c)}
+.tb .aichip .bolt{width:14px;height:14px;color:var(--accent)}
+.tb .hh,.tb .ii{font-family:Fraunces,serif;font-size:19px}
+.tb .ii{font-style:italic}
+.tb .sep{width:1px;height:20px;background:var(--hair2);margin:0 4px}
+
+/* upload sheet */
+.under{position:absolute;inset:0;padding:60px 16px 0}
+.sheet.up{padding-bottom:30px}
+.sheet h3{font-size:24px;line-height:1.2;font-weight:600;letter-spacing:-.2px;color:var(--ink)}
+.drop{margin-top:14px;height:140px;border-radius:16px;border:1.5px dashed var(--hair2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--muted);font-size:13px}
+.drop .ic{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--glass2);border:1px solid var(--hair);color:var(--ink2)}
+.drop .ic .i{width:20px;height:20px}
+.drop .btn{height:34px;font-size:13px;padding:0 14px;margin-top:2px}
+.file{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px 12px;border-radius:14px;background:var(--paper);border:1px solid var(--note-border)}
+.file .page{width:28px;height:36px;height:36px;padding:4px 3px;border-radius:4px;box-shadow:0 1px 4px rgba(31,27,22,.2)}
+.file .page .h{height:2px;margin-bottom:3px}
+.file .page .ln{height:16px;margin:0;background:repeating-linear-gradient(to bottom,rgba(40,34,26,.25) 0 1px,transparent 1px 4px)}
+.file b{display:block;font-weight:600;font-size:14px}
+.file small{color:var(--muted);font-size:12px}
+.file .ok{margin-left:auto;color:var(--success);display:flex;align-items:center;gap:4px;font-size:12px;font-weight:600}
+.file .ok .i{width:16px;height:16px;stroke-width:2.6}
+.sheet .lbl{margin:18px 0 8px}
+.radios{display:grid;gap:8px}
+.opt{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:16px;background:var(--glass2);border:1px solid var(--hair)}
+.opt .dot{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:var(--c);border:1px solid var(--note-border);flex:none}
+.opt .dot .i{width:17px;height:17px}
+.opt .tx{flex:1;min-width:0}
+.opt b{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;line-height:1.3}
+.opt small{display:block;color:var(--muted);font-size:12px;line-height:1.35;margin-top:1px}
+.opt .rd{width:22px;height:22px;border-radius:50%;border:2px solid var(--hair2);flex:none;display:grid;place-items:center}
+.opt.sel{border:2px solid var(--ink);padding:9px 13px}
+.opt.sel .rd{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.opt.sel .rd .i{width:13px;height:13px;stroke-width:3}
+.opt.off{opacity:.55}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="bolt" viewBox="0 0 24 24"><path d="M13.5 2 4 13.5h6.6L9.5 22 20 9.8h-6.8z"/></symbol>
+<symbol id="notes" viewBox="0 0 24 24"><path d="M5 3.5h14a1.5 1.5 0 0 1 1.5 1.5v9.2L14.2 20.5H5A1.5 1.5 0 0 1 3.5 19V5A1.5 1.5 0 0 1 5 3.5z"/><path d="M14 20.5V16a2 2 0 0 1 2-2h4.5"/></symbol>
+<symbol id="folder" viewBox="0 0 24 24"><path d="M3.5 7.5A2 2 0 0 1 5.5 5.5h3.8l2 2h7.2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="upload" viewBox="0 0 24 24"><path d="M12 16V4.5M7.5 9 12 4.5 16.5 9M5 19.5h14"/></symbol>
+<symbol id="file" viewBox="0 0 24 24"><path d="M6 3.5h8l4.5 4.5v12.5H6z"/><path d="M14 3.5V8h4.5M9 13h6M9 16.5h6"/></symbol>
+<symbol id="up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="chevr" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="chevl" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+<symbol id="back" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+<symbol id="alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></symbol>
+<symbol id="refresh" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 1 0-2.2 5.6M20 4.5v7h-7"/></symbol>
+<symbol id="cloud" viewBox="0 0 24 24"><path d="M7 18.5a4.2 4.2 0 0 1-.6-8.35A6 6 0 0 1 18 10.2a4.1 4.1 0 0 1-.5 8.3z"/></symbol>
+<symbol id="users" viewBox="0 0 24 24"><path d="M16.5 19.5v-1a4 4 0 0 0-4-4h-5a4 4 0 0 0-4 4v1M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM21 19.5v-1a4 4 0 0 0-3-3.9M15.5 4.2a3.5 3.5 0 0 1 0 6.6"/></symbol>
+<symbol id="shield" viewBox="0 0 24 24"><path d="M12 3.5 5 6v5.5c0 4.2 2.8 7.4 7 9 4.2-1.6 7-4.8 7-9V6z"/></symbol>
+<symbol id="list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01"/></symbol>
+<symbol id="box" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+<symbol id="quote" viewBox="0 0 24 24"><path d="M6.5 7.5h4v5a4 4 0 0 1-4 4M14 7.5h4v5a4 4 0 0 1-4 4"/></symbol>
+<symbol id="code" viewBox="0 0 24 24"><path d="m8.5 8-4 4 4 4M15.5 8l4 4-4 4M13.5 6 10.5 18"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></symbol>
+<symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6"/></symbol>
+<symbol id="copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6.5A2.5 2.5 0 0 0 4 6v6.5A2.5 2.5 0 0 0 6.5 15h2"/></symbol>
+<symbol id="thumb" viewBox="0 0 24 24"><path d="M7.5 10.5V20H5a1.5 1.5 0 0 1-1.5-1.5v-7A1.5 1.5 0 0 1 5 10zM7.5 10.5l3.2-6.2a1.8 1.8 0 0 1 3.3 1.3l-.7 3.4h4.9a2 2 0 0 1 2 2.4l-1.3 6.4a2 2 0 0 1-2 1.6H7.5"/></symbol>
+<symbol id="clip" viewBox="0 0 24 24"><path d="M19 11.5l-7 7a4.5 4.5 0 0 1-6.4-6.4l7.4-7.4a3 3 0 0 1 4.2 4.2l-7.4 7.4a1.5 1.5 0 0 1-2.1-2.1l6.7-6.7"/></symbol>
+<symbol id="clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+<symbol id="newchat" viewBox="0 0 24 24"><path d="M12 4.5H6.5A2.5 2.5 0 0 0 4 7v10.5A2.5 2.5 0 0 0 6.5 20H17a2.5 2.5 0 0 0 2.5-2.5V12M17.5 3.5l3 3L12 15l-3.8.8L9 12z"/></symbol>
+<symbol id="status" viewBox="0 0 66 12"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/><path d="M27 4.2a8 8 0 0 1 11 0l-1.3 1.4a6 6 0 0 0-8.4 0zM29.6 7a4.3 4.3 0 0 1 5.8 0L32.5 10z"/><rect x="43" y="1" width="20" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".5"/><rect x="44.8" y="2.8" width="15" height="6.4" rx="1.6"/><rect x="64" y="4" width="1.6" height="4" rx=".8" opacity=".5"/></symbol>
+</defs></svg>
+
+<header class="top">
+  <div>
+    <h1 class="serif">PageBlink · AB v2</h1>
+    <p>AB Glass Paper raised with the reference rules: glass layering 62 → 74, 240 / board / 380 panes on a 28-radius frame, structured answer card, Ask empty state, citation sheet, three-row composer. One gradient surface per screen; violet only on ⚡, primary, active nav, user bubble, focus glow.</p>
+  </div>
+  <div class="ctl">
+    <div class="seg" role="group" aria-label="Theme"><button data-theme-btn="auto" class="on">Auto</button><button data-theme-btn="light">Light</button><button data-theme-btn="dark">Dark</button></div>
+    <div class="seg" role="group" aria-label="Desktop scale"><button data-fit="fit" class="on">Fit width</button><button data-fit="full">100%</button></div>
+  </div>
+</header>
+
+<section class="sec">
+  <div class="sec-h"><div class="n">1</div><h2 class="serif">Desktop · Notes + Ask</h2><span class="d">1440 × 900 · outer radius 28 · sidebar 240 · board fluid · Ask 380 · gaps 24 · gradient = user bubble only</span></div>
+  <div class="desk-holder"><div class="stageW" data-h="900" style="width:1440px;transform-origin:0 0">
+<div class="frame desk" id="deskA">
+  
+    <aside class="glass side">
+      <div class="logo"><svg class="i bolt" ><use href="#bolt"/></svg><b>PageBlink</b></div>
+      <p class="tagline">Ask your notes &amp; documents. Blink to the source.</p>
+      <nav class="nav">
+        <a><svg class="i bolt" ><use href="#bolt"/></svg>Ask</a><a class="on"><svg class="i" ><use href="#notes"/></svg>Notes<span class="k">8</span></a><a><svg class="i" ><use href="#folder"/></svg>Projects</a><a><svg class="i" ><use href="#gear"/></svg>Settings</a>
+      </nav>
+      <div class="lbl">Tiers</div>
+      <div class="tier off" style="--c:var(--note-lilac)"><span class="dot"><svg class="i" ><use href="#shield"/></svg></span><div><b>Cloak</b><small>device only</small></div><span class="soon">Soon</span></div>
+      <div class="tier" style="--c:var(--note-sky)"><span class="dot"><svg class="i" ><use href="#cloud"/></svg></span><div><b>My cloud</b><small>private to you</small></div><span class="n">14</span></div>
+      <div class="tier" style="--c:var(--note-peach)"><span class="dot"><svg class="i" ><use href="#users"/></svg></span><div><b>Shared Vision</b><small>Hackathon</small></div><span class="n">6</span></div>
+      <div class="hints"><div><span class="kbd">⌘K</span>Search everything</div><div><span class="kbd">Esc</span>Close preview</div></div>
+    </aside>
+  <main class="board">
+    <div class="board-h"><h1 class="serif">Notes</h1><p>8 items · 6 notes, 2 PDFs · all indexed except 1</p></div>
+    <div class="toolbar">
+      <label class="search glass2"><svg class="i" ><use href="#search"/></svg>Search notes &amp; PDFs…<span class="kbd">⌘K</span></label>
+      <button class="btn btn-primary"><svg class="i" style="stroke-width:2.2"><use href="#plus"/></svg>New note</button>
+      <button class="btn btn-secondary"><svg class="i" ><use href="#upload"/></svg>Upload PDF</button>
+    </div>
+    <div class="filters">
+      <span class="chip on"><svg class="i" ><use href="#check"/></svg>All <span class="ct">8</span></span><span class="chip">Notes <span class="ct">6</span></span><span class="chip">PDFs <span class="ct">2</span></span>
+      <span class="chip warn"><svg class="i" ><use href="#alert"/></svg>1 needs attention</span>
+    </div>
+    <div class="sect"><span class="lbl">Recent</span><span class="round-plus"><svg class="i" ><use href="#plus"/></svg></span></div>
+    <div class="masonry">
+      <div class="col"><article class="note butter cited"><span class="tag"><svg class="i bolt" ><use href="#bolt"/></svg>2</span><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · 2m ago</span></div>
+        <h3 class="note-title">Budget memo</h3><p class="note-prev">Q3 cap is <b>$48,000</b> per department. Approver: VP Ops, with Finance sign-off above the cap.</p>
+        <ul class="checks"><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Send cap to team leads</li><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Collect Q2 actuals</li><li><span class="bx"></span>Finance sign-off</li><li><span class="bx"></span>Publish to the wiki</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article><article class="note pdf fail"><div class="nh"><span class="kt"><svg class="i" ><use href="#file"/></svg></span><span class="km">PDF · 24 pages</span></div>
+        <h3 class="note-title">Pitch-deck.pdf</h3>
+        <div class="state"><span class="t"><svg class="i" ><use href="#alert"/></svg>Indexing failed</span><button class="btn btn-warn"><svg class="i" ><use href="#refresh"/></svg>Re-index</button></div><p class="why">Embedding timed out · Keyword search only until re-indexed.</p>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article><article class="note butter"><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · Oct 6</span></div>
+        <h3 class="note-title">Design tokens</h3><p class="note-prev">Glass 62 / 74. Violet only on ⚡, primary, active nav.</p>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article></div>
+      <div class="col"><article class="note mint cited"><span class="tag"><svg class="i bolt" ><use href="#bolt"/></svg>3</span><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · 1h ago</span></div>
+        <h3 class="note-title">회의록 — 10월 기획 회의</h3><p class="note-prev">참석: 민지, 준호, 서연</p>
+        <ul class="bullets"><li>런칭일을 <b>11월 4일</b>로 확정</li><li>예산안은 Q3 한도 내에서 진행</li><li>다음 회의: 10/21 (화) 오후 2시</li><li>데모 영상은 준호 담당</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#users"/></svg>Hackathon</span></div></article><article class="note pdf cited"><span class="tag"><svg class="i bolt" ><use href="#bolt"/></svg>1 · p.4</span><div class="nh"><span class="kt"><svg class="i" ><use href="#file"/></svg></span><span class="km">PDF · 12 pages</span></div>
+        <h3 class="note-title">Spec.pdf</h3>
+        <div class="thumbwrap"><div class="page"><div class="h"></div><div class="ln"></div><div class="hl"><div class="ln"></div></div><div class="ln"></div><span class="pn">4</span></div></div>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#users"/></svg>Hackathon</span></div></article><article class="note lilac"><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · Oct 9</span></div>
+        <h3 class="note-title">Reading list</h3><ul class="bullets"><li>Local-first software — Ink &amp; Switch</li><li>Designing Data-Intensive Applications, ch. 3</li><li>Notes on evaluating RAG answers</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article></div>
+      <div class="col"><article class="note peach"><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · 3h ago</span></div>
+        <h3 class="note-title">Launch checklist</h3><ul class="checks"><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Domain + SSL</li><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Privacy policy page</li><li><span class="bx"></span>Smoke-test on iOS</li><li><span class="bx"></span>Record demo video</li><li><span class="bx"></span>Post on launch day</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#users"/></svg>Hackathon</span></div></article><article class="note sky"><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · Oct 8</span></div>
+        <h3 class="note-title">Interview questions</h3><p class="note-prev">Why local-first? What breaks when the index is stale, and how do users notice?</p>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article></div>
+    </div>
+  </main>
+  <aside class="glass ask">
+    <div class="ask-h"><h2 class="serif"><svg class="i bolt" ><use href="#bolt"/></svg>Ask</h2><div class="acts"><span class="icb"><svg class="i" ><use href="#clock"/></svg></span><span class="icb"><svg class="i" ><use href="#newchat"/></svg></span></div></div>
+    <div class="convo">
+      <div class="stamp">Today · 9:41</div>
+      <div class="ub">What is the Q3 budget cap and who approves it?</div>
+      <div class="steps"><svg class="i" ><use href="#check"/></svg>Searched 8 items · read 2 PDFs · 2.8 s<svg class="i c"><use href="#chev"/></svg></div>
+      <div class="ab glass2" style="border-radius:6px 18px 18px 18px">
+      <p>The Q3 cap is <b>$48,000 per department</b><span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>1</span>.</span> Anything above it needs written approval from the <b>VP of Operations</b><span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>2</span>,</span> and October’s planning meeting kept launch spend inside it<span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>3</span>.</span></p><p>Spend under the cap only needs your team lead’s approval.</p>
+      <hr><div class="lbl">Sources</div><div class="src"><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>1 <i>·</i> Spec.pdf p.4</button><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>2 <i>·</i> Budget memo</button><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>3 <i>·</i> 회의록</button></div>
+      <div class="acts-row"><span class="ab-i"><svg class="i" ><use href="#copy"/></svg></span><span class="ab-i"><svg class="i" ><use href="#refresh"/></svg></span><span class="ab-i"><svg class="i" ><use href="#thumb"/></svg></span><small>Gemma 4 26B · 2.8 s</small></div>
+    </div>
+    </div>
+    <div class="composer glass2">
+      <div class="scopes"><span class="chip sm on"><svg class="i" ><use href="#check"/></svg>My notes</span><span class="chip sm on"><svg class="i" ><use href="#check"/></svg>Hackathon</span><span class="chip sm"><svg class="i" ><use href="#plus"/></svg>Scope</span></div>
+      <div class="in">Ask your notes &amp; documents…</div>
+      <div class="bot"><span class="attach"><svg class="i" ><use href="#plus"/></svg></span><span class="model">Gemma 4 26B <em>free</em><svg class="i" ><use href="#chev"/></svg></span><button class="send off" aria-label="Send"><svg class="i" ><use href="#up"/></svg></button></div>
+    </div>
+    <div class="disc">AI can make mistakes. Check the ⚡ sources.</div>
+  </aside>
+</div></div></div>
+</section>
+
+<section class="sec">
+  <div class="sec-h"><div class="n">2</div><h2 class="serif">Desktop · Ask empty state</h2><span class="d">headline 40 serif · 4 suggestion cards (112) · focused composer with bottom glow · no gradient surface</span></div>
+  <div class="desk-holder"><div class="stageW" data-h="900" style="width:1440px;transform-origin:0 0">
+<div class="frame desk ask-view" id="deskB">
+  
+    <aside class="glass side">
+      <div class="logo"><svg class="i bolt" ><use href="#bolt"/></svg><b>PageBlink</b></div>
+      <p class="tagline">Ask your notes &amp; documents. Blink to the source.</p>
+      <nav class="nav">
+        <a class="on"><svg class="i bolt" ><use href="#bolt"/></svg>Ask</a><a><svg class="i" ><use href="#notes"/></svg>Notes<span class="k">8</span></a><a><svg class="i" ><use href="#folder"/></svg>Projects</a><a><svg class="i" ><use href="#gear"/></svg>Settings</a>
+      </nav>
+      <div class="lbl">Tiers</div>
+      <div class="tier off" style="--c:var(--note-lilac)"><span class="dot"><svg class="i" ><use href="#shield"/></svg></span><div><b>Cloak</b><small>device only</small></div><span class="soon">Soon</span></div>
+      <div class="tier" style="--c:var(--note-sky)"><span class="dot"><svg class="i" ><use href="#cloud"/></svg></span><div><b>My cloud</b><small>private to you</small></div><span class="n">14</span></div>
+      <div class="tier" style="--c:var(--note-peach)"><span class="dot"><svg class="i" ><use href="#users"/></svg></span><div><b>Shared Vision</b><small>Hackathon</small></div><span class="n">6</span></div>
+      <div class="hints"><div><span class="kbd">⌘K</span>Search everything</div><div><span class="kbd">Esc</span>Close preview</div></div>
+    </aside>
+  <main class="glass stage">
+    <div class="topbar"><span>New chat</span><div style="display:flex;gap:8px"><span class="icb"><svg class="i" ><use href="#clock"/></svg></span><span class="icb"><svg class="i" ><use href="#newchat"/></svg></span></div></div>
+    <div class="mid">
+      <div class="emblem glass2"><svg class="i bolt" ><use href="#bolt"/></svg></div>
+      <h2 class="hero serif">Ask your notes anything.</h2>
+      <p class="herosub">Every answer links back to a <span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>1</span> source — tap it to blink to the page.</p>
+      <div class="sug"><div class="sugc glass2" style="--c:var(--note-mint)"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><b>Summarize 회의록</b><small>Decisions and owners from the October planning meeting.</small></div><div class="sugc glass2" style="--c:var(--note-butter)"><span class="kt"><svg class="i" ><use href="#search"/></svg></span><b>Find a number</b><small>Look up the Q3 cap in Budget memo or Spec.pdf.</small></div><div class="sugc glass2" style="--c:var(--note-peach)"><span class="kt"><svg class="i" ><use href="#box"/></svg></span><b>What’s still open?</b><small>Unchecked tasks across your notes this week.</small></div><div class="sugc glass2" style="--c:var(--note-sky)"><span class="kt"><svg class="i" ><use href="#file"/></svg></span><b>Check a PDF page</b><small>Jump to Spec.pdf p.4 with the passage highlighted.</small></div></div>
+      <div class="composer glass2 focus">
+      <div class="scopes"><span class="chip sm on"><svg class="i" ><use href="#check"/></svg>My notes</span><span class="chip sm on"><svg class="i" ><use href="#check"/></svg>Hackathon</span><span class="chip sm"><svg class="i" ><use href="#plus"/></svg>Scope</span></div>
+      <div class="in"><span class="caretbar"></span>Ask your notes &amp; documents…</div>
+      <div class="bot"><span class="attach"><svg class="i" ><use href="#plus"/></svg></span><span class="model">Gemma 4 26B <em>free</em><svg class="i" ><use href="#chev"/></svg></span><button class="send off" aria-label="Send"><svg class="i" ><use href="#up"/></svg></button></div>
+    </div>
+      <div class="disc">AI can make mistakes. Check the ⚡ sources. &nbsp;·&nbsp; <span class="kbd">⏎</span> send &nbsp; <span class="kbd">⇧ ⏎</span> new line</div>
+    </div>
+  </main>
+</div></div></div>
+</section>
+
+<section class="sec">
+  <div class="sec-h"><h2 class="serif">Mobile</h2><span class="d">390 × 844 · glass only on nav, ask pill, composer, sheets · gradient = New note FAB (board) / user bubble (Ask)</span></div>
+  <div class="row">
+    <div><div class="plabel"><span class="n">3</span>Notes board</div>
+<div class="frame phone m" id="mBoard">
+  <div class="sb"><span>9:41</span><svg><use href="#status"/></svg></div>
+  <div class="m-head">
+    <div class="m-title"><div><small>Good morning, Chris</small><h1 class="serif">Notes</h1></div><span class="icb"><svg class="i" ><use href="#search"/></svg></span></div>
+    <div class="askpill glass2"><span>Ask your notes…</span><span class="go"><svg class="i bolt" ><use href="#bolt"/></svg></span></div>
+  </div>
+  <div class="m-scroll">
+    <div class="m-sect"><span class="lbl">Recent</span><a>See all</a></div>
+    <div class="m-grid">
+      <div class="col"><article class="note butter cited"><span class="tag"><svg class="i bolt" ><use href="#bolt"/></svg>2</span><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · 2m</span></div>
+        <h3 class="note-title">Budget memo</h3><p class="note-prev">Q3 cap is <b>$48,000</b> per dept. Approver: VP Ops.</p>
+        <ul class="checks"><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Send cap to leads</li><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Collect Q2 actuals</li><li><span class="bx"></span>Finance sign-off</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article><article class="note pdf fail"><div class="nh"><span class="kt"><svg class="i" ><use href="#file"/></svg></span><span class="km">PDF · 24 pages</span></div>
+        <h3 class="note-title">Pitch-deck.pdf</h3>
+        <div class="state"><span class="t"><svg class="i" ><use href="#alert"/></svg>Indexing failed</span><button class="btn btn-warn"><svg class="i" ><use href="#refresh"/></svg>Re-index</button></div>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article><article class="note peach"><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · 3h</span></div>
+        <h3 class="note-title">Launch checklist</h3><ul class="checks"><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Domain + SSL</li><li><span class="bx"></span>Smoke-test on iOS</li><li><span class="bx"></span>Record demo video</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#users"/></svg>Hackathon</span></div></article></div>
+      <div class="col"><article class="note mint cited"><span class="tag"><svg class="i bolt" ><use href="#bolt"/></svg>3</span><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · 1h</span></div>
+        <h3 class="note-title">회의록 — 10월 기획 회의</h3>
+        <ul class="bullets"><li>런칭일을 <b>11월 4일</b>로 확정</li><li>데모 영상은 준호 담당</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#users"/></svg>Hackathon</span></div></article><article class="note pdf cited"><span class="tag"><svg class="i bolt" ><use href="#bolt"/></svg>1 · p.4</span><div class="nh"><span class="kt"><svg class="i" ><use href="#file"/></svg></span><span class="km">PDF · 12 pp</span></div>
+        <div class="pdfrow"><h3 class="note-title">Spec.pdf</h3><div class="page sm"><div class="h"></div><div class="ln"></div></div></div>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#users"/></svg>Hackathon</span></div></article><article class="note lilac"><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · Oct 9</span></div>
+        <h3 class="note-title">Reading list</h3><ul class="bullets"><li>Local-first software</li><li>DDIA, ch. 3</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article></div>
+    </div>
+  </div>
+  <div class="fabs"><button class="fab-s glass2" aria-label="Upload PDF"><svg class="i" ><use href="#upload"/></svg></button><button class="fab-x"><svg class="i" ><use href="#plus"/></svg>New note</button></div>
+  <nav class="bnav glass" style="border-radius:24px 24px 0 0"><a><span class="pill"><svg class="i bolt" ><use href="#bolt"/></svg></span>Ask</a><a class=on><span class="pill"><svg class="i" ><use href="#notes"/></svg></span>Notes</a><a><span class="pill"><svg class="i" ><use href="#folder"/></svg></span>Projects</a></nav>
+  <div class="home"></div>
+</div><p class="cap"><b>Ask pill</b> sits under the header so Ask is one tap from the board; list reserves 176px so the last card clears FAB + nav.</p></div>
+    <div><div class="plabel"><span class="n">4</span>Ask · answered</div>
+<div class="frame phone m" id="mAsk">
+  <div class="sb"><span>9:41</span><svg><use href="#status"/></svg></div>
+  <div class="m-head"><div class="m-title"><h1 class="serif"><svg class="i bolt" ><use href="#bolt"/></svg>Ask</h1><div style="display:flex;gap:8px"><span class="icb"><svg class="i" ><use href="#clock"/></svg></span><span class="icb"><svg class="i" ><use href="#newchat"/></svg></span></div></div></div>
+  <div class="m-convo">
+    <div class="stamp">Today · 9:41</div>
+    <div class="ub">What is the Q3 budget cap and who approves it?</div>
+    <div class="steps"><svg class="i" ><use href="#check"/></svg>Searched 8 items · read 2 PDFs · 2.8 s<svg class="i c"><use href="#chev"/></svg></div>
+    <div class="ab glass2" style="border-radius:6px 18px 18px 18px">
+      <p>The Q3 cap is <b>$48,000 per department</b><span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>1</span>.</span> Anything above it needs written approval from the <b>VP of Operations</b><span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>2</span>,</span> and October’s planning meeting kept launch spend inside it<span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>3</span>.</span></p>
+      <hr><div class="lbl">Sources</div><div class="src"><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>1 <i>·</i> Spec.pdf p.4</button><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>2 <i>·</i> Budget memo</button><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>3 <i>·</i> 회의록</button></div>
+      <div class="acts-row"><span class="ab-i"><svg class="i" ><use href="#copy"/></svg></span><span class="ab-i"><svg class="i" ><use href="#refresh"/></svg></span><span class="ab-i"><svg class="i" ><use href="#thumb"/></svg></span></div>
+    </div>
+  </div>
+  <div class="m-in"><div class="composer glass2 m">
+      <div class="scopes"><span class="chip sm on"><svg class="i" ><use href="#check"/></svg>My notes</span><span class="chip sm on"><svg class="i" ><use href="#check"/></svg>Hackathon</span><span class="chip sm"><svg class="i" ><use href="#plus"/></svg>Scope</span></div>
+      <div class="in">Ask your notes &amp; documents…</div>
+      <div class="bot"><span class="attach"><svg class="i" ><use href="#plus"/></svg></span><span class="model">Gemma 4 26B <em>free</em><svg class="i" ><use href="#chev"/></svg></span><button class="send off" aria-label="Send"><svg class="i" ><use href="#up"/></svg></button></div>
+    </div></div>
+  <nav class="bnav glass" style="border-radius:24px 24px 0 0"><a class=on><span class="pill"><svg class="i bolt" ><use href="#bolt"/></svg></span>Ask</a><a><span class="pill"><svg class="i" ><use href="#notes"/></svg></span>Notes</a><a><span class="pill"><svg class="i" ><use href="#folder"/></svg></span>Projects</a></nav>
+  
+  <div class="home"></div>
+</div><p class="cap"><b>Answer card</b>: body with inline ⚡n → hairline → SOURCES → chips → actions. Composer: scope chips, input, attach · model · send.</p></div>
+    <div><div class="plabel"><span class="n">5</span>Citation sheet</div>
+<div class="frame phone m" id="mCite">
+  <div class="sb"><span>9:41</span><svg><use href="#status"/></svg></div>
+  <div class="m-head"><div class="m-title"><h1 class="serif"><svg class="i bolt" ><use href="#bolt"/></svg>Ask</h1><div style="display:flex;gap:8px"><span class="icb"><svg class="i" ><use href="#clock"/></svg></span><span class="icb"><svg class="i" ><use href="#newchat"/></svg></span></div></div></div>
+  <div class="m-convo">
+    <div class="stamp">Today · 9:41</div>
+    <div class="ub">What is the Q3 budget cap and who approves it?</div>
+    <div class="steps"><svg class="i" ><use href="#check"/></svg>Searched 8 items · read 2 PDFs · 2.8 s<svg class="i c"><use href="#chev"/></svg></div>
+    <div class="ab glass2" style="border-radius:6px 18px 18px 18px">
+      <p>The Q3 cap is <b>$48,000 per department</b><span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>1</span>.</span> Anything above it needs written approval from the <b>VP of Operations</b><span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>2</span>,</span> and October’s planning meeting kept launch spend inside it<span class="nw"><span class="cite"><svg class="i bolt" ><use href="#bolt"/></svg>3</span>.</span></p>
+      <hr><div class="lbl">Sources</div><div class="src"><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>1 <i>·</i> Spec.pdf p.4</button><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>2 <i>·</i> Budget memo</button><button class="cchip"><svg class="i bolt" ><use href="#bolt"/></svg>3 <i>·</i> 회의록</button></div>
+      <div class="acts-row"><span class="ab-i"><svg class="i" ><use href="#copy"/></svg></span><span class="ab-i"><svg class="i" ><use href="#refresh"/></svg></span><span class="ab-i"><svg class="i" ><use href="#thumb"/></svg></span></div>
+    </div>
+  </div>
+  <div class="m-in"><div class="composer glass2 m">
+      <div class="scopes"><span class="chip sm on"><svg class="i" ><use href="#check"/></svg>My notes</span><span class="chip sm on"><svg class="i" ><use href="#check"/></svg>Hackathon</span><span class="chip sm"><svg class="i" ><use href="#plus"/></svg>Scope</span></div>
+      <div class="in">Ask your notes &amp; documents…</div>
+      <div class="bot"><span class="attach"><svg class="i" ><use href="#plus"/></svg></span><span class="model">Gemma 4 26B <em>free</em><svg class="i" ><use href="#chev"/></svg></span><button class="send off" aria-label="Send"><svg class="i" ><use href="#up"/></svg></button></div>
+    </div></div>
+  <nav class="bnav glass" style="border-radius:24px 24px 0 0"><a class=on><span class="pill"><svg class="i bolt" ><use href="#bolt"/></svg></span>Ask</a><a><span class="pill"><svg class="i" ><use href="#notes"/></svg></span>Notes</a><a><span class="pill"><svg class="i" ><use href="#folder"/></svg></span>Projects</a></nav>
+  <div class="scrim"></div>
+  <div class="sheet cite-s">
+    <div class="grab"></div>
+    <div class="sh-top"><span class="lbl">Cited in AI answer</span><span class="counter"><svg class="i" ><use href="#chevl"/></svg><span>Source 1 of 3</span><svg class="i" ><use href="#chevr"/></svg></span></div>
+    <div class="srcrow"><span class="kt"><svg class="i" ><use href="#file"/></svg></span><div><b>Spec.pdf</b><small>PDF · Hackathon</small></div><span class="pagesel">Page 4 of 12<svg class="i" ><use href="#chev"/></svg></span></div>
+    <div class="paper">
+      <h4>4. Budget governance</h4>
+      <p>Departments plan against a fixed quarterly envelope. <mark>The Q3 cap is $48,000 per department. Anything above the cap needs written approval from the VP of Operations, with a Finance sign-off.</mark> Spend below the cap is approved by the team lead and reviewed monthly.</p>
+      <p style="margin-top:8px">Exceptions are logged in the quarterly review.</p>
+      <div class="fade"></div><span class="pn">4</span>
+    </div>
+    <button class="btn btn-primary">Open full page<svg class="i" style="stroke-width:2.2"><use href="#chevr"/></svg></button>
+    <div class="sh-foot"><span class="kbd">Esc</span>to close</div>
+  </div>
+  <div class="home"></div>
+</div><p class="cap"><b>Cited in AI answer · Source 1 of 3</b>: 62% sheet, page select, highlighted passage (violet 18%), Open full page.</p></div>
+    <div><div class="plabel"><span class="n">6</span>Note editor</div>
+<div class="frame phone m editor" id="mEditor">
+  <div class="sb"><span>9:41</span><svg><use href="#status"/></svg></div>
+  <div class="e-top"><button class="ib" aria-label="Back"><svg class="i" style="width:22px;height:22px"><use href="#back"/></svg></button><div class="seg"><button class="on">Edit</button><button>Preview</button></div><button class="ib" aria-label="More"><svg class="i" style="width:22px;height:22px"><use href="#more"/></svg></button></div>
+  <div class="e-body">
+    <div class="e-meta"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud<svg class="i" style="width:11px;height:11px"><use href="#chev"/></svg></span><span class="badge"><svg class="i bolt" style="color:var(--accent)"><use href="#bolt"/></svg>Cited in 1 answer</span></div>
+    <h1 class="e-title">Budget memo</h1>
+    <div class="dots"><i class="sel" style="--c:var(--note-butter)"></i><i style="--c:var(--note-mint)"></i><i style="--c:var(--note-peach)"></i><i style="--c:var(--note-sky)"></i><i style="--c:var(--note-lilac)"></i></div>
+    <div class="md">
+      <h2><span class="mk">## </span>Q3 cap</h2>
+      <p>Cap is <span class="mk">**</span><b>$48,000</b><span class="mk">**</span> per department. Approver is the VP of Ops, with Finance sign-off.</p>
+      <ul class="checks"><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Send cap to team leads</li><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Collect Q2 actuals</li><li><span class="bx"></span>Finance sign-off</li><li><span class="bx"></span>Publish to the wiki<span class="caret"></span></li></ul>
+      <blockquote><span class="mk" style="font-style:normal">&gt; </span>Anything over the cap needs a written exception.</blockquote>
+      <p><span class="mk">`</span><code>budget_q3.csv</code><span class="mk">`</span> is the source of truth.</p>
+    </div>
+  </div>
+  <div class="glass tb">
+    <button class="aichip" aria-label="Ask AI"><svg class="i bolt" ><use href="#bolt"/></svg>Ask</button>
+    <button class="hh">H</button><button style="font-weight:700">B</button><button class="ii">I</button><span class="sep"></span>
+    <button><svg class="i" ><use href="#list"/></svg></button><button class="act"><svg class="i" ><use href="#box"/></svg></button><button><svg class="i" ><use href="#quote"/></svg></button><button><svg class="i" ><use href="#code"/></svg></button>
+  </div>
+  <div class="home"></div>
+</div><p class="cap">Screen takes the note’s pastel. Serif 28 title, live checklist, glass format bar with an Ask chip first.</p></div>
+    <div><div class="plabel"><span class="n">7</span>Upload · tier sheet</div>
+<div class="frame phone m" id="mUpload">
+  <div class="sb"><span>9:41</span><svg><use href="#status"/></svg></div>
+  <div class="under"><div class="m-grid"><div class="col"><article class="note butter cited"><span class="tag"><svg class="i bolt" ><use href="#bolt"/></svg>2</span><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · 2m</span></div>
+        <h3 class="note-title">Budget memo</h3><p class="note-prev">Q3 cap is <b>$48,000</b> per dept. Approver: VP Ops.</p>
+        <ul class="checks"><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Send cap to leads</li><li class="done"><span class="bx"><svg class="i" ><use href="#check"/></svg></span>Collect Q2 actuals</li><li><span class="bx"></span>Finance sign-off</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#cloud"/></svg>My cloud</span></div></article></div><div class="col"><article class="note mint cited"><span class="tag"><svg class="i bolt" ><use href="#bolt"/></svg>3</span><div class="nh"><span class="kt"><svg class="i" ><use href="#notes"/></svg></span><span class="km">Note · 1h</span></div>
+        <h3 class="note-title">회의록 — 10월 기획 회의</h3>
+        <ul class="bullets"><li>런칭일을 <b>11월 4일</b>로 확정</li><li>데모 영상은 준호 담당</li></ul>
+        <div class="note-foot"><span class="badge"><svg class="i" ><use href="#users"/></svg>Hackathon</span></div></article></div></div></div>
+  <div class="scrim"></div>
+  <div class="sheet up">
+    <div class="grab"></div>
+    <h3 class="serif">Add PDF</h3>
+    <div class="drop"><span class="ic"><svg class="i" ><use href="#upload"/></svg></span>Drop a PDF here or<button class="btn btn-secondary">Choose PDF</button></div>
+    <div class="file"><div class="page"><div class="h"></div><div class="ln"></div></div><div><b>Spec.pdf</b><small>12 pages · 2.4 MB</small></div><span class="ok"><svg class="i" ><use href="#check"/></svg>Ready</span></div>
+    <div class="lbl">Where should it live?</div>
+    <div class="radios">
+      <div class="opt off" style="--c:var(--note-lilac)"><span class="dot"><svg class="i" ><use href="#shield"/></svg></span><div class="tx"><b>Cloak <span class="soon" style="margin:0">Soon</span></b><small>Device only. Never leaves your phone.</small></div><span class="rd"></span></div>
+      <div class="opt sel" style="--c:var(--note-sky)"><span class="dot"><svg class="i" ><use href="#cloud"/></svg></span><div class="tx"><b>My cloud</b><small>Private to you, searchable anywhere.</small></div><span class="rd"><svg class="i" ><use href="#check"/></svg></span></div>
+      <div class="opt" style="--c:var(--note-peach)"><span class="dot"><svg class="i" ><use href="#users"/></svg></span><div class="tx"><b>Shared Vision · Hackathon</b><small>Share with everyone in the project.</small></div><span class="rd"></span></div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;height:52px;margin-top:16px;font-size:15px"><svg class="i" style="stroke-width:2.2"><use href="#upload"/></svg>Upload Spec.pdf</button>
+  </div>
+  <div class="home"></div>
+</div><p class="cap">Dashed drop zone (140), file row, three-row tier radio, primary upload.</p></div>
+  </div>
+</section>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  function mark(attr,val){document.querySelectorAll('['+attr+']').forEach(function(b){b.classList.toggle('on',b.getAttribute(attr)===val)})}
+  var q=new URLSearchParams(location.search);
+  var solo=q.get('solo');
+  if(q.get('theme')){root.setAttribute('data-theme',q.get('theme'))}
+  if(solo){
+    var el=document.getElementById(solo),sp=document.querySelector('svg[aria-hidden]');
+    document.body.innerHTML='';document.body.appendChild(sp);document.body.appendChild(el);
+    document.body.style.padding=el.classList.contains('desk')?'0':'28px';
+    document.body.style.minHeight='0';
+    return;
+  }
+  document.querySelectorAll('[data-theme-btn]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var v=b.getAttribute('data-theme-btn');
+      if(v==='auto'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',v)}
+      mark('data-theme-btn',v);
+    });
+  });
+  var mode='fit';
+  function fit(){
+    document.querySelectorAll('.stageW').forEach(function(st){
+      var h=st.parentNode,s=mode==='fit'?Math.min(1,h.clientWidth/1440):1;
+      st.style.transform='scale('+s+')';h.style.height=(900*s)+'px';h.style.overflowX=mode==='fit'?'hidden':'auto';
+    });
+  }
+  document.querySelectorAll('[data-fit]').forEach(function(b){b.addEventListener('click',function(){mode=b.getAttribute('data-fit');mark('data-fit',mode);fit()})});
+  window.addEventListener('resize',fit);fit();
+})();
+</script>
+</body>
+</html>

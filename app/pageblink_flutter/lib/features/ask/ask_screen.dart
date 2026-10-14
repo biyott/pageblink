@@ -1,11 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/theme.dart';
+import '../../app/l10n.dart';
 import '../../client.dart';
+import '../viewer/citation_sheet.dart';
 import '../viewer/page_viewer_screen.dart';
 
 /// Ask a question; the answer streams in with ⚡ citations you can blink to.
@@ -24,6 +27,7 @@ class _Turn {
   final answer = StringBuffer();
   final citations = <int, Citation>{};
   String? modelId;
+  String? modelLabel;
   String? error;
   bool done = false;
 }
@@ -71,14 +75,21 @@ class _AskScreenState extends State<AskScreen> {
     final question = _input.text.trim();
     if (question.isEmpty || _streaming) return;
     _input.clear();
-    final turn = _Turn(question);
+    final turn = _Turn(question)
+      ..modelLabel = _models.where((m) => m.id == _modelId).firstOrNull?.label;
     setState(() => _turns.add(turn));
 
     final projectIds = widget.projects.isEmpty
         ? <int>[]
         : _selectedProjects.toList();
     _subscription = client.ask
-        .ask(question, projectIds, _includePersonal, _modelId)
+        .ask(
+          question,
+          projectIds,
+          _includePersonal,
+          _modelId,
+          Localizations.localeOf(context).languageCode,
+        )
         .listen(
           (event) => setState(() {
             switch (event.type) {
@@ -108,30 +119,48 @@ class _AskScreenState extends State<AskScreen> {
     });
   }
 
-  void _blink(Citation citation) => Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => PageViewerScreen(citation: citation)),
-  );
+  /// Phones get the citation bottom sheet; wider layouts open the viewer.
+  void _blink(List<Citation> all, Citation citation) {
+    if (MediaQuery.sizeOf(context).width < 600) {
+      showCitationSheet(context, all, all.indexOf(citation));
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PageViewerScreen(citation: citation)),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pb = context.pb;
+    final wideHeader = MediaQuery.sizeOf(context).width >= 1024;
     return Column(
       children: [
-        if (_models.isNotEmpty)
-          _ModelPicker(
-            models: _models,
-            selected: _modelId,
-            onChanged: (id) => setState(() => _modelId = id),
+        if (wideHeader)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 12, 4),
+            child: Row(
+              children: [
+                Icon(Icons.bolt, size: 26, color: pb.accent),
+                const SizedBox(width: 6),
+                Text(
+                  context.l.tabAsk,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineMedium?.copyWith(fontSize: 28),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: context.l.newChat,
+                  onPressed: _turns.isEmpty
+                      ? null
+                      : () => setState(() => _turns.clear()),
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+              ],
+            ),
           ),
-        _ScopeBar(
-          projects: widget.projects,
-          selected: _selectedProjects,
-          includePersonal: _includePersonal,
-          onPersonal: (v) => setState(() => _includePersonal = v),
-          onProject: (id, v) => setState(
-            () => v ? _selectedProjects.add(id) : _selectedProjects.remove(id),
-          ),
-        ),
         Expanded(
           child: _turns.isEmpty
               ? _EmptyHint(
@@ -151,28 +180,92 @@ class _AskScreenState extends State<AskScreen> {
         SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _input,
-                    textInputAction: TextInputAction.send,
-                    onSubmitted: (_) => _ask(),
-                    decoration: const InputDecoration(
-                      hintText: '내 문서에 질문하기…',
-                      border: OutlineInputBorder(),
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+            child: GlassPanel(
+              radius: 20,
+              strong: true,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ScopeBar(
+                      projects: widget.projects,
+                      selected: _selectedProjects,
+                      includePersonal: _includePersonal,
+                      onPersonal: (v) => setState(() => _includePersonal = v),
+                      onProject: (id, v) => setState(
+                        () => v
+                            ? _selectedProjects.add(id)
+                            : _selectedProjects.remove(id),
+                      ),
                     ),
-                  ),
+                    TextField(
+                      controller: _input,
+                      minLines: 1,
+                      maxLines: 5,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _ask(),
+                      decoration: InputDecoration(
+                        hintText: context.l.askPlaceholder,
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 14,
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        if (_models.isNotEmpty)
+                          Flexible(
+                            child: _ModelPill(
+                              models: _models,
+                              selected: _modelId,
+                              onChanged: (id) => setState(() => _modelId = id),
+                            ),
+                          ),
+                        const Spacer(),
+                        ListenableBuilder(
+                          listenable: _input,
+                          builder: (context, _) {
+                            final canSend =
+                                _input.text.trim().isNotEmpty && !_streaming;
+                            return IconButton.filled(
+                              onPressed: canSend ? _ask : null,
+                              tooltip: context.l.askTooltip,
+                              icon: const Icon(Icons.arrow_upward),
+                              style: IconButton.styleFrom(
+                                fixedSize: const Size(40, 40),
+                                backgroundColor: pb.accent,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimary,
+                                disabledBackgroundColor: pb.hairline,
+                                disabledForegroundColor: pb.inkMuted,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: _streaming ? null : _ask,
-                  icon: const Icon(Icons.bolt),
-                  tooltip: '질문',
-                ),
-              ],
+              ),
             ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            context.l.aiDisclaimer,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontSize: 11, color: pb.inkMuted),
           ),
         ),
       ],
@@ -184,8 +277,8 @@ class _AskScreenState extends State<AskScreen> {
       text.replaceAllMapped(_marker, (m) => ' `⚡${m[1]}`');
 }
 
-class _ModelPicker extends StatelessWidget {
-  const _ModelPicker({
+class _ModelPill extends StatelessWidget {
+  const _ModelPill({
     required this.models,
     required this.selected,
     required this.onChanged,
@@ -196,30 +289,57 @@ class _ModelPicker extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-    child: DropdownButtonFormField<String>(
-      initialValue: models.any((m) => m.id == selected) ? selected : null,
-      isExpanded: true,
-      decoration: const InputDecoration(
-        labelText: '답변 모델',
-        prefixIcon: Icon(Icons.memory),
-        border: OutlineInputBorder(),
-        isDense: true,
-      ),
-      items: [
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    final l = context.l;
+    final current = models.where((m) => m.id == selected).firstOrNull;
+    return PopupMenuButton<String>(
+      tooltip: l.answerModel,
+      onSelected: onChanged,
+      itemBuilder: (context) => [
         for (final m in models)
-          DropdownMenuItem(
+          PopupMenuItem(
             value: m.id,
             child: Text(
-              '${m.free ? '🆓' : '💳'} ${m.label} · ${m.note ?? ''}',
-              overflow: TextOverflow.ellipsis,
+              '${m.label} · ${m.free ? l.free : l.paid}'
+              '${m.note == null ? '' : ' · ${m.note}'}',
             ),
           ),
       ],
-      onChanged: onChanged,
-    ),
-  );
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: pb.chipBg,
+          border: Border.all(color: pb.hairline),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                current?.label ?? l.answerModel,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (current != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                current.free ? l.free : l.paid,
+                style: TextStyle(fontSize: 11, color: pb.success),
+              ),
+            ],
+            const Icon(Icons.keyboard_arrow_down, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ScopeBar extends StatelessWidget {
@@ -240,12 +360,11 @@ class _ScopeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     scrollDirection: Axis.horizontal,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     child: Row(
       children: [
         FilterChip(
           avatar: const Icon(Icons.cloud_outlined, size: 18),
-          label: const Text('내 문서'),
+          label: Text(context.l.myDocs),
           selected: includePersonal,
           onSelected: onPersonal,
         ),
@@ -267,11 +386,13 @@ class _TurnView extends StatelessWidget {
   const _TurnView(this.turn, {required this.onBlink});
 
   final _Turn turn;
-  final ValueChanged<Citation> onBlink;
+  final void Function(List<Citation> all, Citation c) onBlink;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final pb = context.pb;
+    final l = context.l;
     final citations = turn.citations.values.toList()
       ..sort((a, b) => a.index.compareTo(b.index));
     return Column(
@@ -283,7 +404,7 @@ class _TurnView extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 10, left: 48),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: context.pb.accentGradient),
+              gradient: LinearGradient(colors: pb.accentGradient),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(18),
                 topRight: Radius.circular(18),
@@ -302,6 +423,7 @@ class _TurnView extends StatelessWidget {
               turn.question,
               style: const TextStyle(
                 color: Colors.white,
+                fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -312,62 +434,107 @@ class _TurnView extends StatelessWidget {
             padding: EdgeInsets.all(8),
             child: LinearProgressIndicator(),
           ),
-        if (turn.modelId != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              '⚡ ${turn.modelId}',
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ),
         if (turn.answer.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(right: 24),
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: context.pb.glassStrong,
-              border: Border.all(color: context.pb.glassBorder),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(18),
-                topRight: Radius.circular(18),
-                bottomRight: Radius.circular(18),
-                bottomLeft: Radius.circular(6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: 0.92,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: pb.glassStrong,
+                  border: Border.all(color: pb.glassBorder),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(6),
+                    topRight: Radius.circular(18),
+                    bottomRight: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GptMarkdown(
+                      _AskScreenState.renderMarkers(turn.answer.toString()),
+                    ),
+                    if (citations.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Divider(color: pb.hairline),
+                      const SizedBox(height: 10),
+                      Text(
+                        l.sourcesLabel.toUpperCase(),
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                          color: pb.inkMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final c in citations)
+                            ActionChip(
+                              visualDensity: VisualDensity.compact,
+                              avatar: Icon(
+                                Icons.bolt,
+                                size: 16,
+                                color: pb.accent,
+                              ),
+                              side: BorderSide(color: pb.accent),
+                              backgroundColor: Colors.transparent,
+                              labelStyle: TextStyle(
+                                fontSize: 13,
+                                color: pb.onAccentContainer,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              label: Text(
+                                '${c.index} · ${c.documentTitle}'
+                                '${c.kind == 'note' ? '' : ' p.${c.page}'}',
+                              ),
+                              onPressed: () => onBlink(citations, c),
+                            ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          iconSize: 20,
+                          color: pb.inkMuted,
+                          tooltip: l.copy,
+                          icon: const Icon(Icons.copy_outlined),
+                          onPressed: () async {
+                            await Clipboard.setData(
+                              ClipboardData(text: turn.answer.toString()),
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(l.copied)),
+                              );
+                            }
+                          },
+                        ),
+                        const Spacer(),
+                        if (turn.modelLabel != null)
+                          Text(
+                            turn.modelLabel!,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(fontSize: 12, color: pb.inkMuted),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            child: GptMarkdown(
-              _AskScreenState.renderMarkers(turn.answer.toString()),
             ),
           ),
         if (turn.error != null)
           Text(turn.error!, style: TextStyle(color: colors.error)),
-        if (citations.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Text(
-            'Sources',
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: context.pb.inkMuted),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final c in citations)
-                ActionChip(
-                  avatar: Icon(Icons.bolt, size: 16, color: colors.primary),
-                  side: BorderSide(color: colors.primary),
-                  backgroundColor: context.pb.glassStrong,
-                  labelStyle: TextStyle(
-                    color: context.pb.onAccentContainer,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  label: Text('${c.index} · ${c.documentTitle} p.${c.page}'),
-                  onPressed: () => onBlink(c),
-                ),
-            ],
-          ),
-        ],
         const SizedBox(height: 24),
       ],
     );
@@ -378,13 +545,6 @@ class _EmptyHint extends StatelessWidget {
   const _EmptyHint({required this.onPick});
 
   final ValueChanged<String> onPick;
-
-  static const _suggestions = [
-    '이번 주 할 일 정리해줘',
-    '회의록에서 결정된 사항은?',
-    '이 PDF의 핵심 요약',
-    '예산과 마감일 알려줘',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -398,13 +558,13 @@ class _EmptyHint extends StatelessWidget {
             Icon(Icons.bolt, size: 44, color: theme.colorScheme.primary),
             const SizedBox(height: 12),
             Text(
-              'Ask your notes & documents',
+              context.l.askEmptyTitle,
               textAlign: TextAlign.center,
               style: theme.textTheme.headlineSmall,
             ),
             const SizedBox(height: 8),
             Text(
-              '모든 답변은 ⚡ 출처로 연결됩니다',
+              context.l.askEmptySubtitle,
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: context.pb.inkMuted,
@@ -416,7 +576,7 @@ class _EmptyHint extends StatelessWidget {
               runSpacing: 8,
               alignment: WrapAlignment.center,
               children: [
-                for (final s in _suggestions)
+                for (final s in context.l.askSuggestions)
                   ActionChip(label: Text(s), onPressed: () => onPick(s)),
               ],
             ),

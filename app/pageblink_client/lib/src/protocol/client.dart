@@ -284,8 +284,9 @@ class EndpointAsk extends _isc.EndpointRef {
     String question,
     List<int> projectIds,
     bool includePersonal,
-    String? modelId,
-  ) =>
+    String? modelId, [
+    String? locale,
+  ]) =>
       caller.callStreamingServerEndpoint<
         _ida.Stream<_iv9ukj64.AnswerEvent>,
         _iv9ukj64.AnswerEvent
@@ -297,6 +298,7 @@ class EndpointAsk extends _isc.EndpointRef {
           'projectIds': projectIds,
           'includePersonal': includePersonal,
           'modelId': modelId,
+          'locale': locale,
         },
         {},
       );

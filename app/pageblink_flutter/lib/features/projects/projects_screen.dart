@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
+import '../../app/l10n.dart';
 import '../../client.dart';
 
 /// Shared Vision: projects whose documents members can all ask about.
@@ -28,11 +29,11 @@ class ProjectsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
+            child: Text(context.l.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('확인'),
+            child: Text(context.l.ok),
           ),
         ],
       ),
@@ -40,27 +41,36 @@ class ProjectsScreen extends StatelessWidget {
   }
 
   Future<void> _create(BuildContext context) async {
-    final name = await _prompt(context, '새 프로젝트', '예: 2026 해커톤');
+    final name = await _prompt(
+      context,
+      context.l.newProject,
+      context.l.newProjectHint,
+    );
     if (name == null || name.isEmpty) return;
     await client.project.create(name);
     await onChanged();
   }
 
   Future<void> _invite(BuildContext context, Project project) async {
-    final email = await _prompt(context, '${project.name}에 초대', '팀원 이메일');
+    final l = context.l;
+    final email = await _prompt(
+      context,
+      l.inviteTo(project.name),
+      l.teammateEmail,
+    );
     if (email == null || email.isEmpty || !context.mounted) return;
     try {
       await client.project.addMember(project.id!, email, 'editor');
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$email 님을 초대했어요.')));
+        ).showSnackBar(SnackBar(content: Text(l.invited(email))));
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('초대 실패: $e')));
+        ).showSnackBar(SnackBar(content: Text(l.inviteFailed(e))));
       }
     }
   }
@@ -71,14 +81,14 @@ class ProjectsScreen extends StatelessWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _create(context),
         icon: const Icon(Icons.group_add_outlined),
-        label: const Text('새 프로젝트'),
+        label: Text(context.l.newProject),
       ),
       body: projects.isEmpty
-          ? const Center(
+          ? Center(
               child: Padding(
-                padding: EdgeInsets.all(32),
+                padding: const EdgeInsets.all(32),
                 child: Text(
-                  '프로젝트를 만들면 팀원과 문서를 공유하고\n함께 질문할 수 있어요. (Shared Vision)',
+                  context.l.projectsEmpty,
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -91,7 +101,7 @@ class ProjectsScreen extends StatelessWidget {
                     title: Text(p.name),
                     trailing: IconButton(
                       icon: const Icon(Icons.person_add_alt),
-                      tooltip: '초대',
+                      tooltip: context.l.invite,
                       onPressed: () => _invite(context, p),
                     ),
                   ),

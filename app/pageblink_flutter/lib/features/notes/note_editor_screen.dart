@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
+import '../../app/l10n.dart';
 import '../../client.dart';
 
 /// Keep-style note editor: title + Markdown body, a small formatting toolbar
@@ -47,6 +48,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
       Navigator.pop(context);
       return;
     }
+    final l = context.l;
     setState(() => _saving = true);
     try {
       final saved = await client.document.saveNote(
@@ -61,7 +63,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
         setState(() => _saving = false);
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+        ).showSnackBar(SnackBar(content: Text(l.saveFailed(e))));
       }
     }
   }
@@ -111,7 +113,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
           ),
           actions: [
             IconButton(
-              tooltip: _preview ? '편집' : '미리보기',
+              tooltip: _preview ? context.l.edit : context.l.preview,
               icon: Icon(
                 _preview ? Icons.edit_outlined : Icons.visibility_outlined,
               ),
@@ -127,7 +129,7 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               )
             else
               IconButton(
-                tooltip: '저장',
+                tooltip: context.l.save,
                 icon: const Icon(Icons.check),
                 onPressed: _saveAndClose,
               ),
@@ -151,8 +153,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
               child: TextField(
                 controller: _title,
                 style: Theme.of(context).textTheme.titleLarge,
-                decoration: const InputDecoration(
-                  hintText: '제목',
+                decoration: InputDecoration(
+                  hintText: context.l.titleHint,
                   border: InputBorder.none,
                 ),
               ),
@@ -175,8 +177,8 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                         expands: true,
                         keyboardType: TextInputType.multiline,
                         textAlignVertical: TextAlignVertical.top,
-                        decoration: const InputDecoration(
-                          hintText: '메모하기… (Markdown 지원)',
+                        decoration: InputDecoration(
+                          hintText: context.l.noteHint,
                           border: InputBorder.none,
                         ),
                       ),
@@ -192,37 +194,37 @@ class _NoteEditorScreenState extends State<NoteEditorScreen> {
                     child: Row(
                       children: [
                         IconButton(
-                          tooltip: '제목',
+                          tooltip: context.l.fmtHeading,
                           icon: const Icon(Icons.title),
                           onPressed: () => _linePrefix('## '),
                         ),
                         IconButton(
-                          tooltip: '굵게',
+                          tooltip: context.l.fmtBold,
                           icon: const Icon(Icons.format_bold),
                           onPressed: () => _wrap('**', '**'),
                         ),
                         IconButton(
-                          tooltip: '기울임',
+                          tooltip: context.l.fmtItalic,
                           icon: const Icon(Icons.format_italic),
                           onPressed: () => _wrap('_', '_'),
                         ),
                         IconButton(
-                          tooltip: '목록',
+                          tooltip: context.l.fmtList,
                           icon: const Icon(Icons.format_list_bulleted),
                           onPressed: () => _linePrefix('- '),
                         ),
                         IconButton(
-                          tooltip: '체크박스',
+                          tooltip: context.l.fmtCheckbox,
                           icon: const Icon(Icons.check_box_outlined),
                           onPressed: () => _linePrefix('- [ ] '),
                         ),
                         IconButton(
-                          tooltip: '인용',
+                          tooltip: context.l.fmtQuote,
                           icon: const Icon(Icons.format_quote),
                           onPressed: () => _linePrefix('> '),
                         ),
                         IconButton(
-                          tooltip: '코드',
+                          tooltip: context.l.fmtCode,
                           icon: const Icon(Icons.code),
                           onPressed: () => _wrap('`', '`'),
                         ),

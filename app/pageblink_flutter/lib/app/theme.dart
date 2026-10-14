@@ -27,6 +27,14 @@ class Pb extends ThemeExtension<Pb> {
     required this.warn,
     required this.warnContainer,
     required this.warnBorder,
+    required this.tile,
+    required this.thumbBg,
+    required this.warnTint,
+    required this.chipBg,
+    required this.scrim,
+    required this.sheet,
+    required this.success,
+    required this.accent,
   });
 
   final Color bgStart, bgMid, bgEnd, blobA, blobB;
@@ -36,6 +44,7 @@ class Pb extends ThemeExtension<Pb> {
   final List<Color> accentGradient;
   final List<Color> notes;
   final Color pdfPaper, warn, warnContainer, warnBorder;
+  final Color tile, thumbBg, warnTint, chipBg, scrim, sheet, success, accent;
 
   static const light = Pb(
     bgStart: Color(0xFFEDE6FA),
@@ -64,6 +73,14 @@ class Pb extends ThemeExtension<Pb> {
     warn: Color(0xFFB45309),
     warnContainer: Color(0xFFFEF3C7),
     warnBorder: Color(0x8CB45309),
+    tile: Color(0x141F1B16),
+    thumbBg: Color(0x0B1F1B16),
+    warnTint: Color(0xFFFFF8EC),
+    chipBg: Color(0x8CFFFFFF),
+    scrim: Color(0x661E160C),
+    sheet: Color(0xDBFFFDFA),
+    success: Color(0xFF2E7D4F),
+    accent: Color(0xFF6C4CF5),
   );
 
   static const dark = Pb(
@@ -81,7 +98,7 @@ class Pb extends ThemeExtension<Pb> {
     hairline: Color(0x24FFFFFF),
     accentContainer: Color(0xFF3A2F7A),
     onAccentContainer: Color(0xFFE9E3FC),
-    accentGradient: [Color(0xFF7A5CFF), Color(0xFF9C84FF)],
+    accentGradient: [Color(0xFF6C4CF5), Color(0xFF7A5CFF)],
     notes: [
       Color(0xFF4A3F16),
       Color(0xFF1F3D2C),
@@ -93,6 +110,14 @@ class Pb extends ThemeExtension<Pb> {
     warn: Color(0xFFFBBF24),
     warnContainer: Color(0xFF3A2A0A),
     warnBorder: Color(0x80FBBF24),
+    tile: Color(0x1FFFFFFF),
+    thumbBg: Color(0x0DFFFFFF),
+    warnTint: Color(0xFF2D2410),
+    chipBg: Color(0x0DFFFFFF),
+    scrim: Color(0x661E160C),
+    sheet: Color(0xE0282130),
+    success: Color(0xFF6FCF97),
+    accent: Color(0xFFB7A6FF),
   );
 
   /// Stable pastel per note so cards keep their color between refreshes.
@@ -194,13 +219,26 @@ ThemeData buildPbTheme(Brightness brightness) {
     ),
     chipTheme: ChipThemeData(
       shape: const StadiumBorder(),
-      side: BorderSide(color: pb.hairline),
-      backgroundColor: pb.glassStrong,
+      side: WidgetStateBorderSide.resolveWith(
+        (states) => BorderSide(
+          color: states.contains(WidgetState.selected)
+              ? accent.withValues(alpha: 0.55)
+              : pb.hairline,
+        ),
+      ),
+      backgroundColor: pb.chipBg,
       selectedColor: pb.accentContainer,
+      checkmarkColor: pb.onAccentContainer,
+      secondarySelectedColor: pb.accentContainer,
       labelStyle: text.labelMedium?.copyWith(
         fontSize: 13,
         fontWeight: FontWeight.w500,
         color: pb.ink,
+      ),
+      secondaryLabelStyle: text.labelMedium?.copyWith(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        color: pb.onAccentContainer,
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
@@ -223,7 +261,7 @@ ThemeData buildPbTheme(Brightness brightness) {
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: Colors.transparent,
       indicatorColor: pb.accentContainer,
-      selectedIconTheme: IconThemeData(color: accent),
+      selectedIconTheme: IconThemeData(color: pb.accent),
       unselectedIconTheme: IconThemeData(color: pb.inkMuted),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -261,8 +299,8 @@ class PbBackground extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          Positioned(left: -120, bottom: -80, child: _Blob(pb.blobA, 360)),
-          Positioned(right: -100, top: -60, child: _Blob(pb.blobB, 320)),
+          Positioned(left: -140, top: -140, child: _Glow(pb.blobA, 460)),
+          Positioned(right: -140, bottom: -140, child: _Glow(pb.blobB, 460)),
           Positioned.fill(child: child),
         ],
       ),
@@ -270,19 +308,22 @@ class PbBackground extends StatelessWidget {
   }
 }
 
-class _Blob extends StatelessWidget {
-  const _Blob(this.color, this.size);
+/// Soft corner glow (radial falloff, no blur filter so it stays cheap).
+class _Glow extends StatelessWidget {
+  const _Glow(this.color, this.size);
   final Color color;
   final double size;
 
   @override
   Widget build(BuildContext context) => IgnorePointer(
-    child: ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 60, sigmaY: 60),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color, color.withValues(alpha: 0)],
+        ),
       ),
     ),
   );

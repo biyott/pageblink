@@ -1,0 +1,225 @@
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+import 'package:pageblink_client/pageblink_client.dart';
+
+import '../../app/l10n.dart';
+import '../../app/theme.dart';
+import 'page_viewer_screen.dart';
+
+/// Mobile "Blink": a bottom sheet previewing the cited passage, with a
+/// button that opens the full page in [PageViewerScreen].
+Future<void> showCitationSheet(
+  BuildContext context,
+  List<Citation> citations,
+  int index,
+) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  backgroundColor: Colors.transparent,
+  barrierColor: context.pb.scrim,
+  builder: (_) => _CitationSheet(citations: citations, initial: index),
+);
+
+class _CitationSheet extends StatefulWidget {
+  const _CitationSheet({required this.citations, required this.initial});
+
+  final List<Citation> citations;
+  final int initial;
+
+  @override
+  State<_CitationSheet> createState() => _CitationSheetState();
+}
+
+class _CitationSheetState extends State<_CitationSheet> {
+  late int _i = widget.initial.clamp(0, widget.citations.length - 1);
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pb = context.pb;
+    final text = Theme.of(context).textTheme;
+    final c = widget.citations[_i];
+    final total = widget.citations.length;
+    final isNote = c.kind == 'note';
+    final height = MediaQuery.sizeOf(context).height * 0.62;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          height: height,
+          color: pb.sheet,
+          padding: EdgeInsets.fromLTRB(
+            20,
+            10,
+            20,
+            16 + MediaQuery.paddingOf(context).bottom,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: pb.hairline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      l.citedInAnswer.toUpperCase(),
+                      style: text.labelSmall?.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                        color: pb.inkMuted,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: pb.accentContainer,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        _Step(
+                          icon: Icons.chevron_left,
+                          onTap: _i > 0 ? () => setState(() => _i--) : null,
+                        ),
+                        Text(
+                          l.sourceNofM(_i + 1, total),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: pb.onAccentContainer,
+                          ),
+                        ),
+                        _Step(
+                          icon: Icons.chevron_right,
+                          onTap: _i < total - 1
+                              ? () => setState(() => _i++)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: pb.tile,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      isNote
+                          ? Icons.sticky_note_2_outlined
+                          : Icons.picture_as_pdf_outlined,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          c.documentTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: text.titleMedium,
+                        ),
+                        Text(
+                          isNote
+                              ? l.kindNote
+                              : '${l.kindPdf} · ${l.pageN(c.page)}',
+                          style: text.bodySmall?.copyWith(color: pb.inkMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F3EA),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: SingleChildScrollView(
+                    child: Text.rich(
+                      TextSpan(
+                        text: c.quote,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.6,
+                          color: const Color(0xFF1F1B16),
+                          backgroundColor: pb.accent.withValues(alpha: 0.18),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () {
+                    final nav = Navigator.of(context);
+                    nav.pop();
+                    nav.push(
+                      MaterialPageRoute(
+                        builder: (_) => PageViewerScreen(citation: c),
+                      ),
+                    );
+                  },
+                  child: Text(l.openFullPage),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Step extends StatelessWidget {
+  const _Step({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => InkResponse(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Icon(
+        icon,
+        size: 18,
+        color: onTap == null
+            ? context.pb.onAccentContainer.withValues(alpha: 0.35)
+            : context.pb.onAccentContainer,
+      ),
+    ),
+  );
+}

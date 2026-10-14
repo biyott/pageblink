@@ -21,9 +21,11 @@ class AskEndpoint extends Endpoint {
     String question,
     List<int> projectIds,
     bool includePersonal,
-    String? modelId,
-  ) async* {
+    String? modelId, [
+    String? locale,
+  ]) async* {
     final userId = Acl.requireUser(session);
+    final ko = locale == 'ko';
     // Intersect with real memberships: client-sent ids are never trusted.
     final allowed = (await Acl.memberProjectIds(
       session,
@@ -77,14 +79,18 @@ class AskEndpoint extends Endpoint {
               );
         yield AnswerEvent(
           type: 'token',
-          text: '_(의미 검색을 잠시 쓸 수 없어 키워드 검색 결과로 답합니다.)_\n\n',
+          text: ko
+              ? '_(의미 검색을 잠시 쓸 수 없어 키워드 검색 결과로 답합니다.)_\n\n'
+              : '_(Semantic search is unavailable right now, so this answer uses keyword matches.)_\n\n',
         );
       }
 
       if (hits.isEmpty) {
         yield AnswerEvent(
           type: 'token',
-          text: '관련 내용을 찾지 못했어요. 노트를 쓰거나 PDF를 올린 뒤, 색인이 끝났는지 확인해 주세요.',
+          text: ko
+              ? '관련 내용을 찾지 못했어요. 노트를 쓰거나 PDF를 올린 뒤, 색인이 끝났는지 확인해 주세요.'
+              : 'Nothing relevant found yet. Write a note or upload a PDF, and make sure indexing has finished.',
         );
         yield AnswerEvent(type: 'done');
         return;
@@ -150,7 +156,12 @@ class AskEndpoint extends Endpoint {
         exception: e,
         stackTrace: st,
       );
-      yield AnswerEvent(type: 'error', text: '답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      yield AnswerEvent(
+        type: 'error',
+        text: ko
+            ? '답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.'
+            : 'Could not generate an answer. Please try again shortly.',
+      );
     }
   }
 }

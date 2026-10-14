@@ -206,7 +206,7 @@ class DocumentEndpoint extends Endpoint {
         session,
         document.copyWith(
           status: 'failed',
-          lastError: '원본 텍스트가 없어요. PDF를 다시 올려 주세요.',
+          lastError: 'no_source',
         ),
       );
     }
@@ -231,14 +231,14 @@ class DocumentEndpoint extends Endpoint {
     return ready;
   }
 
-  /// Short, user-facing reason for an indexing failure.
+  /// Failure code the app localizes: quota | auth | rate | outage | unknown.
   static String _friendlyError(Object e) {
     final m = '$e';
-    if (m.contains(' 402')) return '임베딩 서비스 잔액/한도 부족 — 충전 후 다시 색인하세요.';
-    if (m.contains(' 401') || m.contains(' 403')) return '임베딩 API 키가 올바르지 않아요.';
-    if (m.contains(' 429')) return '요청이 많아 잠시 막혔어요. 잠시 후 다시 색인하세요.';
-    if (RegExp(r' 5\d\d').hasMatch(m)) return '임베딩 서비스 장애 — 잠시 후 다시 색인하세요.';
-    return '색인 중 오류가 발생했어요. 다시 색인을 눌러 주세요.';
+    if (m.contains(' 402')) return 'quota';
+    if (m.contains(' 401') || m.contains(' 403')) return 'auth';
+    if (m.contains(' 429')) return 'rate';
+    if (RegExp(r' 5\d\d').hasMatch(m)) return 'outage';
+    return 'unknown';
   }
 
   static String _titleFrom(String body) {

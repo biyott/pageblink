@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 import 'package:pdfrx/pdfrx.dart';
 
+import '../../app/l10n.dart';
 import '../../app/local_pdfs.dart';
 import '../../client.dart';
 import '../notes/note_editor_screen.dart';
@@ -73,7 +74,7 @@ class _QuoteView extends StatelessWidget {
     padding: const EdgeInsets.all(24),
     children: [
       Text(
-        '원본 PDF가 이 기기에 없어 인용 구절만 보여 드려요.',
+        context.l.originalMissing,
         style: Theme.of(context).textTheme.bodySmall,
       ),
       const SizedBox(height: 16),
