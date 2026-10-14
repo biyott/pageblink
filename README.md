@@ -4,7 +4,7 @@
 
 Every answer shows its source: tap ⚡ to open the exact PDF page or note it came from.
 
-[Live app](https://pageblink.serverpod.space) · [Demo video](<VIDEO_URL>) · [Source](https://github.com/biyott/pageblink)
+[Live app](https://pageblink.serverpod.space) · [Demo video](https://youtu.be/ENYl1pd7_eQ) · [Source](https://github.com/biyott/pageblink)
 
 **PageBlink** is a Google Keep–style Markdown notes app that also takes PDFs. Ask a question across **both your notes and your PDFs**, and the answer streams in token by token with `[n]` citations to the exact sources it used. Tap a ⚡ citation chip and the app opens the source so you can check it: the cited PDF page, or the cited note with the quoted passage shown. "Blink to the source" means exactly that: one tap from an answer to where it came from.
 

@@ -20,7 +20,7 @@ BuilderBase 제출 양식과 소셜 포스트(보너스)에 **그대로 붙여�
 | 웹 앱 | https://pageblink.serverpod.space | ✅ Serverpod Cloud 배포, Cloud DB의 pgvector 확인 (리드 전달) · HTTP 200 ([devlog 007](../devlog/007-cloud-deploy-and-model-rotation.md)). ⚠️ 이후 재배포 결과는 확인 필요 |
 | API | https://pageblink.api.serverpod.space | ✅ HTTP 200 (같은 기록) |
 | 저장소 | https://github.com/biyott/pageblink | ✅ **public** (리드 전달, 2026-10-15 약 01:45 KST). ⚠️ 비로그인 상태에서 열리는지 제출 전 확인 |
-| 데모 영상 | `<VIDEO_URL>` (자리표시자) | ⚠️ 업로드 후 교체 |
+| 데모 영상 | https://youtu.be/ENYl1pd7_eQ | ✅ 2026-10-15 업로드 |
 
 > 아래 텍스트의 `<VIDEO_URL>`은 실제 링크로 **모두 교체**한 뒤 붙여넣으세요 (§7 체크리스트).
 
@@ -131,7 +131,7 @@ PageBlink is a Keep-style Markdown notes app that also takes PDFs. Ask a questio
 
 Built with Flutter and Serverpod 4: ORM with pgvector, a streaming Stream<AnswerEvent> endpoint, email auth, private cloud storage, and access control inside the vector query. It is live on Serverpod Cloud.
 
-Demo (under 2 min): <VIDEO_URL>
+Demo (under 2 min): https://youtu.be/ENYl1pd7_eQ
 Try it: https://pageblink.serverpod.space
 
 Thank you @Serverpod for Serverpod 4 and Serverpod Cloud!
@@ -146,7 +146,7 @@ Thank you @Serverpod for Serverpod 4 and Serverpod Cloud!
 
 ```text
 PageBlink for the @ServerpodDev hackathon: ask your notes & PDFs, get streamed answers with citations, tap ⚡ to open the exact source. Flutter + Serverpod 4 + pgvector, live on Serverpod Cloud.
-Demo: <VIDEO_URL>
+Demo: https://youtu.be/ENYl1pd7_eQ
 pageblink.serverpod.space
 #Serverpod
 ```
@@ -155,7 +155,7 @@ pageblink.serverpod.space
 
 ```text
 PageBlink for the @serverpod.dev hackathon: ask your notes & PDFs, get streamed answers with citations, tap ⚡ to open the exact source. Flutter + Serverpod 4 + pgvector, live on Serverpod Cloud.
-Demo: <VIDEO_URL>
+Demo: https://youtu.be/ENYl1pd7_eQ
 pageblink.serverpod.space
 #Serverpod
 ```
@@ -171,7 +171,7 @@ pageblink.serverpod.space
 ### 영상 · 저장소
 
 - [ ] 데모 영상(2분 이내) 업로드, 비로그인 상태에서 재생되는지 확인 (촬영 절차: [plan 006](006-demo-script.md))
-- [ ] 영상 링크를 이 문서의 `<VIDEO_URL>`에 모두 반영 (§4 영문 설명에는 없음, §6 포스트 3곳)
+- [x] 영상 링크를 이 문서의 `<VIDEO_URL>`에 모두 반영 (https://youtu.be/ENYl1pd7_eQ) (§4 영문 설명에는 없음, §6 포스트 3곳)
 - [ ] 저장소 https://github.com/biyott/pageblink 가 **public** 이고 비로그인 상태에서 열리는지 확인 ✅ public (리드 전달)
 - [ ] 루트 [README](../../README.md) `Live demo` 표의 **Demo video** 행에 링크 추가 (현재 "link to be added")
 - [ ] ⚠️ 루트 README·[plan 006](006-demo-script.md)의 낡은 내용 갱신 (이 문서 작업에서는 수정하지 않음): 저장소 URL(`biyott/serverpod-hack-2026` → `biyott/pageblink`), "UI strings are in Korean", "notes feature deploy 결과 확인 필요"
