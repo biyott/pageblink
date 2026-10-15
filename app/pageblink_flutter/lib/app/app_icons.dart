@@ -65,4 +65,9 @@ abstract final class AppIcons {
   static const checklist = LucideIcons.squareCheck;
   static const quote = LucideIcons.quote;
   static const code = LucideIcons.code;
+  static const link = LucideIcons.link;
+
+  // Live | Source toggle (narrow phones show icons only)
+  static const modeLive = LucideIcons.pencilLine;
+  static const modeSource = LucideIcons.fileCode;
 }

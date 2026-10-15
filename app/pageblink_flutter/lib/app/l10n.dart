@@ -87,6 +87,10 @@ class L {
   String get fmtCheckbox => _t('Checkbox', '체크박스');
   String get fmtQuote => _t('Quote', '인용');
   String get fmtCode => _t('Code', '코드');
+  String get fmtLink => _t('Link', '링크');
+  String get fmtBodyText => _t('Body text', '본문');
+  String get modeLive => _t('Live', '라이브');
+  String get modeSource => _t('Source', '소스');
 
   // ── Documents ─────────────────────────────────────────────────────────
   String get uploadPdf => _t('Upload PDF', 'PDF 올리기');
