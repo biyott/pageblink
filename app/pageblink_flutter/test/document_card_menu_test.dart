@@ -32,6 +32,11 @@ Future<void> _pump(
 }) => t.pumpWidget(
   MaterialApp(
     theme: buildPbTheme(Brightness.light),
+    // The indexing dot pulses forever; pumpAndSettle needs it still.
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(disableAnimations: true),
+      child: child!,
+    ),
     home: Scaffold(
       body: Center(
         child: SizedBox(
@@ -86,7 +91,8 @@ void main() {
       onRetry: () => retried++,
       onReindex: () => reindexed++,
     );
-    await t.tap(find.widgetWithText(OutlinedButton, 'Re-index'));
+    expect(find.byType(OutlinedButton), findsNothing);
+    await t.tap(find.widgetWithText(TextButton, 'Retry'));
     expect(retried, 1);
     await _openMenu(t);
     await t.tap(find.text('Re-index').last);
@@ -109,6 +115,37 @@ void main() {
     await t.tap(find.text('Delete'));
     await t.pumpAndSettle();
     expect(deleted, 1);
+  });
+
+  testWidgets('re-indexing card: status says so, no link, menu disabled', (
+    t,
+  ) async {
+    await t.pumpWidget(
+      MaterialApp(
+        theme: buildPbTheme(Brightness.light),
+        home: Scaffold(
+          body: SizedBox(
+            width: 280,
+            height: 250,
+            child: DocumentCard(
+              _doc('failed'),
+              const [],
+              reindexing: true,
+              onRetry: () {},
+              onReindex: null,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Re-indexing'), findsOneWidget);
+    expect(find.widgetWithText(TextButton, 'Retry'), findsNothing);
+    await t.tap(find.byIcon(AppIcons.more));
+    await t.pump(const Duration(milliseconds: 300));
+    final item = t.widget<PopupMenuItem<bool>>(
+      find.widgetWithText(PopupMenuItem<bool>, 'Re-index'),
+    );
+    expect(item.enabled, isFalse);
   });
 
   testWidgets('busy (no onReindex): menu item is disabled', (t) async {

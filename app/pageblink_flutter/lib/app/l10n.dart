@@ -202,6 +202,19 @@ class L {
     "Can't open this PDF (it may be damaged or password-protected)",
     '열 수 없는 PDF예요 (손상됐거나 암호가 걸려 있을 수 있어요)',
   );
+  String get uploadReadFailed => _t(
+    "Couldn't read the file. Please pick it again",
+    '파일을 읽지 못했어요. 다시 선택해 주세요',
+  );
+  String get uploadEngineUnavailable => _t(
+    "The PDF engine couldn't load. Reload the page and try again",
+    'PDF 엔진을 불러오지 못했어요. 페이지를 새로고침한 뒤 다시 시도해 주세요',
+  );
+  String get uploadPasswordProtected =>
+      _t('This PDF is password-protected', '암호가 걸린 PDF예요');
+  String get uploadDamaged =>
+      _t("This PDF is damaged and can't be read", '손상된 PDF라 읽을 수 없어요');
+  String diagnostic(String code) => _t('Diagnostic: $code', '진단: $code');
   String get uploadPermission => _t(
     "You don't have permission to upload to this project",
     '이 프로젝트에는 올릴 권한이 없어요',
@@ -229,14 +242,6 @@ class L {
   String indexed(String title) => _t('Indexed: $title', '색인 완료: $title');
   String get reindexFailed =>
       _k("Couldn't re-index. Try again.", '다시 색인하지 못했어요. 다시 시도해 주세요.');
-  String get reindexAll => _t('Re-index all', '모두 다시 색인');
-  String get reindexingFailedItems =>
-      _t('Re-indexing failed items…', '실패한 항목 다시 색인 중…');
-  String failedBanner(int n) => _k(
-    '$n ${n == 1 ? 'document' : 'documents'} failed to index and '
-        '${n == 1 ? 'is' : 'are'} left out of Ask.',
-    '색인 실패 $n개 — 질문 검색에서 빠져 있어요.',
-  );
   String reindexedCount(int n) => _t('$n re-indexed', '$n개 색인 완료');
 
   // Card status line + board retry link (docs/design/upload-dnd-reindex §2.8).
@@ -353,8 +358,11 @@ class L {
       '색인이 중간에 끊겼어요. 다시 시도해 주세요.',
     ),
     'no_text' => _k(
-      'No readable text in this PDF (it may be a scan)',
-      '텍스트를 읽을 수 없는 PDF예요(스캔본일 수 있어요)',
+      "Couldn't find any selectable text. It may be a scan, or the text may "
+          'sit only in form fields. Save a version with visible text and '
+          'upload it again.',
+      '선택할 수 있는 텍스트를 찾지 못했어요. 스캔본이거나 텍스트가 입력란에만 '
+          '있는 PDF일 수 있어요. 텍스트가 보이는 PDF로 저장해 다시 올려 주세요.',
     ),
     'no_source' => _k(
       'No text could be extracted from the source (e.g. a scanned PDF).',
@@ -482,7 +490,7 @@ class L {
     'Ask your notes & documents. Every answer shows its source.',
     '노트와 문서에 물어보세요. 답마다 출처가 보여요.',
   );
-  String get tiers => _t('Tiers', '계층');
+  String get tiers => _t('Tiers', '저장 공간');
   String get soon => _t('Soon', '곧');
   String get deviceOnly => _t('device only', '기기 전용');
   String get privateToYou => _t('private to you', '나만 보기');

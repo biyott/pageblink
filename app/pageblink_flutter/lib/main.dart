@@ -11,6 +11,9 @@ import 'app/theme.dart';
 import 'client.dart';
 import 'features/ask/ask_screen.dart';
 import 'features/documents/documents_screen.dart';
+import 'features/documents/drop_zone.dart';
+import 'features/documents/upload_controller.dart';
+import 'features/documents/upload_tray.dart';
 import 'features/open_item/open_item_view.dart';
 import 'features/projects/projects_screen.dart';
 import 'screens/sign_in_screen.dart';
@@ -73,6 +76,15 @@ class _HomeShellState extends State<HomeShell> {
   /// Notes and PDFs open in the center pane on tablet/desktop...
   final _open = OpenItemController();
 
+  /// PDF uploads (button and drag-and-drop) live here, above every tab, so
+  /// progress survives tab changes and an open editor (ADR 019).
+  final _uploads = UploadController(
+    existing: () => documentsNotifier.value,
+  );
+
+  /// The pane the drop zone covers (the board / open item area).
+  final _paneKey = GlobalKey();
+
   /// ...and, on phones, inside the active tab's own navigator.
   final _navKeys = [for (var i = 0; i < 3; i++) GlobalKey<NavigatorState>()];
   late final _observers = [
@@ -112,6 +124,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     _open.dispose();
+    _uploads.dispose();
     _projects.dispose();
     super.dispose();
   }
@@ -205,10 +218,14 @@ class _HomeShellState extends State<HomeShell> {
     ),
   );
 
-  /// The tab content, with the open item layered over it (wide layouts).
+  /// The tab content, with the open item layered over it (wide layouts),
+  /// then the drop zone and the upload tray on top of both.
   Widget _withPane(Widget base) {
     final item = _open.item;
     return Stack(
+      key: _paneKey,
+      // The zone reaches 12 px past the pane.
+      clipBehavior: Clip.none,
       children: [
         Positioned.fill(
           child: Offstage(
@@ -224,6 +241,8 @@ class _HomeShellState extends State<HomeShell> {
               controller: _open,
             ),
           ),
+        DropZone(projects: _projects, editorOpen: item?.isNote ?? false),
+        const Positioned(right: 16, bottom: 16, child: UploadTray()),
       ],
     );
   }
@@ -239,7 +258,13 @@ class _HomeShellState extends State<HomeShell> {
         children: [
           Icon(AppIcons.brand, size: 24, color: context.pb.accent),
           const SizedBox(width: 6),
-          const Text('PageBlink'),
+          Text(
+            'PageBlink',
+            // Global titleLarge is 20 (UP-02); the brand stays >= 22.
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontSize: 22, letterSpacing: -0.2),
+          ),
         ],
       ),
       actions: [
@@ -256,13 +281,18 @@ class _HomeShellState extends State<HomeShell> {
       ],
     );
 
-    return OpenItemScope(
-      controller: _open,
-      child: ListenableBuilder(
-        listenable: _open,
-        builder: (context, _) => LayoutBuilder(
-          builder: (context, constraints) =>
-              _layout(context, constraints.maxWidth, destinations, appBar),
+    return UploadDropHost(
+      controller: _uploads,
+      projects: _projects,
+      paneKey: _paneKey,
+      child: OpenItemScope(
+        controller: _open,
+        child: ListenableBuilder(
+          listenable: _open,
+          builder: (context, _) => LayoutBuilder(
+            builder: (context, constraints) =>
+                _layout(context, constraints.maxWidth, destinations, appBar),
+          ),
         ),
       ),
     );
@@ -289,12 +319,28 @@ class _HomeShellState extends State<HomeShell> {
         },
         child: Scaffold(
           appBar: deep ? null : appBar,
-          body: IndexedStack(
-            index: _tab,
+          body: Stack(
+            key: _paneKey,
             children: [
-              _tabNavigator(0, _ask()),
-              _tabNavigator(1, _notes()),
-              _tabNavigator(2, _projectsTab()),
+              Positioned.fill(
+                child: IndexedStack(
+                  index: _tab,
+                  children: [
+                    _tabNavigator(0, _ask()),
+                    _tabNavigator(1, _notes()),
+                    _tabNavigator(2, _projectsTab()),
+                  ],
+                ),
+              ),
+              // Only a desktop browser squeezed below 600 px ever shows it.
+              DropZone(projects: _projects, grow: -12),
+              Positioned(
+                left: 12,
+                right: 12,
+                // ponytail: clears the Notes tab's two FABs (~124 px).
+                bottom: _tab == 1 && !deep ? 136 : 12,
+                child: const UploadTray(width: null),
+              ),
             ],
           ),
           // Hidden while typing, so the editor toolbar sits on the keyboard.
@@ -336,12 +382,14 @@ class _HomeShellState extends State<HomeShell> {
                 children: [
                   SizedBox(
                     width: 240,
-                    child: ValueListenableBuilder<List<Project>>(
-                      valueListenable: _projects,
-                      builder: (context, projects, _) => _Sidebar(
-                        selected: _tab == 2 ? 2 : 1,
-                        projects: projects,
-                        onSelect: _select,
+                    child: DropScrim(
+                      child: ValueListenableBuilder<List<Project>>(
+                        valueListenable: _projects,
+                        builder: (context, projects, _) => _Sidebar(
+                          selected: _tab == 2 ? 2 : 1,
+                          projects: projects,
+                          onSelect: _select,
+                        ),
                       ),
                     ),
                   ),
@@ -356,7 +404,10 @@ class _HomeShellState extends State<HomeShell> {
                     ),
                   ),
                   const SizedBox(width: 24),
-                  SizedBox(width: 380, child: GlassPanel(child: _ask())),
+                  SizedBox(
+                    width: 380,
+                    child: DropScrim(child: GlassPanel(child: _ask())),
+                  ),
                 ],
               ),
             ),
@@ -373,19 +424,21 @@ class _HomeShellState extends State<HomeShell> {
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: Row(
             children: [
-              GlassPanel(
-                child: NavigationRail(
-                  selectedIndex: _tab,
-                  labelType: NavigationRailLabelType.all,
-                  onDestinationSelected: _select,
-                  destinations: [
-                    for (final d in destinations)
-                      NavigationRailDestination(
-                        icon: Icon(d.icon),
-                        selectedIcon: Icon(d.selected),
-                        label: Text(d.label),
-                      ),
-                  ],
+              DropScrim(
+                child: GlassPanel(
+                  child: NavigationRail(
+                    selectedIndex: _tab,
+                    labelType: NavigationRailLabelType.all,
+                    onDestinationSelected: _select,
+                    destinations: [
+                      for (final d in destinations)
+                        NavigationRailDestination(
+                          icon: Icon(d.icon),
+                          selectedIcon: Icon(d.selected),
+                          label: Text(d.label),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(width: 24),
@@ -456,9 +509,21 @@ class _Sidebar extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
                   child: Row(
                     children: [
-                      Icon(AppIcons.brand, size: 24, color: pb.accent),
-                      const SizedBox(width: 6),
-                      Text('PageBlink', style: text.titleLarge),
+                      Icon(AppIcons.brand, size: 26, color: pb.accent),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          'PageBlink',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          // Matches the Ask header weight (headlineMedium
+                          // 28 + icon 26); global titleLarge stays 20.
+                          style: text.titleLarge?.copyWith(
+                            fontSize: 24,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

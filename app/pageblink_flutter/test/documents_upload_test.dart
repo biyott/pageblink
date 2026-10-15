@@ -6,6 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 import 'package:pageblink_flutter/app/theme.dart';
 import 'package:pageblink_flutter/features/documents/documents_screen.dart';
+import 'package:pageblink_flutter/features/documents/drop_zone.dart';
+import 'package:pageblink_flutter/features/documents/upload_controller.dart';
 import 'package:pageblink_flutter/features/documents/upload_service.dart';
 
 void main() {
@@ -44,13 +46,23 @@ void main() {
         PickedPdf.bytes(n, Uint8List.fromList(utf8.encode('%PDF-1.7 $n'))),
     ];
 
+    final controller = UploadController(api: api);
+    addTearDown(controller.dispose);
     await t.pumpWidget(
       MaterialApp(
         theme: buildPbTheme(Brightness.light),
-        home: DocumentsScreen(
-          projects: const [],
-          pickPdfs: pick,
-          uploadApi: api,
+        home: UploadDropHost(
+          controller: controller,
+          projects: ValueNotifier(const []),
+          child: DocumentsScreen(
+            projects: const [],
+            pickPdfs: pick,
+            boardApi: BoardApi(
+              list: () async => const [],
+              reindex: (id) async => throw UnimplementedError(),
+              delete: (id) async {},
+            ),
+          ),
         ),
       ),
     );
@@ -61,7 +73,14 @@ void main() {
     await t.tap(find.text('My cloud'));
     await t.pumpAndSettle();
 
+    // The queue runs in the shell; the tray shows it, one snackbar sums up.
     expect(uploaded, ['a', 'b', 'c']);
     expect(find.text('3 added'), findsOneWidget);
+    // And the picker button stays usable meanwhile (no global lock).
+    expect(
+      find.byTooltip('Upload PDF'),
+      findsOneWidget,
+    );
+    await t.pump(const Duration(seconds: 6));
   });
 }

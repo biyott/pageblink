@@ -35,6 +35,14 @@ class Pb extends ThemeExtension<Pb> {
     required this.sheet,
     required this.success,
     required this.accent,
+    required this.warnText,
+    required this.linkInk,
+    required this.dropFill,
+    required this.dropFillOver,
+    required this.dropBorder,
+    required this.dropScrim,
+    required this.paneVeil,
+    required this.dropSub,
   });
 
   final Color bgStart, bgMid, bgEnd, blobA, blobB;
@@ -45,6 +53,12 @@ class Pb extends ThemeExtension<Pb> {
   final List<Color> notes;
   final Color pdfPaper, warn, warnContainer, warnBorder;
   final Color tile, thumbBg, warnTint, chipBg, scrim, sheet, success, accent;
+
+  /// Re-index status line + PDF drop zone (docs/design/upload-dnd-reindex §4).
+  /// [warnText] is `warn` darkened to AA on the note pastels; [linkInk] is the
+  /// text-link color on cards and the board (accent fails AA on pastels).
+  final Color warnText, linkInk;
+  final Color dropFill, dropFillOver, dropBorder, dropScrim, paneVeil, dropSub;
 
   static const light = Pb(
     bgStart: Color(0xFFEDE6FA),
@@ -81,6 +95,14 @@ class Pb extends ThemeExtension<Pb> {
     sheet: Color(0xDBFFFDFA),
     success: Color(0xFF2E7D4F),
     accent: Color(0xFF6C4CF5),
+    warnText: Color(0xFF92400E),
+    linkInk: Color(0xFF2E1F85),
+    dropFill: Color(0x146C4CF5),
+    dropFillOver: Color(0x246C4CF5),
+    dropBorder: Color(0x8C6C4CF5),
+    dropScrim: Color(0x291E160C),
+    paneVeil: Color(0xEDF7E8EE),
+    dropSub: Color(0xCC1F1B16),
   );
 
   static const dark = Pb(
@@ -118,6 +140,14 @@ class Pb extends ThemeExtension<Pb> {
     sheet: Color(0xE0282130),
     success: Color(0xFF6FCF97),
     accent: Color(0xFFB7A6FF),
+    warnText: Color(0xFFFBBF24),
+    linkInk: Color(0xFFB7A6FF),
+    dropFill: Color(0x24B7A6FF),
+    dropFillOver: Color(0x38B7A6FF),
+    dropBorder: Color(0x8CB7A6FF),
+    dropScrim: Color(0x4D000000),
+    paneVeil: Color(0xED251C27),
+    dropSub: Color(0xBFF2EDE3),
   );
 
   /// Stable pastel per note so cards keep their color between refreshes.

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
@@ -7,8 +10,31 @@ import '../../app/theme.dart';
 import '../../client.dart';
 import '../../app/open_item_controller.dart';
 import '../open_item/open_item_view.dart';
+import 'index_status.dart';
+import 'tier_sheet.dart';
+import 'upload_controller.dart';
 import 'upload_service.dart';
 import '../../app/app_icons.dart';
+
+/// The server calls the board makes; replaceable in tests (`client` is a
+/// global). Closures read `client` only when called.
+class BoardApi {
+  const BoardApi({
+    required this.list,
+    required this.reindex,
+    required this.delete,
+  });
+
+  factory BoardApi.live() => BoardApi(
+    list: () => client.document.list(),
+    reindex: (id) => client.document.reindex(id),
+    delete: (id) => client.document.delete(id),
+  );
+
+  final Future<List<Document>> Function() list;
+  final Future<Document> Function(int id) reindex;
+  final Future<void> Function(int id) delete;
+}
 
 /// Keep-style board of notes and PDFs (personal and project).
 class DocumentsScreen extends StatefulWidget {
@@ -16,14 +42,14 @@ class DocumentsScreen extends StatefulWidget {
     super.key,
     required this.projects,
     @visibleForTesting this.pickPdfs,
-    @visibleForTesting this.uploadApi,
+    @visibleForTesting this.boardApi,
   });
 
   final List<Project> projects;
 
   /// Test hooks: replace the native picker and the server calls.
   final Future<List<PickedPdf>> Function()? pickPdfs;
-  final UploadApi? uploadApi;
+  final BoardApi? boardApi;
 
   @override
   State<DocumentsScreen> createState() => _DocumentsScreenState();
@@ -31,10 +57,18 @@ class DocumentsScreen extends StatefulWidget {
 
 class _DocumentsScreenState extends State<DocumentsScreen> {
   List<Document>? _documents;
-  String? _busy;
   String? _error;
   _Filter _filter = _Filter.all;
   String _query = '';
+
+  /// Cards being re-indexed right now (each locks only itself).
+  final _reindexing = <int>{};
+  bool _retryingAll = false;
+
+  /// Cards that just arrived from an upload (they flash).
+  static final _noFlash = ValueNotifier<Set<int>>(const {});
+
+  BoardApi get _api => widget.boardApi ?? BoardApi.live();
 
   @override
   void initState() {
@@ -51,7 +85,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 
   Future<void> _refresh() async {
     try {
-      final docs = await client.document.list();
+      final docs = await _api.list();
       if (mounted) {
         setState(() {
           _documents = docs;
@@ -76,66 +110,73 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     ];
   }
 
+  /// Picker -> where to put it -> the shell's upload queue (progress shows in
+  /// the tray, so this stays usable while files upload).
   Future<void> _upload() async {
     final picked = await (widget.pickPdfs ?? _pickPdfs)();
     if (picked.isEmpty || !mounted) return;
-    final l = context.l;
-
-    final projectId = await _chooseTier();
-    if (projectId == _cancelled || !mounted) return;
-
-    setState(() => _busy = l.reading(picked.first.name));
-    try {
-      final report = await uploadPdfs(
-        picked,
-        api: widget.uploadApi ?? UploadApi.live(),
-        projectId: projectId,
-        existing: documentsNotifier.value,
-        onProgress: (p) {
-          if (mounted) setState(() => _busy = uploadProgressText(l, p));
-        },
-      );
-      _snack(uploadSummary(l, report));
-    } finally {
-      if (mounted) setState(() => _busy = null);
-      await _refresh();
-    }
+    final uploads = UploadScope.maybeOf(context);
+    if (uploads == null) return;
+    final projectId = await chooseUploadTier(context, widget.projects);
+    if (projectId == tierCancelled || !mounted) return;
+    uploads.enqueue(picked, projectId: projectId);
   }
 
-  Future<void> _reindex(Document document) async {
+  /// Re-indexes one card. Returns whether it is `ready` afterwards; the user
+  /// sees fixed texts only (raw errors go to the log).
+  Future<bool> _reindexOne(Document document, {bool announce = true}) async {
+    final id = document.id!;
+    if (!_reindexing.add(id)) return false;
     final l = context.l;
-    setState(() => _busy = l.reindexing(document.title));
+    setState(() {});
+    var ready = false;
     try {
-      final result = await client.document.reindex(document.id!);
-      _snack(
-        result.status == 'ready'
-            ? l.indexed(result.title)
-            : (result.lastError == null
-                  ? l.indexingFailed
-                  : l.indexingError(result.lastError)),
-      );
+      final result = await _api.reindex(id);
+      ready = result.status == 'ready';
+      if (announce) {
+        _snack(
+          ready
+              ? l.indexed(result.title)
+              : (result.lastError == null
+                    ? l.indexingFailed
+                    : l.indexingError(result.lastError)),
+        );
+      }
     } catch (e) {
       debugPrint('reindex failed: $e');
-      _snack(l.reindexFailed);
+      if (announce) _snack(l.reindexFailed);
     } finally {
-      if (mounted) setState(() => _busy = null);
+      _reindexing.remove(id);
+      if (mounted) setState(() {});
       await _refresh();
     }
+    return ready;
   }
 
-  Future<void> _reindexFailed() async {
+  Future<void> _reindex(Document document) => _reindexOne(document);
+
+  /// Retries every failure a retry can fix, one after another.
+  Future<void> _retryFailed() async {
+    if (_retryingAll) return;
     final l = context.l;
-    setState(() => _busy = l.reindexingFailedItems);
+    final targets = [
+      ...?_documents?.where(
+        (d) => isRetryableFailure(d) && !_reindexing.contains(d.id),
+      ),
+    ];
+    if (targets.isEmpty) return;
+    setState(() => _retryingAll = true);
+    var ok = 0;
     try {
-      final ready = await client.document.reindexFailed();
-      _snack(l.reindexedCount(ready));
-    } catch (e) {
-      debugPrint('reindex failed items failed: $e');
-      _snack(l.reindexFailed);
+      for (final d in targets) {
+        if (await _reindexOne(d, announce: false)) ok++;
+        if (!mounted) return;
+      }
     } finally {
-      if (mounted) setState(() => _busy = null);
-      await _refresh();
+      if (mounted) setState(() => _retryingAll = false);
     }
+    final left = targets.length - ok;
+    _snack(left == 0 ? l.reindexedCount(ok) : l.retryResult(ok, left));
   }
 
   Future<void> _delete(Document document) async {
@@ -159,7 +200,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     );
     if (ok != true) return;
     try {
-      await client.document.delete(document.id!);
+      await _api.delete(document.id!);
     } catch (e) {
       debugPrint('delete failed: $e');
       _snack(l.deleteFailed);
@@ -170,8 +211,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   Future<void> _openNote(Document? note) async {
     int? projectId;
     if (note == null && widget.projects.isNotEmpty) {
-      final chosen = await _chooseTier();
-      if (chosen == _cancelled || !mounted) return;
+      final chosen = await chooseUploadTier(context, widget.projects);
+      if (chosen == tierCancelled || !mounted) return;
       projectId = chosen;
     }
     if (!mounted) return;
@@ -194,46 +235,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       ),
     ),
   );
-
-  static const _cancelled = -1;
-
-  /// Returns null for personal cloud, a project id, or [_cancelled].
-  Future<int?> _chooseTier() async {
-    final l = context.l;
-    final result = await showModalBottomSheet<int?>(
-      context: context,
-      useRootNavigator: true,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(title: Text(l.whereToPut)),
-            ListTile(
-              enabled: false,
-              leading: const Icon(AppIcons.tierDevice),
-              title: Text(l.cloakTitle),
-              subtitle: Text(l.cloakSubtitle),
-            ),
-            ListTile(
-              leading: const Icon(AppIcons.tierCloud),
-              title: Text(l.myCloud),
-              subtitle: Text(l.onlyYou),
-              onTap: () => Navigator.pop(context, 0),
-            ),
-            for (final p in widget.projects)
-              ListTile(
-                leading: const Icon(AppIcons.tierShared),
-                title: Text(l.sharedVision(p.name)),
-                subtitle: Text(l.shareWithMembers),
-                onTap: () => Navigator.pop(context, p.id),
-              ),
-          ],
-        ),
-      ),
-    );
-    if (result == null) return _cancelled;
-    return result == 0 ? null : result;
-  }
 
   void _snack(String message) {
     if (mounted) {
@@ -267,21 +268,27 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     final notes = docs.where((d) => d.kind == 'note').length;
     final pdfs = docs.length - notes;
     final failed = docs.where((d) => d.status == 'failed').length;
+    final retryable = docs.where(isRetryableFailure).length;
     Widget filter(_Filter f, String label, int n, {bool warn = false}) {
       final selected = _filter == f;
       final scheme = Theme.of(context).colorScheme;
       return ChoiceChip(
         selected: selected,
         showCheckmark: selected,
-        avatar: warn ? Icon(AppIcons.error, size: 16, color: pb.warn) : null,
+        // Failures are calm here: neutral chip, one warn dot (§2.4).
+        avatar: warn
+            ? DecoratedBox(
+                decoration: BoxDecoration(
+                  color: pb.warn,
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox.square(dimension: 7),
+              )
+            : null,
         label: Text(warn ? l.needsAttention(n) : '$label $n'),
-        backgroundColor: warn ? pb.warnContainer : null,
-        side: warn
-            ? BorderSide(color: pb.warnBorder)
-            : (selected
-                  ? BorderSide(color: scheme.primary.withValues(alpha: 0.55))
-                  : null),
-        labelStyle: warn ? TextStyle(color: pb.warn) : null,
+        side: selected
+            ? BorderSide(color: scheme.primary.withValues(alpha: 0.55))
+            : null,
         onSelected: (_) => setState(
           () => _filter = selected && f != _Filter.all ? _Filter.all : f,
         ),
@@ -340,7 +347,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
-                  onPressed: _busy == null ? _upload : null,
+                  onPressed: _upload,
                   icon: const Icon(AppIcons.upload),
                   label: Text(l.uploadPdf),
                   style: OutlinedButton.styleFrom(
@@ -365,14 +372,52 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               if (failed > 0) filter(_Filter.attention, '', failed, warn: true),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            l.recent.toUpperCase(),
-            style: theme.labelSmall?.copyWith(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: pb.inkMuted,
+          const SizedBox(height: 8),
+          // Fixed height: the retry link appears here without moving the grid.
+          SizedBox(
+            height: 32,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    l.recent.toUpperCase(),
+                    style: theme.labelSmall?.copyWith(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                      color: pb.inkMuted,
+                    ),
+                  ),
+                ),
+                if (_retryingAll)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox.square(
+                        dimension: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.5,
+                          color: pb.inkMuted,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        l.retrying,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: pb.inkMuted,
+                        ),
+                      ),
+                    ],
+                  )
+                else if (retryable > 0)
+                  _InlineLink(
+                    icon: AppIcons.refresh,
+                    label: l.retryFailed(retryable),
+                    onPressed: _retryFailed,
+                  ),
+              ],
             ),
           ),
         ],
@@ -385,6 +430,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     final docs = _documents;
     final l = context.l;
     final wide = MediaQuery.sizeOf(context).width >= 600;
+    final flash = UploadScope.maybeOf(context)?.flash ?? _noFlash;
     return Scaffold(
       floatingActionButton: wide
           ? null
@@ -395,7 +441,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 FloatingActionButton.small(
                   heroTag: 'pdf',
                   tooltip: l.uploadPdf,
-                  onPressed: _busy == null ? _upload : null,
+                  onPressed: _upload,
                   child: const Icon(AppIcons.pdf),
                 ),
                 const SizedBox(height: 12),
@@ -410,26 +456,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       body: Column(
         children: [
           if (docs != null) _header(context, docs, wide),
-          if (_busy == null &&
-              (docs?.any((d) => d.status == 'failed') ?? false))
-            MaterialBanner(
-              backgroundColor: context.pb.warnContainer,
-              leading: const Icon(AppIcons.syncFailed),
-              content: Text(
-                '${l.failedBanner(docs!.where((d) => d.status == 'failed').length)}\n'
-                '${l.indexingError(docs.firstWhere((d) => d.status == 'failed').lastError)}',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: _reindexFailed,
-                  child: Text(l.reindexAll),
-                ),
-              ],
-            ),
-          if (_busy != null) ...[
-            const LinearProgressIndicator(),
-            Padding(padding: const EdgeInsets.all(8), child: Text(_busy!)),
-          ],
           Expanded(
             child: RefreshIndicator(
               onRefresh: _refresh,
@@ -442,35 +468,46 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 _ when _visible(docs).isEmpty => ListView(
                   children: [_Message(l.noMatches)],
                 ),
-                _ => GridView.builder(
-                  padding: EdgeInsets.fromLTRB(
-                    wide ? 0 : 12,
-                    12,
-                    wide ? 0 : 12,
-                    140,
+                _ => ValueListenableBuilder<Set<int>>(
+                  valueListenable: flash,
+                  builder: (context, flashing, _) => GridView.builder(
+                    padding: EdgeInsets.fromLTRB(
+                      wide ? 0 : 12,
+                      12,
+                      wide ? 0 : 12,
+                      140,
+                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 280,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          mainAxisExtent: 250,
+                        ),
+                    itemCount: _visible(docs).length,
+                    itemBuilder: (context, i) {
+                      final d = _visible(docs)[i];
+                      final busy = _reindexing.contains(d.id);
+                      return DocumentCard(
+                        d,
+                        widget.projects,
+                        key: ValueKey(d.id),
+                        onTap: d.kind == 'note'
+                            ? () => _openNote(d)
+                            : (d.status == 'ready' ? () => _openPdf(d) : null),
+                        onLongPress: () => _delete(d),
+                        onDelete: () => _delete(d),
+                        // Any status: also rescues a doc stuck in 'indexing'.
+                        // Only this card is locked while it runs.
+                        onReindex: busy ? null : () => _reindex(d),
+                        onRetry: busy || !isRetryableFailure(d)
+                            ? null
+                            : () => _reindex(d),
+                        reindexing: busy,
+                        highlight: flashing.contains(d.id),
+                      );
+                    },
                   ),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 280,
-                    mainAxisSpacing: 16,
-                    crossAxisSpacing: 16,
-                    mainAxisExtent: 250,
-                  ),
-                  itemCount: _visible(docs).length,
-                  itemBuilder: (context, i) {
-                    final d = _visible(docs)[i];
-                    return DocumentCard(
-                      d,
-                      widget.projects,
-                      onTap: d.kind == 'note'
-                          ? () => _openNote(d)
-                          : (d.status == 'ready' ? () => _openPdf(d) : null),
-                      onLongPress: () => _delete(d),
-                      onDelete: () => _delete(d),
-                      // Any status: also rescues a doc stuck in 'indexing'.
-                      onReindex: _busy == null ? () => _reindex(d) : null,
-                      onRetry: d.status == 'failed' ? () => _reindex(d) : null,
-                    );
-                  },
                 ),
               },
             ),
@@ -497,17 +534,31 @@ class DocumentCard extends StatelessWidget {
     this.onRetry,
     this.onReindex,
     this.onDelete,
+    this.reindexing = false,
+    this.highlight = false,
+    this.now,
   });
 
   final Document document;
   final List<Project> projects;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+
+  /// The status line's "Retry" link; null hides it.
   final VoidCallback? onRetry;
 
-  /// Menu entry; null disables it (e.g. another index run is in progress).
+  /// Menu entry; null disables it (this card is re-indexing).
   final VoidCallback? onReindex;
   final VoidCallback? onDelete;
+
+  /// A re-index of this card is running: "Re-indexing", no link.
+  final bool reindexing;
+
+  /// Just arrived from an upload: flashes a ring (1.54 s).
+  final bool highlight;
+
+  /// Clock for the indexing wording phases; tests replace it.
+  final DateTime Function()? now;
 
   @override
   Widget build(BuildContext context) {
@@ -515,18 +566,13 @@ class DocumentCard extends StatelessWidget {
     final l = context.l;
     final pb = context.pb;
     final isNote = document.kind == 'note';
-    final failed = document.status == 'failed';
     final project = projects
         .where((p) => p.id == document.projectId)
         .firstOrNull;
     final (tierIcon, tier) = document.projectId == null
         ? (AppIcons.tierCloud, l.myCloud)
         : (AppIcons.tierShared, project?.name ?? l.shared);
-    final status = switch (document.status) {
-      'ready' || 'failed' => null,
-      'indexing' => l.indexing,
-      _ => document.status,
-    };
+    final line = indexLine(l, document, reindexing: reindexing);
     final preview = isNote
         ? (document.body ?? '')
               .replaceAll(RegExp(r'[#*_>`]|- \[[ x]\] '), '')
@@ -535,18 +581,35 @@ class DocumentCard extends StatelessWidget {
     final meta = isNote
         ? l.noteMeta(l.ago(document.updatedAt.toLocal()))
         : l.pdfMeta(document.pageCount);
-    return Card(
+    // PDFs have no preview: the body shows what is going on instead.
+    final Widget body;
+    if (isNote) {
+      body = Text(
+        preview,
+        overflow: TextOverflow.fade,
+        style: theme.textTheme.bodySmall?.copyWith(fontSize: 13, height: 1.5),
+      );
+    } else if (line != null && line.pulse) {
+      body = const _Skeleton();
+    } else if (line?.reason != null) {
+      body = Text(
+        line!.reason!,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodySmall?.copyWith(fontSize: 13, height: 1.4),
+      );
+    } else {
+      body = const SizedBox.shrink();
+    }
+    final card = Card(
       clipBehavior: Clip.antiAlias,
-      color: failed
-          ? pb.warnTint
-          : (isNote ? pb.noteColor(document.id) : pb.pdfPaper),
+      // The card keeps its own color in every state (§2.1).
+      color: isNote ? pb.noteColor(document.id) : pb.pdfPaper,
       shadowColor: pb.ink.withValues(alpha: 0.06),
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: failed
-            ? BorderSide(color: pb.warnBorder, width: 1.5)
-            : BorderSide(color: pb.ink.withValues(alpha: 0.10)),
+        side: BorderSide(color: pb.ink.withValues(alpha: 0.10)),
       ),
       child: InkWell(
         onTap: onTap,
@@ -617,26 +680,16 @@ class DocumentCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              Expanded(
-                child: failed
-                    ? Align(
-                        alignment: Alignment.topLeft,
-                        child: _FailedBlock(
-                          message: document.lastError == null
-                              ? l.indexingFailed
-                              : l.indexingError(document.lastError),
-                          onRetry: onRetry,
-                        ),
-                      )
-                    : Text(
-                        preview,
-                        overflow: TextOverflow.fade,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 13,
-                          height: 1.5,
-                        ),
-                      ),
-              ),
+              Expanded(child: body),
+              if (line != null)
+                _StatusLine(
+                  document: document,
+                  reindexing: reindexing,
+                  showReasonTip: isNote,
+                  onRetry: onRetry,
+                  now: now,
+                ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Container(
@@ -664,14 +717,6 @@ class DocumentCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Spacer(),
-                  if (status != null)
-                    Text(
-                      status,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: pb.warn,
-                      ),
-                    ),
                 ],
               ),
             ],
@@ -679,65 +724,357 @@ class DocumentCard extends StatelessWidget {
         ),
       ),
     );
+    if (!highlight) return card;
+    return Stack(
+      children: [
+        card,
+        const Positioned.fill(child: IgnorePointer(child: _FlashRing())),
+      ],
+    );
   }
 }
 
-/// Failed-index status block: amber container, reason, Re-index pill.
-class _FailedBlock extends StatelessWidget {
-  const _FailedBlock({required this.message, required this.onRetry});
+/// One status line under a card: dot or icon + label, then a "Retry" link
+/// when a retry can help. Re-evaluates the indexing wording when the 20 s and
+/// 3 min marks pass.
+class _StatusLine extends StatefulWidget {
+  const _StatusLine({
+    required this.document,
+    required this.reindexing,
+    required this.showReasonTip,
+    required this.onRetry,
+    required this.now,
+  });
 
-  final String message;
+  final Document document;
+  final bool reindexing;
+  final bool showReasonTip;
   final VoidCallback? onRetry;
+  final DateTime Function()? now;
+
+  @override
+  State<_StatusLine> createState() => _StatusLineState();
+}
+
+class _StatusLineState extends State<_StatusLine> {
+  Timer? _timer;
+
+  DateTime get _now => (widget.now ?? DateTime.now)();
+  Duration get _elapsed => _now.difference(widget.document.updatedAt);
+
+  @override
+  void initState() {
+    super.initState();
+    _arm();
+  }
+
+  @override
+  void didUpdateWidget(_StatusLine old) {
+    super.didUpdateWidget(old);
+    _arm();
+  }
+
+  /// Wakes once at the next wording threshold (no polling).
+  void _arm() {
+    _timer?.cancel();
+    _timer = null;
+    final d = widget.document;
+    if (widget.reindexing || d.status == 'ready' || d.status == 'failed') {
+      return;
+    }
+    final e = _elapsed;
+    final next = e < indexingLongAfter
+        ? indexingLongAfter - e
+        : e < indexingVeryLongAfter
+        ? indexingVeryLongAfter - e
+        : null;
+    if (next == null) return;
+    _timer = Timer(next + const Duration(milliseconds: 1), () {
+      if (mounted) {
+        setState(() {});
+        _arm();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pb = context.pb;
     final l = context.l;
-    return Container(
+    final pb = context.pb;
+    final line = indexLine(
+      l,
+      widget.document,
+      elapsed: _elapsed,
+      reindexing: widget.reindexing,
+    );
+    if (line == null) return const SizedBox.shrink();
+    final (labelColor, weight) = switch (line.tone) {
+      IndexTone.warn => (pb.warnText, FontWeight.w600),
+      IndexTone.neutral => (pb.ink, FontWeight.w600),
+      IndexTone.calm => (pb.inkMuted, FontWeight.w500),
+    };
+    Widget label = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (line.pulse)
+          const _PulseDot()
+        else
+          Icon(
+            line.icon,
+            size: 14,
+            color: line.tone == IndexTone.warn ? pb.warn : pb.inkMuted,
+          ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            line.label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: weight,
+              height: 1.3,
+              letterSpacing: 0,
+              color: labelColor,
+            ),
+          ),
+        ),
+      ],
+    );
+    // The reason is a tooltip on the label only; the link keeps its own tap.
+    if (widget.showReasonTip && line.reason != null) {
+      label = Tooltip(
+        message: line.reason!,
+        triggerMode: TooltipTriggerMode.tap,
+        child: label,
+      );
+    }
+    final showLink = line.canRetry && widget.onRetry != null;
+    return SizedBox(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: pb.warnContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Row(
-            children: [
-              Icon(AppIcons.error, size: 16, color: pb.warn),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  l.indexingFailed,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: pb.warn,
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 32),
+            child: Align(widthFactor: 1, child: label),
+          ),
+          if (showLink)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  ' · ',
+                  style: TextStyle(fontSize: 12, color: pb.inkMuted),
+                ),
+                _InlineLink(label: l.retry, onPressed: widget.onRetry!),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A small text link (`linkInk`, no padding tricks): shrink-wrapped tap
+/// target so it fits a 32 px line instead of growing to 48 (UP-07).
+class _InlineLink extends StatelessWidget {
+  const _InlineLink({required this.label, required this.onPressed, this.icon});
+
+  final String label;
+  final VoidCallback onPressed;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextButton.styleFrom(
+      foregroundColor: context.pb.linkInk,
+      minimumSize: const Size(0, 32),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+      textStyle: const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0,
+      ),
+    );
+    return icon == null
+        ? TextButton(onPressed: onPressed, style: style, child: Text(label))
+        : TextButton.icon(
+            onPressed: onPressed,
+            style: style,
+            icon: Icon(icon, size: 14),
+            label: Text(label),
+          );
+  }
+}
+
+/// Opacity 1.0 <-> 0.35 on a 1100 ms cycle; static with reduced motion.
+class _Pulse extends StatefulWidget {
+  const _Pulse({required this.builder});
+
+  final Widget Function(BuildContext context, double opacity) builder;
+
+  @override
+  State<_Pulse> createState() => _PulseState();
+}
+
+class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 550),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _c.stop();
+      _c.value = 0;
+    } else if (!_c.isAnimating) {
+      _c.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _c,
+    builder: (context, _) => widget.builder(
+      context,
+      1 - 0.65 * Curves.easeInOut.transform(_c.value),
+    ),
+  );
+}
+
+class _PulseDot extends StatelessWidget {
+  const _PulseDot();
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = context.pb.accent;
+    return _Pulse(
+      builder: (context, o) => SizedBox.square(
+        dimension: 16,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: 0.22 * o),
+              ),
+              child: const SizedBox.square(dimension: 16),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: accent.withValues(alpha: o),
+              ),
+              child: const SizedBox.square(dimension: 8),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Three thin bars where a PDF's text preview would be (78 / 90 / 55 %).
+class _Skeleton extends StatelessWidget {
+  const _Skeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final base = context.pb.ink;
+    return Align(
+      alignment: Alignment.topLeft,
+      child: _Pulse(
+        builder: (context, o) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final (i, w) in const [0.78, 0.90, 0.55].indexed) ...[
+              if (i > 0) const SizedBox(height: 8),
+              FractionallySizedBox(
+                widthFactor: w,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: base.withValues(alpha: 0.10 * (0.4 + 0.6 * o)),
+                    borderRadius: BorderRadius.circular(4),
                   ),
+                  child: const SizedBox(height: 8, width: double.infinity),
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 8),
-          Tooltip(
-            message: message,
-            child: OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(AppIcons.refresh, size: 16),
-              label: Text(l.reindex),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(0, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                foregroundColor: pb.warn,
-                side: BorderSide(color: pb.warnBorder),
-                shape: const StadiumBorder(),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// Ring + glow that fades in and out twice over 1540 ms (a new card). With
+/// reduced motion it holds steady and fades at the end.
+class _FlashRing extends StatefulWidget {
+  const _FlashRing();
+
+  @override
+  State<_FlashRing> createState() => _FlashRingState();
+}
+
+class _FlashRingState extends State<_FlashRing>
+    with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1540),
+  )..forward();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = context.pb.accent;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(_c.value);
+        final a = reduced
+            ? (_c.value < 0.9 ? 0.9 : 0.9 * (1 - (_c.value - 0.9) / 0.1))
+            : 0.9 * (0.5 - 0.5 * math.cos(t * 4 * math.pi));
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: accent.withValues(alpha: a),
+              width: 2.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: accent.withValues(alpha: 0.35 * a),
+                blurRadius: 14,
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

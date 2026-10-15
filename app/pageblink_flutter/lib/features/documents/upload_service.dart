@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:pageblink_client/pageblink_client.dart';
+import 'package:pdfrx/pdfrx.dart' show PdfException, PdfPasswordException;
 
 import '../../app/l10n.dart';
 import '../../app/local_pdfs.dart';
@@ -35,6 +36,20 @@ enum UploadKind {
   tooBig,
   tooMuchText,
   noText,
+
+  /// `file.read()` threw (picker handle gone, blob revoked, ...).
+  readFailed,
+
+  /// The PDF engine (PDFium WASM / worker) could not be loaded or started.
+  engineUnavailable,
+
+  /// [PdfPasswordException]: the file needs a password.
+  passwordProtected,
+
+  /// PDFium rejected the file: format/file error.
+  damaged,
+
+  /// Any other extraction error we cannot tell apart.
   unreadable,
   indexFailed,
   permission,
@@ -75,6 +90,7 @@ class UploadOutcome {
     this.pagesFit = 0,
     this.errorCode,
     this.originalStored = true,
+    this.detail,
   });
 
   final String name;
@@ -87,6 +103,10 @@ class UploadOutcome {
   /// [UploadKind.indexFailed]: the server's `lastError` code.
   final String? errorCode;
   final bool originalStored;
+
+  /// Short diagnostic code for local failures (type + clipped message, no
+  /// paths or file names), shown so a user can copy it to support.
+  final String? detail;
 
   bool get isFailure => switch (kind) {
     UploadKind.added || UploadKind.duplicate || UploadKind.cancelled => false,
@@ -141,6 +161,7 @@ class UploadApi {
     required this.extractPages,
     required this.upload,
     required this.storeOriginal,
+    this.prepare,
   });
 
   /// Production wiring: pdfrx extraction, the global `client`, local copy +
@@ -149,6 +170,7 @@ class UploadApi {
     extractPages: pdf.extractPages,
     upload: client.document.upload,
     storeOriginal: _storeOriginalLive,
+    prepare: pdf.ensurePdfEngine,
   );
 
   final Future<List<PageText>> Function(Uint8List bytes, String name)
@@ -164,6 +186,11 @@ class UploadApi {
   /// Keeps the original so citations open on any device. Returns false when
   /// the cloud copy could not be stored (non-fatal).
   final Future<bool> Function(int documentId, Uint8List bytes) storeOriginal;
+
+  /// Loads the PDF engine once before any file is read; throws when it
+  /// cannot start (then no file is read and the queue stops). Cheap when
+  /// already initialized. Null = nothing to prepare.
+  final Future<void> Function()? prepare;
 }
 
 Future<bool> _storeOriginalLive(int documentId, Uint8List bytes) async {
@@ -208,6 +235,74 @@ UploadKind? validatePdf(Uint8List bytes, String name) {
   return (bytes: total, fittingPages: fit);
 }
 
+/// Kind for an error thrown while opening/reading a PDF with pdfrx. Pure:
+/// looks at the type and message only. Unknown errors stay
+/// [UploadKind.unreadable].
+///
+/// Sources (pdfrx 2.6.5 `wasm/pdfrx_wasm.dart`, pdfrx_engine 0.6.1):
+/// - `PdfPasswordException` — no password supplied;
+/// - `UnimplementedError('PdfrxEntryFunctions.instance is not initialized…')`
+///   — `pdfrxFlutterInitialize` never ran;
+/// - `StateError('Failed to load pdfium_client.js from …')` — module/script
+///   did not load; worker `init`/JS errors mention the communicator/worker;
+/// - `StateError('Failed to open document: FORMAT (3)')` (web) and
+///   `PdfException('Failed to load PDF document (FPDF_ERR_FORMAT: 3).', 3)`
+///   (native) — damaged file (`FILE`/`FORMAT`).
+UploadKind classifyExtractError(Object e) {
+  if (e is PdfPasswordException) return UploadKind.passwordProtected;
+  if (e is UnimplementedError) return UploadKind.engineUnavailable;
+  final message = switch (e) {
+    StateError(:final message) => message,
+    PdfException(:final message) => message,
+    _ => e.toString(),
+  };
+  final lower = message.toLowerCase();
+  if (_engineHints.any(lower.contains)) return UploadKind.engineUnavailable;
+  // FPDF_ERR_FILE = 2, FPDF_ERR_FORMAT = 3.
+  if (e is PdfException && (e.errorCode == 2 || e.errorCode == 3)) {
+    return UploadKind.damaged;
+  }
+  if (_damagedCode.hasMatch(message)) return UploadKind.damaged;
+  return UploadKind.unreadable;
+}
+
+const _engineHints = [
+  'pdfium_client.js',
+  'failed to load pdfium',
+  'pdfium module',
+  'pdfiumwasmcommunicator',
+  'pdfiumwasmworkerurl',
+  'not initialized',
+  'wasm',
+  'worker',
+];
+
+final _damagedCode = RegExp(
+  r'(?<![A-Za-z])(?:FPDF_ERR_)?(?:FORMAT|FILE)(?![A-Za-z])',
+);
+
+/// `StateError: Failed to load pdfium_client.js from <path>`: the runtime
+/// type plus the first 80 characters of the message, on one line, with
+/// URLs/paths and [fileName] removed. Never user content.
+String diagnosticCode(Object e, {String? fileName}) {
+  var m = switch (e) {
+    StateError(:final message) => message,
+    PdfException(:final message) => message,
+    UnimplementedError(:final message) => message ?? '',
+    _ => e.toString(),
+  };
+  if (fileName != null && fileName.isNotEmpty) {
+    m = m.replaceAll(fileName, '<file>');
+  }
+  m = m
+      .replaceAll(RegExp(r'\S*[\\/]\S*'), '<path>')
+      .replaceAll(RegExp(r'\S+\.pdf\b', caseSensitive: false), '<file>')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  if (m.length > 80) m = '${m.substring(0, 80)}…';
+  return '${e.runtimeType}: $m';
+}
+
 /// Maps a thrown error to a kind. Unary-call timeouts arrive as
 /// `ServerpodClientNetworkException('Request timed out…')` (serverpod_client
 /// 4.0.4 `serverpod_client_io.dart`/`_browser.dart`), not `TimeoutException`.
@@ -245,6 +340,20 @@ Future<UploadReport> uploadPdfs(
   UploadCancel? cancel,
 }) async {
   final batch = files.take(UploadLimits.maxFiles).toList();
+  // Engine first, once: when it cannot start, no file is read and every
+  // file gets the same outcome instead of N slow identical failures.
+  if (batch.isNotEmpty && api.prepare != null) {
+    try {
+      await api.prepare!();
+    } catch (e) {
+      debugPrint('pdf engine unavailable: $e');
+      final detail = diagnosticCode(e);
+      return UploadReport([
+        for (final f in batch)
+          UploadOutcome(f.name, UploadKind.engineUnavailable, detail: detail),
+      ], skippedOverLimit: files.length - batch.length);
+    }
+  }
   final knownReady = {
     for (final d in existing)
       if (d.status == 'ready' && d.id != null) d.id!,
@@ -281,8 +390,8 @@ Future<UploadOutcome> _uploadOne(
   Set<int> knownReady,
   void Function(UploadStage stage, [int pages]) progress,
 ) async {
-  UploadOutcome fail(UploadKind kind, {int pagesFit = 0}) =>
-      UploadOutcome(file.name, kind, pagesFit: pagesFit);
+  UploadOutcome fail(UploadKind kind, {int pagesFit = 0, String? detail}) =>
+      UploadOutcome(file.name, kind, pagesFit: pagesFit, detail: detail);
 
   progress(UploadStage.reading);
   if ((file.size ?? 0) > UploadLimits.maxFileBytes) {
@@ -293,7 +402,10 @@ Future<UploadOutcome> _uploadOne(
     bytes = await file.read();
   } catch (e) {
     debugPrint('read ${file.name} failed: $e');
-    return fail(UploadKind.unreadable);
+    return fail(
+      UploadKind.readFailed,
+      detail: diagnosticCode(e, fileName: file.name),
+    );
   }
   final problem = validatePdf(bytes, file.name);
   if (problem != null) return fail(problem);
@@ -302,9 +414,11 @@ Future<UploadOutcome> _uploadOne(
   try {
     pages = await api.extractPages(bytes, file.name);
   } catch (e) {
-    // Password-protected or damaged.
     debugPrint('extract ${file.name} failed: $e');
-    return fail(UploadKind.unreadable);
+    return fail(
+      classifyExtractError(e),
+      detail: diagnosticCode(e, fileName: file.name),
+    );
   }
   // Scans: nothing to index, so don't leave a failed card behind.
   if (pages.every((p) => p.text.trim().isEmpty)) return fail(UploadKind.noText);
@@ -376,6 +490,10 @@ String uploadReasonText(L l, UploadOutcome o) => switch (o.kind) {
   UploadKind.tooBig => l.uploadTooBig(UploadLimits.maxFileBytes ~/ 1048576),
   UploadKind.tooMuchText => l.uploadTooMuchText(o.pagesFit),
   UploadKind.noText => l.indexingError('no_text'),
+  UploadKind.readFailed => l.uploadReadFailed,
+  UploadKind.engineUnavailable => l.uploadEngineUnavailable,
+  UploadKind.passwordProtected => l.uploadPasswordProtected,
+  UploadKind.damaged => l.uploadDamaged,
   UploadKind.unreadable => l.uploadUnreadable,
   UploadKind.indexFailed =>
     o.errorCode == null ? l.indexingFailed : l.indexingError(o.errorCode),
@@ -396,16 +514,25 @@ String uploadSummary(L l, UploadReport r) {
     if (r.failed > 0) l.uploadFailedCount(r.failed),
     if (r.cancelled > 0) l.uploadCancelledCount(r.cancelled),
   ];
-  final failures = [
-    for (final o in r.outcomes)
-      if (o.isFailure) '${o.name} — ${uploadReasonText(l, o)}',
-  ];
+  final failedOutcomes = r.outcomes.where((o) => o.isFailure).toList();
+  // The engine is down for everyone: say it once, not per file.
+  final engineDown =
+      failedOutcomes.length > 1 &&
+      failedOutcomes.every((o) => o.kind == UploadKind.engineUnavailable);
+  final failures = engineDown
+      ? [uploadReasonText(l, failedOutcomes.first)]
+      : [
+          for (final o in failedOutcomes)
+            '${o.name} — ${uploadReasonText(l, o)}',
+        ];
+  final detail = failedOutcomes.map((o) => o.detail).nonNulls.firstOrNull;
   final lines = [
     if (counts.isNotEmpty)
       counts.join(', ') +
           (failures.isEmpty
               ? ''
               : ': ${failures.take(2).join('; ')}${failures.length > 2 ? '…' : ''}'),
+    if (detail != null) l.diagnostic(detail),
     if (r.originalsSkipped > 0) l.uploadOriginalSkipped(r.originalsSkipped),
     if (r.skippedOverLimit > 0)
       l.uploadOverLimit(r.skippedOverLimit, UploadLimits.maxFiles),
