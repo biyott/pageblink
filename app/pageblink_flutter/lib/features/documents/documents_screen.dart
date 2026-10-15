@@ -1,22 +1,29 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/l10n.dart';
-import '../../app/local_pdfs.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
 import '../../app/open_item_controller.dart';
 import '../open_item/open_item_view.dart';
-import 'pdf_text.dart';
+import 'upload_service.dart';
 import '../../app/app_icons.dart';
 
 /// Keep-style board of notes and PDFs (personal and project).
 class DocumentsScreen extends StatefulWidget {
-  const DocumentsScreen({super.key, required this.projects});
+  const DocumentsScreen({
+    super.key,
+    required this.projects,
+    @visibleForTesting this.pickPdfs,
+    @visibleForTesting this.uploadApi,
+  });
 
   final List<Project> projects;
+
+  /// Test hooks: replace the native picker and the server calls.
+  final Future<List<PickedPdf>> Function()? pickPdfs;
+  final UploadApi? uploadApi;
 
   @override
   State<DocumentsScreen> createState() => _DocumentsScreenState();
@@ -57,64 +64,41 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
-  Future<void> _upload() async {
+  /// File picker -> [PickedPdf] (the service knows no platform file type).
+  static Future<List<PickedPdf>> _pickPdfs() async {
     final picked = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
     );
+    return [
+      for (final f in picked)
+        PickedPdf(name: f.name, size: f.lengthSync(), read: f.readAsBytes),
+    ];
+  }
+
+  Future<void> _upload() async {
+    final picked = await (widget.pickPdfs ?? _pickPdfs)();
     if (picked.isEmpty || !mounted) return;
-    final file = picked.first;
     final l = context.l;
 
     final projectId = await _chooseTier();
     if (projectId == _cancelled || !mounted) return;
 
-    setState(() => _busy = l.reading(file.name));
+    setState(() => _busy = l.reading(picked.first.name));
     try {
-      final bytes = await file.readAsBytes();
-      final pages = await extractPages(bytes, file.name);
-      setState(() => _busy = l.indexingFile(file.name, pages.length));
-      final title = file.name.replaceAll(
-        RegExp(r'\.pdf$', caseSensitive: false),
-        '',
+      final report = await uploadPdfs(
+        picked,
+        api: widget.uploadApi ?? UploadApi.live(),
+        projectId: projectId,
+        existing: documentsNotifier.value,
+        onProgress: (p) {
+          if (mounted) setState(() => _busy = uploadProgressText(l, p));
+        },
       );
-      final document = await client.document.upload(
-        title,
-        pages,
-        contentHash(bytes),
-        projectId,
-      );
-      await LocalPdfs.save(document.id!, bytes);
-      setState(() => _busy = l.storingOriginal(file.name));
-      await _storeOriginal(document.id!, bytes);
-      if (document.status == 'failed') {
-        _snack(
-          l.indexingError(document.lastError).isEmpty
-              ? l.indexingFailed
-              : l.indexingError(document.lastError),
-        );
-      }
-    } catch (e) {
-      _snack(l.uploadFailed(e));
+      _snack(uploadSummary(l, report));
     } finally {
       if (mounted) setState(() => _busy = null);
       await _refresh();
-    }
-  }
-
-  /// Uploads the original so citations open on any device. Non-fatal.
-  Future<void> _storeOriginal(int documentId, Uint8List bytes) async {
-    final l = context.l;
-    try {
-      final description = await client.document.pdfUploadDescription(
-        documentId,
-      );
-      final ok = await FileUploader(
-        description,
-      ).uploadByteData(ByteData.sublistView(bytes));
-      if (ok) await client.document.confirmPdfUpload(documentId);
-    } catch (e) {
-      _snack(l.originalSkipped(e));
     }
   }
 
@@ -177,7 +161,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     try {
       await client.document.delete(document.id!);
     } catch (e) {
-      _snack(l.deleteFailed(e));
+      debugPrint('delete failed: $e');
+      _snack(l.deleteFailed);
     }
     await _refresh();
   }

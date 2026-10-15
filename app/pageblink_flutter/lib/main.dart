@@ -233,7 +233,15 @@ class _HomeShellState extends State<HomeShell> {
     final l = context.l;
     final destinations = _destinations(l);
     final appBar = AppBar(
-      title: const Text('⚡ PageBlink'),
+      // Same brand mark as the desktop sidebar (UP-06): star + wordmark.
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(AppIcons.brand, size: 24, color: context.pb.accent),
+          const SizedBox(width: 6),
+          const Text('PageBlink'),
+        ],
+      ),
       actions: [
         IconButton(
           icon: const Icon(AppIcons.settings),

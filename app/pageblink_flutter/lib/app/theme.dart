@@ -57,7 +57,7 @@ class Pb extends ThemeExtension<Pb> {
     glassBorder: Color(0xCCFFFFFF),
     glassShadow: Color(0x1A6C4CF5),
     ink: Color(0xFF1F1B16),
-    inkMuted: Color(0xFF6B6358),
+    inkMuted: Color(0xFF5C5348),
     hairline: Color(0xFFE4DDD0),
     accentContainer: Color(0xFFEAE4FD),
     onAccentContainer: Color(0xFF2E1F85),
@@ -90,21 +90,21 @@ class Pb extends ThemeExtension<Pb> {
     blobA: Color(0x386C4CF5),
     blobB: Color(0x24FF9A6B),
     glass: Color(0x14FFFFFF),
-    glassStrong: Color(0x1FFFFFFF),
+    glassStrong: Color(0x24FFFFFF),
     glassBorder: Color(0x29FFFFFF),
     glassShadow: Color(0x4D000000),
     ink: Color(0xFFF2EDE3),
-    inkMuted: Color(0xFFA59D8F),
+    inkMuted: Color(0xFFB5AD9F),
     hairline: Color(0x24FFFFFF),
     accentContainer: Color(0xFF3A2F7A),
     onAccentContainer: Color(0xFFE9E3FC),
     accentGradient: [Color(0xFF6C4CF5), Color(0xFF7A5CFF)],
     notes: [
-      Color(0xFF4A3F16),
-      Color(0xFF1F3D2C),
-      Color(0xFF4D2E21),
-      Color(0xFF1F3548),
-      Color(0xFF35295E),
+      Color(0xFF463E22),
+      Color(0xFF223A2E),
+      Color(0xFF47302A),
+      Color(0xFF22364A),
+      Color(0xFF342C58),
     ],
     pdfPaper: Color(0xFF2A2620),
     warn: Color(0xFFFBBF24),
@@ -181,25 +181,44 @@ ThemeData buildPbTheme(Brightness brightness) {
     bodyColor: pb.ink,
     displayColor: pb.ink,
   );
-  TextStyle serif(double size, {FontWeight weight = FontWeight.w600}) =>
-      GoogleFonts.fraunces(
-        fontSize: size,
-        fontWeight: weight,
-        height: 1.2,
-        color: pb.ink,
-      ).copyWith(fontFamilyFallback: serifFallback);
+  TextStyle serif(
+    double size, {
+    double height = 1.3,
+    double letterSpacing = 0,
+  }) => GoogleFonts.fraunces(
+    fontSize: size,
+    fontWeight: FontWeight.w600,
+    height: height,
+    letterSpacing: letterSpacing,
+    color: pb.ink,
+  ).copyWith(fontFamilyFallback: serifFallback);
 
+  // Type scale: docs/design/ui-polish/spec.md §3 (UP-02). M3 defaults add
+  // +0.25..+0.8 tracking, which spreads small Hangul, so every role sets it to 0
+  // (titles keep -0.3 on the screen headline). Sizes <= 13 are w500+ (bundled).
+  TextStyle? role(
+    TextStyle? base,
+    double size,
+    FontWeight weight,
+    double height,
+  ) => base?.copyWith(
+    fontSize: size,
+    fontWeight: weight,
+    height: height,
+    letterSpacing: 0,
+  );
   final text = sans.copyWith(
-    headlineMedium: serif(30),
+    headlineMedium: serif(32, height: 1.25, letterSpacing: -0.3),
     headlineSmall: serif(26),
-    titleLarge: serif(22),
+    titleLarge: serif(20),
     titleMedium: serif(18),
-    bodyLarge: sans.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
-    bodyMedium: sans.bodyMedium?.copyWith(fontSize: 14, height: 1.45),
-    labelLarge: sans.labelLarge?.copyWith(
-      fontSize: 14,
-      fontWeight: FontWeight.w600,
-    ),
+    titleSmall: role(sans.titleSmall, 14, FontWeight.w500, 1.3),
+    bodyLarge: role(sans.bodyLarge, 15, FontWeight.w400, 1.5),
+    bodyMedium: role(sans.bodyMedium, 15, FontWeight.w400, 1.6),
+    bodySmall: role(sans.bodySmall, 12, FontWeight.w500, 1.35),
+    labelLarge: role(sans.labelLarge, 14, FontWeight.w600, 1.2),
+    labelMedium: role(sans.labelMedium, 13, FontWeight.w500, 1.2),
+    labelSmall: role(sans.labelSmall, 12, FontWeight.w600, 1.3),
   );
 
   return ThemeData(
@@ -213,7 +232,7 @@ ThemeData buildPbTheme(Brightness brightness) {
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       foregroundColor: pb.ink,
-      titleTextStyle: serif(22),
+      titleTextStyle: serif(20),
       elevation: 0,
       scrolledUnderElevation: 0,
     ),

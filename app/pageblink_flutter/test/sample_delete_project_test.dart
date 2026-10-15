@@ -4,6 +4,7 @@ import 'package:pageblink_client/pageblink_client.dart';
 import 'package:pageblink_flutter/app/app_icons.dart';
 import 'package:pageblink_flutter/app/confirm_dialog.dart';
 import 'package:pageblink_flutter/app/l10n.dart';
+import 'package:pageblink_flutter/app/text_wrap.dart';
 import 'package:pageblink_flutter/app/theme.dart';
 import 'package:pageblink_flutter/features/ask/ask_suggestions.dart';
 import 'package:pageblink_flutter/features/notes/note_editor_screen.dart';
@@ -74,7 +75,7 @@ void main() {
     test('delete warning shows both counts', () {
       expect(
         L.ko.projectDeleteWarning(3, 2),
-        '노트 3개, PDF 2개가 함께 삭제됩니다. 되돌릴 수 없어요.',
+        keepAllKorean('노트 3개, PDF 2개가 함께 삭제됩니다. 되돌릴 수 없어요.'),
       );
       expect(
         L.en.projectDeleteWarning(1, 2),

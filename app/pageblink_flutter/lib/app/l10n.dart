@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'text_wrap.dart';
+
 /// Locales PageBlink ships. English is the default; anything that isn't
 /// Korean resolves to English (see `localeResolutionCallback` in main.dart).
 const supportedLocales = [Locale('en'), Locale('ko')];
@@ -21,6 +23,11 @@ class L {
   final bool _ko;
 
   String _t(String en, String ko) => _ko ? ko : en;
+
+  /// Like [_t] for long static copy: Korean keeps words whole across line breaks
+  /// (UP-01). Not for strings that are sent to the server, copied by the user or
+  /// that carry user content.
+  String _k(String en, String ko) => _ko ? keepAllKorean(ko) : en;
 
   // ── Common ────────────────────────────────────────────────────────────
   String get cancel => _t('Cancel', '취소');
@@ -72,11 +79,11 @@ class L {
   String get renameProjectTitle => _t('Rename project', '프로젝트 이름 변경');
   String get projectNameTooLong =>
       _t('Use 60 characters or fewer.', '60자 이하로 입력해 주세요.');
-  String get projectRenameFailed => _t(
+  String get projectRenameFailed => _k(
     'Could not rename the project. Please try again.',
     '프로젝트 이름을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.',
   );
-  String get projectDeleteFailed => _t(
+  String get projectDeleteFailed => _k(
     'Could not delete the project. Please try again.',
     '프로젝트를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.',
   );
@@ -84,20 +91,20 @@ class L {
       _t('Delete "$project"?', '"$project" 프로젝트를 삭제할까요?');
 
   /// Shown when the project still holds documents; they are deleted with it.
-  String projectDeleteWarning(int notes, int pdfs) => _t(
+  String projectDeleteWarning(int notes, int pdfs) => _k(
     '$notes ${notes == 1 ? 'note' : 'notes'} and '
         '$pdfs ${pdfs == 1 ? 'PDF' : 'PDFs'} will be deleted with it. '
         "This can't be undone.",
     '노트 $notes개, PDF $pdfs개가 함께 삭제됩니다. 되돌릴 수 없어요.',
   );
-  String get projectsEmpty => _t(
+  String get projectsEmpty => _k(
     'Create a project to share notes and documents\n'
         'with your team and ask together. (Shared Vision)',
     '프로젝트를 만들면 팀원과 문서를 공유하고\n함께 질문할 수 있어요. (Shared Vision)',
   );
 
   // ── Viewer ────────────────────────────────────────────────────────────
-  String get originalMissing => _t(
+  String get originalMissing => _k(
     "The original PDF isn't on this device, so only the quoted passage is shown.",
     '원본 PDF가 이 기기에 없어 인용 구절만 보여 드려요.',
   );
@@ -110,7 +117,7 @@ class L {
   String get noteHint =>
       _t('Take a note… (Markdown supported)', '메모하기… (Markdown 지원)');
   String get deleteNoteTitle => _t('Delete this note?', '이 노트를 삭제할까요?');
-  String get noteDeleteFailed => _t(
+  String get noteDeleteFailed => _k(
     'Could not delete the note. Please try again.',
     '노트를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.',
   );
@@ -137,7 +144,7 @@ class L {
   // ── Documents ─────────────────────────────────────────────────────────
   String get uploadPdf => _t('Upload PDF', 'PDF 올리기');
   String get newNote => _t('New note', '새 노트');
-  String get emptyNotes => _t(
+  String get emptyNotes => _k(
     'No notes yet.\nWrite a note or upload a PDF, then ask about it.',
     '아직 노트가 없어요.\n메모를 쓰거나 PDF를 올리고 질문해 보세요.',
   );
@@ -145,7 +152,7 @@ class L {
   String get reindexAll => _t('Re-index all', '모두 다시 색인');
   String get indexing => _t('Indexing', '색인 중');
   String get indexingFailed => _t('Indexing failed', '색인 실패');
-  String failedBanner(int n) => _t(
+  String failedBanner(int n) => _k(
     '$n ${n == 1 ? 'document' : 'documents'} failed to index and '
         '${n == 1 ? 'is' : 'are'} left out of Ask.',
     '색인 실패 $n개 — 질문 검색에서 빠져 있어요.',
@@ -161,68 +168,120 @@ class L {
   );
   String storingOriginal(String file) =>
       _t('Saving original of $file…', '$file 원본 저장 중…');
-  String uploadFailed(Object error) =>
-      _t('Upload failed: $error', '업로드 실패: $error');
-  String originalSkipped(Object error) => _t(
-    'Skipped saving the original (still viewable on this device): $error',
-    '원본 저장은 건너뛰었어요 (이 기기에서는 열람 가능): $error',
+  // Upload summary pieces; the details of an error go to debugPrint only.
+  String uploadingOf(int index, int total, String file) => _t(
+    'Uploading $index of $total… $file',
+    '$total개 중 $index번째 올리는 중… $file',
   );
+  String uploadAddedCount(int n) => _t('$n added', '$n개 추가');
+  String uploadDuplicateCount(int n) =>
+      _t('$n already added', '$n개는 이미 추가된 문서예요');
+  String uploadFailedCount(int n) => _t('$n failed', '$n개 실패');
+  String uploadCancelledCount(int n) => _t('$n cancelled', '$n개 취소');
+  String uploadOverLimit(int n, int max) => _t(
+    'Up to $max files at a time; $n skipped.',
+    '한 번에 $max개까지만 올릴 수 있어요. $n개는 건너뛰었어요.',
+  );
+  String uploadOriginalSkipped(int n) => _t(
+    '$n original(s) not saved to the cloud (still viewable on this device)',
+    '원본 $n개는 클라우드에 저장하지 못했어요 (이 기기에서는 열람 가능)',
+  );
+  String get uploadNotPdf => _t('Not a PDF file', 'PDF 파일이 아니에요');
+  String uploadTooBig(int mb) => _t('Larger than $mb MB', '$mb MB보다 커요');
+  String uploadTooMuchText(int pages) => _t(
+    pages > 0
+        ? 'Too much text (over about $pages pages) — split it and upload in parts'
+        : 'Too much text — split it and upload in parts',
+    pages > 0
+        ? '텍스트가 너무 많아요(약 $pages쪽 초과) — 나눠서 올려 주세요'
+        : '텍스트가 너무 많아요 — 나눠서 올려 주세요',
+  );
+  String get uploadUnreadable => _t(
+    "Can't open this PDF (it may be damaged or password-protected)",
+    '열 수 없는 PDF예요 (손상됐거나 암호가 걸려 있을 수 있어요)',
+  );
+  String get uploadPermission => _t(
+    "You don't have permission to upload to this project",
+    '이 프로젝트에는 올릴 권한이 없어요',
+  );
+  String get uploadServerOrPermission => _t(
+    "The server couldn't process the upload. View-only members can't upload to a project.",
+    '서버가 업로드를 처리하지 못했어요. 보기 전용 멤버는 프로젝트에 올릴 수 없어요.',
+  );
+  String get uploadServer => _t(
+    "The server couldn't process the upload. Try again later.",
+    '서버가 업로드를 처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  );
+  String get uploadNetwork => _t(
+    'Network problem. Check your connection and try again.',
+    '네트워크에 문제가 있어요. 연결을 확인하고 다시 시도해 주세요.',
+  );
+  String get uploadTimeout => _t(
+    'The server may still be processing it. Check the list in a moment.',
+    '서버가 처리 중일 수 있어요. 잠시 후 목록을 확인해 주세요.',
+  );
+  String get uploadUnknown =>
+      _t("Couldn't upload. Try again.", '업로드하지 못했어요. 다시 시도해 주세요.');
   String reindexing(String title) =>
       _t('Re-indexing $title…', '$title 다시 색인 중…');
   String indexed(String title) => _t('Indexed: $title', '색인 완료: $title');
   String get reindexFailed =>
-      _t("Couldn't re-index. Try again.", '다시 색인하지 못했어요. 다시 시도해 주세요.');
+      _k("Couldn't re-index. Try again.", '다시 색인하지 못했어요. 다시 시도해 주세요.');
   String get reindexingFailedItems =>
       _t('Re-indexing failed items…', '실패한 항목 다시 색인 중…');
   String reindexedCount(int n) => _t('$n re-indexed', '$n개 색인 완료');
   String get deleteQuestion => _t('Delete?', '삭제할까요?');
-  String deleteFailed(Object error) =>
-      _t('Delete failed: $error', '삭제 실패: $error');
+  String get deleteFailed =>
+      _t("Couldn't delete. Try again.", '삭제하지 못했어요. 다시 시도해 주세요.');
 
   // Storage tiers.
   String get whereToPut => _t('Where should it go?', '어디에 둘까요?');
   String get cloakTitle => _t('Cloak · This device only', 'Cloak · 이 기기에만');
   String get cloakSubtitle =>
-      _t('Offline-only documents — coming soon', '오프라인 전용 문서 — 곧 지원');
+      _k('Offline-only documents — coming soon', '오프라인 전용 문서 — 곧 지원');
   String get myCloud => _t('My cloud', '내 클라우드');
-  String get onlyYou => _t('Only you can see it', '나만 볼 수 있어요');
+  String get onlyYou => _k('Only you can see it', '나만 볼 수 있어요');
   String sharedVision(String project) => 'Shared Vision · $project';
   String get shareWithMembers =>
-      _t('Shared with project members', '프로젝트 멤버와 공유');
+      _k('Shared with project members', '프로젝트 멤버와 공유');
 
   /// Maps the server's `Document.lastError` code to friendly text. Unknown
   /// strings (e.g. an older Korean sentence from the server) pass through.
   String indexingError(String? code) => switch (code) {
     null => '',
-    'quota' => _t(
+    'quota' => _k(
       'The AI usage quota has been reached. Try again later.',
       'AI 사용 한도에 도달했어요. 잠시 후 다시 시도해 주세요.',
     ),
-    'auth' => _t(
+    'auth' => _k(
       "The AI provider rejected the server's API key. Check the server setup.",
       'AI 제공업체가 서버의 API 키를 거부했어요. 서버 설정을 확인해 주세요.',
     ),
-    'rate' => _t(
+    'rate' => _k(
       'Too many requests right now. Try again in a moment.',
       '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.',
     ),
-    'outage' => _t(
+    'outage' => _k(
       'The AI service is temporarily unavailable. Try again later.',
       'AI 서비스가 일시적으로 응답하지 않아요. 나중에 다시 시도해 주세요.',
     ),
-    'timeout' => _t(
+    'timeout' => _k(
       'The AI service did not respond in time. Try again.',
       'AI 서비스가 제때 응답하지 않았어요. 다시 시도해 주세요.',
     ),
-    'interrupted' => _t(
+    'interrupted' => _k(
       'Indexing was interrupted. Try again.',
       '색인이 중간에 끊겼어요. 다시 시도해 주세요.',
     ),
-    'no_source' => _t(
+    'no_text' => _k(
+      'No readable text in this PDF (it may be a scan)',
+      '텍스트를 읽을 수 없는 PDF예요(스캔본일 수 있어요)',
+    ),
+    'no_source' => _k(
       'No text could be extracted from the source (e.g. a scanned PDF).',
       '원본에서 텍스트를 추출하지 못했어요 (스캔한 PDF 등).',
     ),
-    'unknown' => _t(
+    'unknown' => _k(
       'Indexing failed for an unknown reason. Try again.',
       '알 수 없는 이유로 색인에 실패했어요. 다시 시도해 주세요.',
     ),
@@ -235,7 +294,7 @@ class L {
   String get answerModel => _t('Answer model', '답변 모델');
   String get myDocs => _t('My documents', '내 문서');
   String get askEmptyTitle => _t('Ask your notes & documents', '노트와 문서에 질문하세요');
-  String get askEmptySubtitle => _t(
+  String get askEmptySubtitle => _k(
     'Every answer links back to its ⚡ sources',
     '모든 답변은 ⚡ 출처로 연결됩니다',
   );
@@ -273,7 +332,7 @@ class L {
     'Ask your notes. Every answer shows its source.',
     '내 노트에 물어보세요. 답마다 출처가 보여요.',
   );
-  String get landingSub => _t(
+  String get landingSub => _k(
     'Keep notes and PDFs in one place, then ask in plain words. PageBlink answers from your own files and links each answer to the exact note or page.',
     '메모와 PDF를 한곳에 모아 두고 편하게 물어보세요. PageBlink가 내 자료에서 답을 찾고, 근거가 된 메모나 페이지로 바로 데려다 드려요.',
   );
@@ -281,7 +340,7 @@ class L {
     'Notes and PDFs together',
     '메모와 PDF를 한곳에',
   );
-  String get landingFeatureBoardBody => _t(
+  String get landingFeatureBoardBody => _k(
     'Jot down notes or upload PDFs — both can answer your questions.',
     '메모를 쓰거나 PDF를 올리면, 둘 다 질문에 답할 수 있어요.',
   );
@@ -289,7 +348,7 @@ class L {
     'Answers you can check',
     '확인할 수 있는 답',
   );
-  String get landingFeatureCiteBody => _t(
+  String get landingFeatureCiteBody => _k(
     'Tap ⚡ next to an answer to open the page it came from.',
     '답 옆의 ⚡를 누르면 근거가 된 페이지가 열려요.',
   );
@@ -297,7 +356,7 @@ class L {
     'Share with your team',
     '팀과 함께',
   );
-  String get landingFeatureShareBody => _t(
+  String get landingFeatureShareBody => _k(
     'Put files in a project and teammates can ask them too.',
     '프로젝트에 넣어 두면 팀원도 같은 자료에 물어볼 수 있어요.',
   );
@@ -305,7 +364,7 @@ class L {
     'Private by default',
     '기본은 나만 보기',
   );
-  String get landingFeaturePrivacyBody => _t(
+  String get landingFeaturePrivacyBody => _k(
     'Only you can see your notes unless you share them. Device-only notes are coming soon.',
     '공유하지 않으면 나만 볼 수 있어요. 기기에만 두는 메모 기능도 곧 나와요.',
   );
@@ -316,11 +375,11 @@ class L {
   String get landingFreeModelNote =>
       _t('Free models may log prompts.', '무료 모델은 프롬프트를 기록할 수 있어요.');
   String get signInTitle => _t('Sign in or create an account', '로그인 또는 가입');
-  String get signInSubtitle => _t(
+  String get signInSubtitle => _k(
     'Your notes stay private unless you share a project.',
     '프로젝트로 공유하지 않는 한 노트는 나만 볼 수 있어요.',
   );
-  String get signInHelper => _t(
+  String get signInHelper => _k(
     'New here? Tap Sign up below the button — we\'ll email you a verification code.',
     '처음이신가요? 로그인 버튼 아래의 가입을 누르면 인증 코드를 메일로 보내 드려요.',
   );
@@ -339,7 +398,7 @@ class L {
       _t('and the launch moved to Nov 18', '출시는 11월 18일로 미뤄졌어요');
 
   // ── AB v2 shell / board ───────────────────────────────────────────────
-  String get tagline => _t(
+  String get tagline => _k(
     'Ask your notes & documents. Every answer shows its source.',
     '노트와 문서에 물어보세요. 답마다 출처가 보여요.',
   );
@@ -360,8 +419,8 @@ class L {
   String get filterPdfs => 'PDFs';
   String needsAttention(int n) => _t('$n needs attention', '확인 필요 $n');
   String get recent => _t('Recent', '최근');
-  String get noMatches => _t('Nothing matches.', '일치하는 항목이 없어요.');
-  String get keywordOnly => _t('Keyword search only', '키워드 검색만 가능');
+  String get noMatches => _k('Nothing matches.', '일치하는 항목이 없어요.');
+  String get keywordOnly => _k('Keyword search only', '키워드 검색만 가능');
   String noteMeta(String ago) => _t('Note · $ago', '노트 · $ago');
   String pdfMeta(int pages) =>
       _t('PDF · $pages ${pages == 1 ? 'page' : 'pages'}', 'PDF · $pages쪽');
@@ -400,7 +459,7 @@ class L {
   String get copy => _t('Copy', '복사');
   String get copied => _t('Copied', '복사했어요');
   String get scope => _t('Search scope', '검색 범위');
-  String get scopeSubtitle => _t(
+  String get scopeSubtitle => _k(
     'Answers come from notes and PDFs in the checked places',
     '선택한 곳의 노트와 PDF에서 답을 찾아요',
   );
@@ -427,7 +486,7 @@ class L {
   String get modelAuto => _t('Auto', '자동');
   String get modelAutoRotates =>
       _t('Auto · rotates free models', '자동 · 무료 모델 순환');
-  String get askFailed => _t(
+  String get askFailed => _k(
     'Could not get an answer. Please try again shortly.',
     '답변을 받지 못했어요. 잠시 후 다시 시도해 주세요.',
   );
@@ -456,7 +515,7 @@ class L {
     'slower first token': '첫 글자가 느림',
     'quality': '고품질',
   };
-  String get aiDisclaimer => _t(
+  String get aiDisclaimer => _k(
     'AI can make mistakes. Check the ⚡ sources.',
     'AI는 틀릴 수 있어요. ⚡ 출처를 확인하세요.',
   );
