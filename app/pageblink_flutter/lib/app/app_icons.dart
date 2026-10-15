@@ -15,6 +15,8 @@ abstract final class AppIcons {
   // Violet is applied by callers.
   static const ask = LucideIcons.messageCircleQuestion;
   static const citation = LucideIcons.zap;
+  // Heavier stroke for the 10px bolt in the inline ⚡n marker pill.
+  static const citationMarker = LucideIcons.zap600;
 
   // Selected variants for NavigationBar/Rail (Lucide has no fill; heavier stroke instead)
   static const askSelected = LucideIcons.messageCircleQuestion600;
@@ -72,6 +74,9 @@ abstract final class AppIcons {
   static const quote = LucideIcons.quote;
   static const code = LucideIcons.code;
   static const link = LucideIcons.link;
+  static const strikethrough = LucideIcons.strikethrough;
+  static const orderedList = LucideIcons.listOrdered;
+  static const openLink = LucideIcons.externalLink;
 
   // Live | Source toggle (narrow phones show icons only)
   static const modeLive = LucideIcons.pencilLine;

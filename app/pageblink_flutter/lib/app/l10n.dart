@@ -123,6 +123,10 @@ class L {
   String get fmtCode => _t('Code', '코드');
   String get fmtLink => _t('Link', '링크');
   String get fmtBodyText => _t('Body text', '본문');
+  String get fmtStrike => _t('Strikethrough', '취소선');
+  String get fmtOrderedList => _t('Numbered list', '번호 목록');
+  String get openLink => _t('Open', '열기');
+  String get linkOpenFailed => _t('Could not open the link.', '링크를 열지 못했어요.');
   String get modeLive => _t('Live', '라이브');
   String get modeSource => _t('Source', '소스');
 
@@ -366,6 +370,21 @@ class L {
 
   /// Spoken label of the tappable ⚡n marker inside an answer.
   String citeMarkerLabel(int n) => _t('Source $n', '출처 $n');
+
+  /// Spoken label of one source row under an answer.
+  String sourceRowLabel(
+    int n,
+    String title, {
+    required bool isNote,
+    int? page,
+  }) {
+    final en = isNote ? 'note' : 'PDF page $page';
+    final ko = isNote ? '노트' : 'PDF $page쪽';
+    return _t('Source $n: $title, $en', '출처 $n: $title, $ko');
+  }
+
+  String moreSources(int n) => _t('Show $n more', '외 $n개 더 보기');
+  String get lessSources => _t('Show fewer', '접기');
   String get copy => _t('Copy', '복사');
   String get copied => _t('Copied', '복사했어요');
   String get scope => _t('Search scope', '검색 범위');

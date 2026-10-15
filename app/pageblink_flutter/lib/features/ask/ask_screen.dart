@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' show cos, pi;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +13,7 @@ import '../../app/open_item_controller.dart';
 import '../documents/documents_screen.dart' show documentsNotifier;
 import '../open_item/open_item_view.dart';
 import 'ask_markers.dart';
+import 'ask_sources.dart';
 import 'ask_suggestions.dart';
 import '../../app/app_icons.dart';
 
@@ -697,40 +697,93 @@ class AskTurnView extends StatefulWidget {
 }
 
 class _AskTurnViewState extends State<AskTurnView>
-    with SingleTickerProviderStateMixin {
-  /// ~900ms, two pulses.
+    with TickerProviderStateMixin {
+  /// Row flash: 160ms start delay + 1600ms asymmetric double pulse
+  /// (ask_sources.dart `sourceFlashCurve`).
   late final _flash = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 900),
+    duration: sourceFlashDuration,
+  );
+
+  /// Marker acknowledgement, 600ms (`citeAckCurve`).
+  late final _ack = AnimationController(
+    vsync: this,
+    duration: citeAckDuration,
   );
   final _chipKeys = <int, GlobalKey>{};
   int? _flashing;
+  int? _acking;
+
+  /// The folded sources are shown (per turn).
+  bool _expanded = false;
+
+  /// Expand without animating: a marker tap expands, then scrolls.
+  bool _snap = false;
+
+  /// Bumped per marker tap so an older, still-awaiting tap gives up.
+  int _citeToken = 0;
 
   @override
   void dispose() {
     _flash.dispose();
+    _ack.dispose();
     super.dispose();
   }
 
   bool get _reduced => MediaQuery.disableAnimationsOf(context);
 
+  /// Five or more sources fold to three once the answer is complete (while it
+  /// streams, a new source would turn the last visible row into the toggle).
+  bool _collapsible(int n) => widget.turn.done && n >= sourcesCollapseFrom;
+
+  /// Whether source [index] is currently folded away.
+  bool _folded(int index, List<Citation> sorted) =>
+      _collapsible(sorted.length) &&
+      !_expanded &&
+      sorted.indexWhere((c) => c.index == index) >= sourcesCollapsedShow;
+
   /// The number is looked up at tap time: an unknown or not yet arrived
   /// source does nothing, and works once its citation event has come in.
+  /// A folded source is unfolded first, then scrolled to and flashed.
   Future<void> _cite(int index) async {
-    if (!widget.turn.citations.containsKey(index)) return;
-    final chip = _chipKeys[index]?.currentContext;
-    if (chip == null) return;
+    final turn = widget.turn;
+    if (!turn.citations.containsKey(index)) return;
+    final token = ++_citeToken;
+    final reduced = _reduced;
+    var chip = _chipKeys[index]?.currentContext;
+    if (chip == null) {
+      final sorted = turn.citations.values.toList()
+        ..sort((a, b) => a.index.compareTo(b.index));
+      if (!_folded(index, sorted)) return;
+      setState(() {
+        _expanded = true;
+        _snap = true;
+      });
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted || token != _citeToken) return;
+      chip = _chipKeys[index]?.currentContext;
+      if (chip == null || !chip.mounted) return;
+    }
+    setState(() => _acking = index);
+    _ack.forward(from: 0);
+    var scrolled = false;
     if (!_visible(chip)) {
+      scrolled = true;
       await Scrollable.ensureVisible(
         chip,
         alignment: 0.4,
-        duration: _reduced ? Duration.zero : const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
+        duration: reduced ? Duration.zero : const Duration(milliseconds: 360),
+        curve: Curves.easeInOutCubic,
       );
     }
-    if (!mounted) return;
+    if (!mounted || token != _citeToken) return;
     setState(() => _flashing = index);
-    _flash.forward(from: 0);
+    // Reduced motion: held highlight for 1200ms. Otherwise the 160ms start
+    // delay is already spent when we had to scroll.
+    _flash.duration = reduced
+        ? sourceFlashReducedDuration
+        : sourceFlashDuration;
+    _flash.forward(from: scrolled && !reduced ? sourceFlashSkipLead : 0);
   }
 
   /// Fully inside the enclosing scrollable (true when there is none).
@@ -744,71 +797,44 @@ class _AskTurnViewState extends State<AskTurnView>
     return top >= 0 && top + box.size.height <= viewport.size.height;
   }
 
-  /// 0 at rest; pulses 0 -> 1 -> 0 twice. Reduced motion: held at 1, no ramp.
+  /// 0 at rest, else the flash value g (spec §3.2). Reduced motion: held at 1.
   double _glow(int index) {
     if (_flashing != index || !_flash.isAnimating) return 0;
-    return _reduced ? 1 : (1 - cos(4 * pi * _flash.value)) / 2;
+    return _reduced ? 1 : sourceFlashCurve.transform(_flash.value);
+  }
+
+  double _ackValue(int index) {
+    if (_acking != index || !_ack.isAnimating) return 0;
+    return citeAckCurve.transform(_ack.value);
   }
 
   InlineSpan _marker(SourceTagBuildDetails tag) {
-    final pb = context.pb;
-    final size = tag.style.fontSize;
-    return TappableTextSpan(
-      text: '\u2009⚡${tag.id}\u2009',
-      onTap: tag.onTap,
-      mouseCursor: SystemMouseCursors.click,
-      semanticsLabel: context.l.citeMarkerLabel(int.tryParse(tag.id) ?? 0),
-      style: tag.style.copyWith(
-        fontSize: size == null ? null : size * 0.92,
-        fontWeight: FontWeight.w600,
-        color: pb.onAccentContainer,
-        backgroundColor: pb.accent.withValues(alpha: 0.14),
+    final n = int.tryParse(tag.id) ?? 0;
+    // Pill height: 18, but never taller than the line box minus 2.
+    final base = DefaultTextStyle.of(tag.context).style.merge(tag.style);
+    final line = (base.fontSize ?? 14) * (base.height ?? 1.4);
+    return tag.asWidgetSpan(
+      CiteMarker(
+        key: ValueKey('cite-marker-$n'),
+        index: n,
+        height: (line - 2).clamp(14.0, 18.0),
+        ack: _ack,
+        ackValue: () => _ackValue(n),
+        reduced: _reduced,
+        onTap: tag.onTap,
       ),
-      hoverStyle: TextStyle(backgroundColor: pb.accent.withValues(alpha: 0.26)),
     );
   }
 
-  Widget _sourceChip(List<Citation> all, Citation c) {
-    final pb = context.pb;
+  Widget _sourceRow(List<Citation> all, Citation c) {
     return AnimatedBuilder(
       key: _chipKeys.putIfAbsent(c.index, GlobalKey.new),
       animation: _flash,
-      builder: (context, child) {
-        final g = _glow(c.index);
-        return DecoratedBox(
-          key: ValueKey('source-chip-${c.index}'),
-          decoration: ShapeDecoration(
-            shape: const StadiumBorder(),
-            color: pb.accent.withValues(alpha: 0.22 * g),
-            shadows: g == 0
-                ? null
-                : [
-                    BoxShadow(
-                      color: pb.accent.withValues(alpha: 0.45 * g),
-                      blurRadius: 14 * g,
-                      spreadRadius: 2 * g,
-                    ),
-                  ],
-          ),
-          child: child,
-        );
-      },
-      child: ActionChip(
-        visualDensity: VisualDensity.compact,
-        avatar: Icon(AppIcons.citation, size: 16, color: pb.accent),
-        side: BorderSide(color: pb.accent),
-        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-        backgroundColor: Colors.transparent,
-        labelStyle: TextStyle(
-          fontSize: 13,
-          color: pb.onAccentContainer,
-          fontWeight: FontWeight.w500,
-        ),
-        label: Text(
-          '${c.index} · ${c.documentTitle}'
-          '${c.kind == 'note' ? '' : ' p.${c.page}'}',
-        ),
-        onPressed: () => widget.onBlink(all, c),
+      builder: (context, _) => SourceRow(
+        citation: c,
+        glow: _glow(c.index),
+        reduced: _reduced,
+        onTap: () => widget.onBlink(all, c),
       ),
     );
   }
@@ -882,35 +908,29 @@ class _AskTurnViewState extends State<AskTurnView>
                   children: [
                     GptMarkdown(
                       renderMarkers(turn.answer.toString()),
+                      // The pill carries its own 2px hit padding.
+                      styleSheet: const GptMarkdownStyleSheet(
+                        sourceTag: SourceTagStyle(padding: EdgeInsets.zero),
+                      ),
                       inlineSourceTagBuilder: _marker,
                       onSourceTagTap: (id) {
                         final n = int.tryParse(id);
                         if (n != null) _cite(n);
                       },
                     ),
-                    if (citations.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      Divider(color: pb.hairline),
-                      const SizedBox(height: 10),
-                      Text(
-                        l.sourcesLabel.toUpperCase(),
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                          color: pb.inkMuted,
-                        ),
+                    if (citations.isNotEmpty)
+                      SourcesList(
+                        citations: citations,
+                        collapsible: _collapsible(citations.length),
+                        expanded: _expanded,
+                        snap: _snap,
+                        onToggle: () => setState(() {
+                          _snap = false;
+                          _expanded = !_expanded;
+                        }),
+                        rowBuilder: (c) => _sourceRow(citations, c),
                       ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final c in citations) _sourceChip(citations, c),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 8),
+                    SizedBox(height: citations.isEmpty ? 8 : 12),
                     Row(
                       children: [
                         IconButton(
