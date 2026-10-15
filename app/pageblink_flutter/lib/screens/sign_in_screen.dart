@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../app/l10n.dart';
+import '../app/locale_controller.dart';
 import '../app/theme.dart';
 import '../client.dart';
 import '../app/app_icons.dart';
@@ -162,6 +163,11 @@ class _SignInScreenState extends State<SignInScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // In the scroll flow, never over the card (spec R1/R2).
+                          const Align(
+                            alignment: Alignment.centerRight,
+                            child: _LanguageMenu(),
+                          ),
                           if (row)
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
@@ -293,6 +299,65 @@ extension on BuildContext {
         backgroundColor: backgroundColor,
         duration: const Duration(seconds: 5),
       ),
+    );
+  }
+}
+
+/// Language switcher for signed-out users (Settings is unreachable before
+/// sign-in). Same [localeController], so it stays in sync with Settings.
+class _LanguageMenu extends StatelessWidget {
+  const _LanguageMenu();
+
+  static const _system = 'system';
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final names = {
+      _system: l.languageSystem,
+      'en': l.languageEnglish,
+      'ko': l.languageKorean,
+    };
+    return ValueListenableBuilder<Locale?>(
+      valueListenable: localeController,
+      builder: (context, locale, _) {
+        final chosen = locale?.languageCode ?? _system;
+        return PopupMenuButton<String>(
+          tooltip: l.changeLanguage,
+          onSelected: (code) =>
+              localeController.choose(code == _system ? null : Locale(code)),
+          itemBuilder: (_) => [
+            for (final e in names.entries)
+              CheckedPopupMenuItem<String>(
+                value: e.key,
+                checked: e.key == chosen,
+                child: Text(e.value),
+              ),
+          ],
+          // Label: the language in effect (also when following the system).
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(AppIcons.language, size: 18),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      l.isKorean ? l.languageKorean : l.languageEnglish,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(AppIcons.expand, size: 16),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

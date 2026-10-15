@@ -44,6 +44,7 @@ abstract final class AppIcons {
   static const send = LucideIcons.arrowUp;
   static const refresh = LucideIcons.refreshCw;
   static const settings = LucideIcons.settings;
+  static const language = LucideIcons.languages;
   static const signOut = LucideIcons.logOut;
   static const check = LucideIcons.check;
   static const close = LucideIcons.x;

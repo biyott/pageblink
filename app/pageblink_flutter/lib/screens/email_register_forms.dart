@@ -511,6 +511,21 @@ class _EmailSetPasswordFormState extends State<EmailSetPasswordForm> {
 }
 
 /// The package's `PasswordRequirements` checklist is not exported; same look.
+/// The controller is created once, so our custom descriptions carry the
+/// language of that moment; re-resolve them for the language in effect.
+String _requirementText(
+  BuildContext context,
+  PasswordRequirement r,
+  PasswordRequirementTexts texts,
+) {
+  final l = context.l;
+  for (final s in [L.en, L.ko]) {
+    if (r.description == s.pwLowerAndNumber) return l.pwLowerAndNumber;
+    if (r.description == s.pwUppercaseOrSpecial) return l.pwUppercaseOrSpecial;
+  }
+  return PasswordRequirement.localized(r, texts);
+}
+
 class _PasswordChecklist extends StatelessWidget {
   const _PasswordChecklist({
     required this.password,
@@ -553,7 +568,7 @@ class _PasswordChecklist extends StatelessWidget {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      PasswordRequirement.localized(r, texts),
+                      _requirementText(context, r, texts),
                       style: password.isNotEmpty && r.validator(password)
                           ? base.copyWith(color: ok)
                           : base,

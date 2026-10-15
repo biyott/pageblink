@@ -38,6 +38,8 @@ class L {
   String get languageSystem => _t('System default', '시스템 설정');
   String get languageEnglish => 'English';
   String get languageKorean => '한국어';
+  // Sign-in screen switcher: the button's tooltip / screen-reader label.
+  String get changeLanguage => _t('Change language', '언어 변경');
 
   // ── Shell (main.dart) ─────────────────────────────────────────────────
   String get tabAsk => _t('Ask', '질문');
