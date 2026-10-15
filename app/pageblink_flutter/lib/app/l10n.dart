@@ -166,8 +166,8 @@ class L {
   String reindexing(String title) =>
       _t('Re-indexing $title…', '$title 다시 색인 중…');
   String indexed(String title) => _t('Indexed: $title', '색인 완료: $title');
-  String reindexFailed(Object error) =>
-      _t('Re-index failed: $error', '다시 색인 실패: $error');
+  String get reindexFailed =>
+      _t("Couldn't re-index. Try again.", '다시 색인하지 못했어요. 다시 시도해 주세요.');
   String get reindexingFailedItems =>
       _t('Re-indexing failed items…', '실패한 항목 다시 색인 중…');
   String reindexedCount(int n) => _t('$n re-indexed', '$n개 색인 완료');

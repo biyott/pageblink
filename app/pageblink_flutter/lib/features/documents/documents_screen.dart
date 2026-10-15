@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
@@ -132,7 +131,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                   : l.indexingError(result.lastError)),
       );
     } catch (e) {
-      _snack(l.reindexFailed(e));
+      debugPrint('reindex failed: $e');
+      _snack(l.reindexFailed);
     } finally {
       if (mounted) setState(() => _busy = null);
       await _refresh();
@@ -146,7 +146,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       final ready = await client.document.reindexFailed();
       _snack(l.reindexedCount(ready));
     } catch (e) {
-      _snack(l.reindexFailed(e));
+      debugPrint('reindex failed items failed: $e');
+      _snack(l.reindexFailed);
     } finally {
       if (mounted) setState(() => _busy = null);
       await _refresh();
@@ -472,13 +473,16 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                   itemCount: _visible(docs).length,
                   itemBuilder: (context, i) {
                     final d = _visible(docs)[i];
-                    return _DocumentCard(
+                    return DocumentCard(
                       d,
                       widget.projects,
                       onTap: d.kind == 'note'
                           ? () => _openNote(d)
                           : (d.status == 'ready' ? () => _openPdf(d) : null),
                       onLongPress: () => _delete(d),
+                      onDelete: () => _delete(d),
+                      // Any status: also rescues a doc stuck in 'indexing'.
+                      onReindex: _busy == null ? () => _reindex(d) : null,
                       onRetry: d.status == 'failed' ? () => _reindex(d) : null,
                     );
                   },
@@ -497,13 +501,17 @@ enum _Filter { all, notes, pdfs, attention }
 /// Latest board contents, shared so the desktop sidebar can show tier counts.
 final documentsNotifier = ValueNotifier<List<Document>>(const []);
 
-class _DocumentCard extends StatelessWidget {
-  const _DocumentCard(
+@visibleForTesting
+class DocumentCard extends StatelessWidget {
+  const DocumentCard(
     this.document,
     this.projects, {
+    super.key,
     this.onTap,
     this.onLongPress,
     this.onRetry,
+    this.onReindex,
+    this.onDelete,
   });
 
   final Document document;
@@ -511,6 +519,10 @@ class _DocumentCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onRetry;
+
+  /// Menu entry; null disables it (e.g. another index run is in progress).
+  final VoidCallback? onReindex;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -585,9 +597,32 @@ class _DocumentCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  PopupMenuButton<bool>(
+                    tooltip: l.moreActions,
+                    icon: Icon(AppIcons.more, size: 18, color: pb.inkMuted),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                    onSelected: (reindex) =>
+                        (reindex ? onReindex : onDelete)?.call(),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: true,
+                        enabled: onReindex != null,
+                        child: Text(l.reindex),
+                      ),
+                      PopupMenuItem(
+                        value: false,
+                        enabled: onDelete != null,
+                        child: Text(l.delete),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 4),
               Text(
                 document.title,
                 maxLines: 2,
