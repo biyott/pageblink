@@ -716,7 +716,11 @@ class _AskTurnViewState extends State<AskTurnView>
   /// The source picked last (marker or row). Its halo stays after the
   /// animation, until another source is picked or the turn is rebuilt.
   late final _pick = ValueNotifier<int?>(null);
-  late final _markerTick = Listenable.merge([_ack, _pick]);
+
+  /// Number of sources seen at the last build: a source that arrives after
+  /// the markdown package built its pills re-tints that pill through this.
+  late final _arrived = ValueNotifier<int>(0);
+  late final _markerTick = Listenable.merge([_ack, _pick, _arrived]);
   int? get _selected => _pick.value;
   set _selected(int? v) => _pick.value = v;
 
@@ -759,6 +763,7 @@ class _AskTurnViewState extends State<AskTurnView>
     _flash.dispose();
     _ack.dispose();
     _pick.dispose();
+    _arrived.dispose();
     super.dispose();
   }
 
@@ -863,6 +868,7 @@ class _AskTurnViewState extends State<AskTurnView>
         ackValue: () => _ackValue(n),
         reduced: _reduced,
         selected: () => _selected == n,
+        source: () => widget.turn.citations[n],
         onTap: tag.onTap,
       ),
     );
@@ -891,6 +897,12 @@ class _AskTurnViewState extends State<AskTurnView>
     final l = context.l;
     final citations = turn.citations.values.toList()
       ..sort((a, b) => a.index.compareTo(b.index));
+    if (_arrived.value != citations.length) {
+      final n = citations.length;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _arrived.value = n;
+      });
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

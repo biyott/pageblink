@@ -54,8 +54,17 @@ Color _inner(WidgetTester tester, int n) {
       .color!;
 }
 
-Color _chipBg(WidgetTester tester, int n) =>
-    tester.element(find.byKey(ValueKey('source-chip-$n'))).pb.chipBg;
+/// The row's resting colour: the kind colour of the citation the test helpers
+/// build (documentId = n; even numbers are notes, odd ones PDFs).
+Color _paper(WidgetTester tester, int n) {
+  final context = tester.element(find.byKey(ValueKey('source-chip-$n')));
+  return sourceKindColor(
+    context.pb,
+    isNote: n.isEven,
+    documentId: n,
+    dark: Theme.of(context).brightness == Brightness.dark,
+  );
+}
 
 List<BoxShadow> _halo(WidgetTester tester, int n) {
   final box = tester.widget<DecoratedBox>(
@@ -140,16 +149,16 @@ void main() {
       await t.pump(const Duration(milliseconds: 245)); // first peak (1.0)
       expect(_glow(t, 1), isNotNull);
       expect(_glow(t, 2), isNull);
-      expect(_inner(t, 1), isNot(_chipBg(t, 1)));
+      expect(_inner(t, 1), isNot(_paper(t, 1)));
       await t.pump(const Duration(milliseconds: 420)); // trough (0.35)
       expect(_glow(t, 1), isNotNull);
       await t.pump(const Duration(milliseconds: 262)); // second peak (0.85)
       expect(_glow(t, 1), isNotNull);
       await t.pump(const Duration(milliseconds: 473)); // bloom done
       await t.pumpAndSettle();
-      // No end: the halo is still there, the inside is back to chipBg.
+      // No end: the halo is still there, the inside is back to its kind colour.
       expect(_glow(t, 1), isNotNull);
-      expect(_inner(t, 1), _chipBg(t, 1));
+      expect(_inner(t, 1), _paper(t, 1));
       expect(_glow(t, 2), isNull);
       await t.pump(const Duration(seconds: 30));
       expect(_glow(t, 1), isNotNull);
@@ -170,7 +179,7 @@ void main() {
           expect(s.color.a, inInclusiveRange(0.08, 0.40), reason: '$b');
           expect(s.blurRadius, 20);
         }
-        expect(_inner(t, 1), _chipBg(t, 1));
+        expect(_inner(t, 1), _paper(t, 1));
       }
     });
 
@@ -262,15 +271,15 @@ void main() {
         return (box.decoration as ShapeDecoration).color!;
       }
 
-      final rest = fill(1);
+      final rest = fill(1), rest2 = fill(2);
       await _tapMarker(t, 1);
       await t.pumpAndSettle();
       expect(fill(1), isNot(rest));
-      expect(fill(2), rest);
+      expect(fill(2), rest2);
       await _tapMarker(t, 2);
       await t.pumpAndSettle();
       expect(fill(1), rest);
-      expect(fill(2), isNot(rest));
+      expect(fill(2), isNot(rest2));
     });
 
     testWidgets('another turn in the same slot starts without a halo', (
@@ -346,16 +355,16 @@ void main() {
         return (box.decoration as ShapeDecoration).color!;
       }
 
-      final rest = fill(1);
+      final rest = fill(1), rest2 = fill(2);
       await _tapMarker(t, 1);
       await t.pump();
       await t.pump(const Duration(milliseconds: 120)); // ack peak
       expect(fill(1), isNot(rest));
-      expect(fill(2), rest);
+      expect(fill(2), rest2);
       await t.pumpAndSettle();
       // The ack is over; what stays is the picked tint, nowhere near accent.
       expect(fill(1), isNot(t.element(find.byType(Scaffold)).pb.accent));
-      expect(fill(2), rest);
+      expect(fill(2), rest2);
     });
 
     testWidgets('unknown number does nothing and does not throw', (t) async {
@@ -417,12 +426,12 @@ void main() {
       await t.pump();
       await t.pump(const Duration(milliseconds: 100)); // in the delay
       expect(_glow(t, 1), isNotNull); // never goes out
-      expect(_inner(t, 1), _chipBg(t, 1));
+      expect(_inner(t, 1), _paper(t, 1));
       await t.pump(const Duration(milliseconds: 40 + 245));
-      expect(_inner(t, 1), isNot(_chipBg(t, 1))); // played again
+      expect(_inner(t, 1), isNot(_paper(t, 1))); // played again
       await t.pumpAndSettle();
       expect(_glow(t, 1), isNotNull);
-      expect(_inner(t, 1), _chipBg(t, 1));
+      expect(_inner(t, 1), _paper(t, 1));
     });
 
     testWidgets('reduced motion: resting halo at once, no ramp', (t) async {
@@ -431,7 +440,7 @@ void main() {
       await t.pump();
       expect(_glow(t, 1), isNotNull);
       final c = _halo(t, 1).map((s) => s.color).toList();
-      expect(_inner(t, 1), _chipBg(t, 1));
+      expect(_inner(t, 1), _paper(t, 1));
       await t.pump(const Duration(milliseconds: 300));
       expect(_halo(t, 1).map((s) => s.color).toList(), c);
       await t.pumpAndSettle();
@@ -554,7 +563,7 @@ void main() {
       await t.tap(find.byKey(const ValueKey('sources-toggle')));
       await t.pumpAndSettle();
       expect(_glow(t, 5), isNotNull);
-      expect(_inner(t, 5), _chipBg(t, 5));
+      expect(_inner(t, 5), _paper(t, 5));
     });
 
     testWidgets('1 column below 488 inner width, 2 columns from it', (t) async {
@@ -631,6 +640,180 @@ void main() {
       expect(t.takeException(), isNull);
       final size = t.getSize(find.byKey(const ValueKey('cite-marker-1')).first);
       expect(size.height, lessThanOrEqualTo(18));
+    });
+  });
+
+  group('source kind colours', () {
+    Future<AskTurn> pumpKinds(
+      WidgetTester t,
+      List<Citation> cs, {
+      Brightness brightness = Brightness.light,
+      String answer = '[1] [2] [3]',
+      AskTurn? same,
+    }) async {
+      final turn = same ?? AskTurn('q')
+        ..answer.write(answer)
+        ..done = true;
+      if (same == null) {
+        for (final c in cs) {
+          turn.citations[c.index] = c;
+        }
+      }
+      await t.pumpWidget(
+        MaterialApp(
+          theme: buildPbTheme(brightness),
+          supportedLocales: supportedLocales,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: AskTurnView(turn, onBlink: (_, _) {}),
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle(); // the rows' Material animates a theme change
+      return turn;
+    }
+
+    Citation cite(int i, int doc, String kind) => Citation(
+      index: i,
+      documentId: doc,
+      documentTitle: 'Doc $doc',
+      kind: kind,
+      page: 1,
+      quote: 'q',
+    );
+
+    Color markerFill(WidgetTester t, int n) {
+      final box = t.widget<DecoratedBox>(
+        find
+            .descendant(
+              of: find.byKey(ValueKey('cite-marker-$n')).first,
+              matching: find.byType(DecoratedBox),
+            )
+            .first,
+      );
+      return (box.decoration as ShapeDecoration).color!;
+    }
+
+    testWidgets('a note row is its document card colour, a PDF row grey', (
+      t,
+    ) async {
+      for (final b in Brightness.values) {
+        // ids 5 and 8 land on different pastels; the PDF is document 5 too.
+        await pumpKinds(t, [
+          cite(1, 5, 'note'),
+          cite(2, 8, 'note'),
+          cite(3, 5, 'pdf'),
+        ], brightness: b);
+        final pb = buildPbTheme(b).extension<Pb>()!;
+        expect(_inner(t, 1), pb.noteColor(5), reason: '$b');
+        expect(_inner(t, 2), pb.noteColor(8), reason: '$b');
+        expect(_inner(t, 1), isNot(_inner(t, 2)), reason: '$b');
+        final pdf = _inner(t, 3);
+        expect(pdf, isNot(pb.pdfPaper), reason: '$b');
+        expect(pdf, isNot(pb.noteColor(5)), reason: '$b');
+        // Neutral: the paper plus an ink tint, no hue of its own.
+        expect((pdf.r - pdf.b).abs(), lessThan(0.06), reason: '$b');
+      }
+    });
+
+    testWidgets('the same note is the same colour in two answers', (t) async {
+      await pumpKinds(t, [cite(1, 7, 'note')]);
+      final first = _inner(t, 1);
+      await pumpKinds(t, [cite(1, 7, 'note')], answer: 'other [1]');
+      expect(_inner(t, 1), first);
+    });
+
+    testWidgets('a picked row settles back to its kind colour', (t) async {
+      for (final n in [1, 2]) {
+        await pumpKinds(t, [cite(1, 5, 'note'), cite(2, 3, 'pdf')]);
+        final rest = _inner(t, n);
+        await _tapMarker(t, n);
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 140 + 245));
+        await t.pump(const Duration(milliseconds: 250)); // past the fade
+        expect(_inner(t, n), isNot(rest));
+        await t.pumpAndSettle();
+        expect(_inner(t, n), rest);
+        expect(_glow(t, n), isNotNull);
+      }
+    });
+
+    testWidgets('the pill takes its source tone once the source arrived', (
+      t,
+    ) async {
+      final turn = await pumpKinds(t, [cite(1, 5, 'note')], answer: '[1] [2]');
+      final pb = t.element(find.byType(Scaffold)).pb;
+      expect(markerFill(t, 2), pb.accentContainer); // not arrived
+      expect(markerFill(t, 1), sourceKindStrong(pb, pb.noteColor(5)));
+      turn.citations[2] = cite(2, 3, 'pdf');
+      await pumpKinds(t, const [], same: turn);
+      await t.pump();
+      expect(
+        markerFill(t, 2),
+        sourceKindStrong(
+          pb,
+          sourceKindColor(pb, isNote: false, documentId: 3, dark: false),
+        ),
+      );
+    });
+
+    test('contrast: text on every row, pulse and badge is AA (4.5:1)', () {
+      expect(
+        contrastRatio(const Color(0xFF000000), const Color(0xFFFFFFFF)),
+        closeTo(21, 0.01),
+      );
+      for (final dark in [false, true]) {
+        final pb = dark ? Pb.dark : Pb.light;
+        final papers = [
+          for (var i = 0; i < pb.notes.length; i++)
+            sourceKindColor(pb, isNote: true, documentId: i, dark: dark),
+          sourceKindColor(pb, isNote: false, documentId: 1, dark: dark),
+        ];
+        final sub = subInkFor(pb, dark: dark);
+        for (final p in papers) {
+          // Row text over its paper, and over the pulse colour it turns into.
+          for (final bg in [p, sourcePulseColor(pb, p)]) {
+            final under = Color.alphaBlend(sub, bg);
+            expect(
+              contrastRatio(pb.ink, bg),
+              greaterThanOrEqualTo(4.5),
+              reason: 'title $dark $bg',
+            );
+            expect(
+              contrastRatio(under, bg),
+              greaterThanOrEqualTo(4.5),
+              reason: 'sub $dark $bg',
+            );
+          }
+          final strong = sourceKindStrong(pb, p);
+          expect(
+            contrastRatio(pb.ink, strong),
+            greaterThanOrEqualTo(4.5),
+            reason: 'badge number $dark $p',
+          );
+          // The bolt is a graphic: 3:1.
+          expect(
+            contrastRatio(pb.accent, strong),
+            greaterThanOrEqualTo(3),
+            reason: 'bolt $dark $p',
+          );
+        }
+      }
+    });
+
+    test('the pulse colour is never (nearly) the paper, lavender note too', () {
+      for (final pb in [Pb.light, Pb.dark]) {
+        for (final n in pb.notes) {
+          final pulse = sourcePulseColor(pb, n);
+          final d =
+              (pulse.r - n.r).abs() +
+              (pulse.g - n.g).abs() +
+              (pulse.b - n.b).abs();
+          expect(d, greaterThan(0.1));
+        }
+      }
     });
   });
 }

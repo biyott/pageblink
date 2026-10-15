@@ -17,7 +17,8 @@ import '../../app/theme.dart';
 ///   dip    420ms  1.0 -> 0.35 (breathe)                 easeInOutSine
 ///   rise2  262ms  0.35 -> 0.85                          easeInOutSine
 ///   bloom  473ms  a light spreads from the centre; the inside goes back to
-///                 chipBg; the glow turns into the rainbow halo that stays
+///                 the row's kind colour; the glow turns into the rainbow
+///                 halo that stays
 const sourceFlashLead = Duration(milliseconds: 140);
 const sourceFlashDuration = Duration(milliseconds: 1540);
 
@@ -38,7 +39,8 @@ class SourceFx {
     this.bloomAlpha = 0,
   });
 
-  /// accentContainer share of the inside (0 = chipBg).
+  /// Share of the inside that has moved from the row's kind colour to the
+  /// pulse colour (0 = the kind colour, see [sourceKindColor]).
   final double fill;
 
   /// Strength of the outer glow; 0 = no shadows at all.
@@ -121,12 +123,60 @@ final citeAckCurve = TweenSequence<double>([
 const sourcesCollapseFrom = 5;
 const sourcesCollapsedShow = 3;
 
-/// Secondary text: dark `inkMuted` misses AA on the bubble, so dark uses ink 75%.
-Color subInk(BuildContext context) {
-  final pb = context.pb;
-  return Theme.of(context).brightness == Brightness.dark
-      ? pb.ink.withValues(alpha: 0.75)
-      : pb.inkMuted;
+/// Secondary text: dark `inkMuted` misses AA on the bubble and on the dark note
+/// colours, so dark uses ink 75%.
+Color subInkFor(Pb pb, {required bool dark}) =>
+    dark ? pb.ink.withValues(alpha: 0.75) : pb.inkMuted;
+
+Color subInk(BuildContext context) => subInkFor(
+  context.pb,
+  dark: Theme.of(context).brightness == Brightness.dark,
+);
+
+/// WCAG 2.x contrast ratio of two opaque colours (1..21).
+double contrastRatio(Color a, Color b) {
+  final la = a.computeLuminance(), lb = b.computeLuminance();
+  return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+}
+
+/// The paper of a source row, the same language as the document cards
+/// (`_DocumentCard`): a note takes `pb.noteColor(documentId)`, so one note is
+/// one colour everywhere; a PDF takes `pdfPaper` with an ink tint (plain
+/// `pdfPaper` is white in light and vanishes on the answer bubble).
+Color sourceKindColor(
+  Pb pb, {
+  required bool isNote,
+  required int documentId,
+  required bool dark,
+}) => isNote
+    ? pb.noteColor(documentId)
+    : Color.alphaBlend(
+        pb.ink.withValues(alpha: dark ? 0.10 : 0.06),
+        pb.pdfPaper,
+      );
+
+/// One step past [paper]: the number badge and the `⚡n` pill of a source that
+/// has arrived (darker in light, lighter in dark).
+Color sourceKindStrong(Pb pb, Color paper) =>
+    Color.alphaBlend(pb.ink.withValues(alpha: 0.12), paper);
+
+/// [sourceKindColor] / [sourceKindStrong] of a citation.
+Color sourcePaper(Pb pb, Citation c, {required bool dark}) => sourceKindColor(
+  pb,
+  isNote: c.kind == 'note',
+  documentId: c.documentId,
+  dark: dark,
+);
+
+/// What the inside of a row turns into while it is selected: `accentContainer`,
+/// unless the paper is already that colour (the lavender note, light), then a
+/// brighter paper: the fill still moves, and the dark text keeps AA.
+Color sourcePulseColor(Pb pb, Color paper) {
+  final d =
+      (paper.r - pb.accentContainer.r).abs() +
+      (paper.g - pb.accentContainer.g).abs() +
+      (paper.b - pb.accentContainer.b).abs();
+  return d < 0.06 ? Color.lerp(paper, Colors.white, 0.6)! : pb.accentContainer;
 }
 
 /// The inline `⚡n` pill. The tap itself comes from the markdown package's
@@ -140,6 +190,7 @@ class CiteMarker extends StatefulWidget {
     required this.ackValue,
     required this.reduced,
     required this.selected,
+    this.source,
     this.onTap,
   });
 
@@ -155,6 +206,10 @@ class CiteMarker extends StatefulWidget {
 
   /// This number's source is the one currently picked: a slightly deeper fill.
   final bool Function() selected;
+
+  /// This number's source once it has arrived (null before): the pill then
+  /// takes the strong tone of that source's kind colour, like its row's badge.
+  final Citation? Function()? source;
   final VoidCallback? onTap;
 
   @override
@@ -171,6 +226,7 @@ class _CiteMarkerState extends State<CiteMarker> {
     final pb = context.pb;
     final onPrimary = Theme.of(context).colorScheme.onPrimary;
     final base = Theme.of(context).textTheme.bodyMedium;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return Semantics(
       button: true,
       label: context.l.citeMarkerLabel(widget.index),
@@ -201,7 +257,14 @@ class _CiteMarkerState extends State<CiteMarker> {
                 animation: widget.ack,
                 builder: (context, _) {
                   final a = widget.ackValue();
-                  var fill = pb.accentContainer;
+                  final src = widget.source?.call();
+                  final kind = src == null
+                      ? null
+                      : sourceKindStrong(
+                          pb,
+                          sourcePaper(pb, src, dark: dark),
+                        );
+                  var fill = kind ?? pb.accentContainer;
                   final tint = _down
                       ? 0.24
                       : (_hover ? 0.12 : (widget.selected() ? 0.16 : 0.0));
@@ -249,7 +312,9 @@ class _CiteMarkerState extends State<CiteMarker> {
                                     FontFeature.tabularFigures(),
                                   ],
                                   color: Color.lerp(
-                                    pb.onAccentContainer,
+                                    kind == null
+                                        ? pb.onAccentContainer
+                                        : pb.ink,
                                     onPrimary,
                                     a,
                                   ),
@@ -274,7 +339,8 @@ class _CiteMarkerState extends State<CiteMarker> {
 /// One source under an answer: number badge, title, kind · page, chevron.
 /// [fx] is the selection look; the keyed [DecoratedBox] carries the glow as
 /// `ShapeDecoration.shadows` (null when the row is not selected). The glow is
-/// clipped away from the row's inside so the resting inside is exactly chipBg.
+/// clipped away from the row's inside so the resting inside is exactly the
+/// row's kind colour ([sourceKindColor]: the note's pastel, or PDF grey).
 class SourceRow extends StatefulWidget {
   const SourceRow({
     super.key,
@@ -303,8 +369,9 @@ class _SourceRowState extends State<SourceRow> {
     final c = widget.citation;
     final fx = widget.fx;
     final isNote = c.kind == 'note';
-    final sub = subInk(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final sub = subInkFor(pb, dark: dark);
+    final paper = sourcePaper(pb, c, dark: dark);
     final radius = BorderRadius.circular(14);
     final shape = RoundedRectangleBorder(
       borderRadius: radius,
@@ -348,7 +415,7 @@ class _SourceRowState extends State<SourceRow> {
           excludeSemantics: true,
           onTap: widget.onTap,
           child: Material(
-            color: Color.lerp(pb.chipBg, pb.accentContainer, fx.fill),
+            color: Color.lerp(paper, sourcePulseColor(pb, paper), fx.fill),
             shape: shape,
             child: InkWell(
               customBorder: shape,
@@ -387,7 +454,7 @@ class _SourceRowState extends State<SourceRow> {
                       ),
                       child: Row(
                         children: [
-                          _Badge(c.index),
+                          _Badge(c.index, sourceKindStrong(pb, paper)),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -409,7 +476,7 @@ class _SourceRowState extends State<SourceRow> {
                                   children: [
                                     Icon(
                                       isNote ? AppIcons.note : AppIcons.pdf,
-                                      size: 12,
+                                      size: 14,
                                       color: sub,
                                     ),
                                     const SizedBox(width: 4),
@@ -527,9 +594,10 @@ class _OutsideClip extends CustomClipper<Path> {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge(this.n);
+  const _Badge(this.n, this.color);
 
   final int n;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -539,7 +607,7 @@ class _Badge extends StatelessWidget {
       height: 22,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: pb.accentContainer,
+        color: color,
         shape: BoxShape.circle,
       ),
       child: FittedBox(
@@ -549,7 +617,7 @@ class _Badge extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: pb.onAccentContainer,
+            color: pb.ink,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
