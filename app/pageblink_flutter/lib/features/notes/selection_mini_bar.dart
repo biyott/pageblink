@@ -1,11 +1,48 @@
 import 'package:flutter/material.dart';
 
-/// One inline format: tooltip, icon and the pure toggle from markdown_live.
+/// One inline format: tooltip, icon, the pure toggle from markdown_live and
+/// whether the selection is already in that format (see `formatState`).
 typedef FormatAction = (
   String,
   IconData,
   TextEditingValue Function(TextEditingValue),
+  bool,
 );
+
+/// Icon button of a format. Active (selection already in the format) uses the
+/// same container colours as the heading button; pressing it again clears it.
+class FormatButton extends StatelessWidget {
+  const FormatButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.active,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final bool active;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: tooltip,
+      icon: Icon(icon),
+      isSelected: active,
+      visualDensity: VisualDensity.compact,
+      style: active
+          ? IconButton.styleFrom(
+              backgroundColor: scheme.primaryContainer,
+              foregroundColor: scheme.onPrimaryContainer,
+            )
+          : null,
+      onPressed: onPressed,
+    );
+  }
+}
 
 /// The [EditableTextState] under [context] (TextField does not expose it).
 EditableTextState? findEditableText(BuildContext? context) {
@@ -57,6 +94,11 @@ TextSelectionToolbarAnchors? miniBarAnchors(
 
 /// Floats [child] above [anchors] (below if there is no room), filling the
 /// stack but taking pointer events only on the child. Never takes focus.
+///
+/// The child sits in a [TextFieldTapRegion] (same group as the text field), so
+/// a press on it is a tap *inside* the field. Without it desktop and web run
+/// the field's tap-outside default (`unfocus`), the bar's own focus check then
+/// removes it between pointer down and up, and `onPressed` never fires.
 class _Floating extends StatelessWidget {
   const _Floating({required this.anchors, required this.child});
 
@@ -72,12 +114,14 @@ class _Floating extends StatelessWidget {
           anchorAbove: anchors.primaryAnchor - const Offset(0, 6),
           anchorBelow: anchors.secondaryAnchor! + const Offset(0, 6),
         ),
-        child: ExcludeFocus(
-          child: Material(
-            elevation: 3,
-            borderRadius: BorderRadius.circular(8),
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            child: child,
+        child: TextFieldTapRegion(
+          child: ExcludeFocus(
+            child: Material(
+              elevation: 3,
+              borderRadius: BorderRadius.circular(8),
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              child: child,
+            ),
           ),
         ),
       ),
@@ -116,11 +160,11 @@ class SelectionMiniBar extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (final (tip, icon, toggle) in actions)
-            IconButton(
+          for (final (tip, icon, toggle, active) in actions)
+            FormatButton(
               tooltip: tip,
-              icon: Icon(icon),
-              visualDensity: VisualDensity.compact,
+              icon: icon,
+              active: active,
               onPressed: () => onApply(toggle),
             ),
           if (onHeading != null)

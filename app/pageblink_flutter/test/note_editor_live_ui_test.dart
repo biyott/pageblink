@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -206,6 +208,28 @@ void main() {
             .hasFocus,
         isTrue,
       );
+    });
+
+    testWidgets('a real mouse click on the chip opens it (tap region)', (
+      t,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final (c, opened) = await _pump(t);
+        await _set(t, c, link, inside);
+        final g = await t.startGesture(
+          t.getCenter(_chipButton),
+          kind: PointerDeviceKind.mouse,
+          buttons: kPrimaryMouseButton,
+        );
+        await t.pump(const Duration(milliseconds: 40));
+        await t.pump(const Duration(milliseconds: 40));
+        await g.up();
+        await t.pump();
+        expect(opened, [Uri.parse('https://example.com/a_(b)')]);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     });
 
     testWidgets('caret outside the link: no chip', (t) async {

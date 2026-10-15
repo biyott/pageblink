@@ -351,9 +351,28 @@ bool inCode(String text, int offset) {
 /// A link `[start, end)` in the text and its destination as written.
 typedef LiveLink = ({int start, int end, String url});
 
+/// A marker pair `[start, end)` incl. markers of `kind` (`bold`, `italic`,
+/// `strike`, `code`); `n` is the marker length at each end.
+typedef _Span = ({String kind, int start, int end, int n});
+
 /// Splits [text] into contiguous runs covering it completely (in order).
 List<LiveRun> parseLiveRuns(String text, LiveStyles st) {
   final out = _Out(text.length);
+  _parse(text, st, out);
+  return out.runs;
+}
+
+/// Spans and links of the whole text, as the live parser reads them. The
+/// toggles and their state functions ask this, so they agree with the paint.
+({List<_Span> spans, List<LiveLink> links}) _scan(String text) {
+  final out = _Out(text.length)
+    ..links = []
+    ..spans = [];
+  _parse(text, const LiveStyles(), out);
+  return (spans: out.spans!, links: out.links!);
+}
+
+void _parse(String text, LiveStyles st, _Out out) {
   final fence = _Fence();
   var i = 0;
   while (true) {
@@ -372,7 +391,6 @@ List<LiveRun> parseLiveRuns(String text, LiveStyles st) {
     i = nl + 1;
   }
   out.emit(text.length, const TextStyle());
-  return out.runs;
 }
 
 /// The link containing the caret [offset] (strictly inside it), if any. Uses
@@ -637,6 +655,7 @@ void _inline(
         k += m;
       }
       if (close > 0) {
+        out.spans?.add((kind: 'code', start: i, end: close + n, n: n));
         out.emit(i, cur);
         out.emit(i + n, st.marker);
         out.emit(close, cur.merge(st.code));
@@ -651,6 +670,12 @@ void _inline(
       if (i + n < to && !_ws(t.codeUnitAt(i + n))) {
         final j = _closer(t, c, dbl, i + n, to);
         if (j > i + n) {
+          out.spans?.add((
+            kind: dbl ? 'bold' : 'italic',
+            start: i,
+            end: j + n,
+            n: n,
+          ));
           out.emit(i, cur);
           out.emit(i + n, st.marker);
           _inline(
@@ -677,6 +702,7 @@ void _inline(
         !_ws(t.codeUnitAt(i + 2))) {
       final j = _strikeCloser(t, i + 2, to);
       if (j > i + 2) {
+        out.spans?.add((kind: 'strike', start: i, end: j + 2, n: 2));
         out.emit(i, cur);
         out.emit(i + 2, st.marker);
         final d = cur.decoration;
@@ -759,8 +785,10 @@ class _Out {
   final runs = <LiveRun>[];
   int pos = 0;
 
-  /// Collects links when set (see [linkAt]); null while painting.
+  /// Collect links / marker pairs when set (see [linkAt], [_scan]); null
+  /// while painting.
   List<LiveLink>? links;
+  List<_Span>? spans;
 
   void emit(int end, TextStyle style) {
     if (end > length) end = length;
@@ -1032,55 +1060,277 @@ TextEditingValue _lines(
   );
 }
 
-/// Toggles an inline [marker] (`**`, `_`, `~~`, `` ` ``) around the selection.
-/// Already wrapped (selection includes the markers, or sits inside a pair on
-/// the line) removes them; no selection inserts a pair with the caret inside.
-/// Inline spans are single-line: for code over several lines use [toggleCode].
-TextEditingValue toggleInline(TextEditingValue v, String marker) {
-  final text = v.text;
-  final sel = _sel(v);
-  final s = sel.start, e = sel.end, n = marker.length;
-  // 1) selection itself includes the markers
-  if (e - s >= 2 * n &&
-      text.startsWith(marker, s) &&
-      text.startsWith(marker, e - n)) {
-    final inner = text.substring(s + n, e - n);
-    return _value(text.replaceRange(s, e, inner), s, s + inner.length);
-  }
-  // 2) inside a marker pair on the same line
-  if (!text.substring(s, e).contains('\n')) {
-    final ls = s > 0 ? text.lastIndexOf('\n', s - 1) + 1 : 0;
-    var le = text.indexOf('\n', e);
-    if (le < 0) le = text.length;
-    final at = <int>[];
-    for (
-      var k = text.indexOf(marker, ls);
-      k >= 0 && k + n <= le;
-      k = text.indexOf(marker, k + n)
-    ) {
-      at.add(k);
-    }
-    for (var p = 0; p + 1 < at.length; p += 2) {
-      final a = at[p], b = at[p + 1];
-      if (a + n <= s && e <= b) {
-        final out = text.replaceRange(b, b + n, '').replaceRange(a, a + n, '');
-        return _value(out, s - n, e - n);
+// ── Inline formats over a selection (bold, italic, strike, code, link) ───
+
+/// `[start, end)` per line of the selection that an inline format may wrap:
+/// the text after a heading / quote / list prefix, trimmed. Blank lines, rules
+/// and fenced code are skipped; a caret is one empty piece at the caret. The
+/// prefixes are read with the same patterns as the live parser, so a marker
+/// like `- `, `> `, `1. ` or `# ` is never wrapped.
+List<(int, int)> _segments(String text, TextSelection sel) {
+  if (sel.isCollapsed) return [(sel.start, sel.start)];
+  final out = <(int, int)>[];
+  final f = _Fence();
+  var i = 0;
+  while (i < sel.end) {
+    final nl = text.indexOf('\n', i);
+    final lineEnd = nl < 0 ? text.length : nl;
+    final kind = f.step(text, i, lineEnd);
+    if (kind == 0 && lineEnd > sel.start) {
+      var e = lineEnd;
+      if (e > i && text.codeUnitAt(e - 1) == 0x0d) e--;
+      final cs = _inlineStart(text, i, e);
+      if (cs >= 0) {
+        var a = cs > sel.start ? cs : sel.start;
+        var b = e < sel.end ? e : sel.end;
+        while (a < b && _ws(text.codeUnitAt(a))) {
+          a++;
+        }
+        while (b > a && _ws(text.codeUnitAt(b - 1))) {
+          b--;
+        }
+        if (a < b) out.add((a, b));
       }
     }
+    if (nl < 0) break;
+    i = nl + 1;
   }
-  // 3) wrap / insert pair
-  final sel0 = text.substring(s, e);
-  final out = text.replaceRange(s, e, '$marker$sel0$marker');
-  return _value(out, s + n, e + n);
+  return out;
 }
 
-/// Code button. One line: inline `` `x` `` ([toggleInline]). Several lines:
-/// the whole lines go into a fenced block (the live parser reads inline code
-/// per line, so a backtick pair around a line break would never be styled);
-/// a selection that already is a fenced block gets unwrapped.
+/// Where inline text starts on the line `[s, e)`: after a heading prefix, or
+/// after quote and list prefixes (parser order); -1 for a rule.
+int _inlineStart(String t, int s, int e) {
+  final h = _headRe.matchAsPrefix(t, s);
+  if (h != null) return h.end < e ? h.end : e;
+  var pos = s;
+  final q = _quoteRe.matchAsPrefix(t, s);
+  if (q != null) pos = q.end;
+  if (_isRule(t, pos, e)) return -1;
+  final l = _listRe.matchAsPrefix(t, pos);
+  return l != null && l.end <= e ? l.end : pos;
+}
+
+String _kindOf(String marker) => switch (marker) {
+  '**' || '__' => 'bold',
+  '~~' => 'strike',
+  '`' => 'code',
+  _ => 'italic',
+};
+
+/// The innermost [kind] pair that holds `[s, e)`. A caret must be in the
+/// content (ends included); a range may also touch the markers, so a block
+/// whose edge falls inside a marker (the selection a wrap leaves behind) is
+/// still "in" the pair.
+_Span? _holding(List<_Span> spans, String kind, int s, int e) {
+  _Span? best;
+  for (final p in spans) {
+    if (p.kind != kind) continue;
+    final holds = s == e
+        ? p.start + p.n <= s && s <= p.end - p.n
+        : p.start <= s && e <= p.end;
+    if (holds && (best == null || p.start >= best.start)) best = p;
+  }
+  return best;
+}
+
+/// Segments of [sel] with the pair holding each one (null: not formatted).
+List<((int, int), _Span?)> _held(
+  String text,
+  TextSelection sel,
+  List<_Span> spans,
+  String kind,
+) => [
+  for (final seg in _segments(text, sel))
+    (seg, _holding(spans, kind, seg.$1, seg.$2)),
+];
+
+/// Which inline formats the selection (or caret) is in: every non-blank line
+/// part of it is inside that pair. One parse for all, for button states.
+typedef FormatState = ({
+  bool bold,
+  bool italic,
+  bool strike,
+  bool code,
+  bool link,
+});
+
+FormatState formatState(TextEditingValue v) {
+  final text = v.text, sel = _sel(v);
+  final scan = _scan(text);
+  bool inline(String kind) {
+    final held = _held(text, sel, scan.spans, kind);
+    return held.isNotEmpty && held.every((h) => h.$2 != null);
+  }
+
+  final segs = _segments(text, sel);
+  return (
+    bold: inline('bold'),
+    italic: inline('italic'),
+    strike: inline('strike'),
+    code: inline('code') || _fenceBlock(text, sel.start) != null,
+    link:
+        segs.isNotEmpty &&
+        segs.every((g) => _linkAt(scan.links, g.$1, g.$2) != null),
+  );
+}
+
+/// True if the selection is inside [marker]'s pair (see [formatState]).
+bool inlineState(TextEditingValue v, String marker) {
+  final f = formatState(v);
+  return switch (_kindOf(marker)) {
+    'bold' => f.bold,
+    'strike' => f.strike,
+    'code' => f.code,
+    _ => f.italic,
+  };
+}
+
+/// True if the selection is inside a link (what [toggleLink] would remove).
+bool linkState(TextEditingValue v) => formatState(v).link;
+
+/// Toggles an inline [marker] (`**`, `_`, `~~`, `` ` ``) on the selection.
+/// Each selected line is formatted on its own (inline spans are single-line),
+/// leaving heading / quote / list prefixes, indentation, blank lines and
+/// fenced code alone. If every part is already inside such a pair the markers
+/// are removed (also from a caret inside one); otherwise the parts that are
+/// not yet wrapped get wrapped. A caret alone inserts a pair with the caret
+/// inside. For code over several lines use [toggleCode].
+TextEditingValue toggleInline(TextEditingValue v, String marker) {
+  final text = v.text, sel = _sel(v), n = marker.length;
+  final spans = _scan(text).spans, kind = _kindOf(marker);
+  final held = _held(text, sel, spans, kind);
+  if (held.isEmpty) return v;
+  if (held.every((h) => h.$2 != null)) {
+    return _edit(text, sel, [
+      for (final h in held) ..._cuts(h.$2!),
+    ]);
+  }
+  final s = sel.start;
+  if (sel.isCollapsed &&
+      s >= n &&
+      text.startsWith(marker, s - n) &&
+      text.startsWith(marker, s)) {
+    // caret in an empty pair (not a span for the parser): take it out
+    return _edit(text, sel, [(s - n, n, '', false), (s, n, '', false)]);
+  }
+  return _edit(text, sel, [
+    for (final h in held)
+      if (h.$2 == null) ..._around(h.$1, marker, marker, spans, kind),
+  ]);
+}
+
+/// One edit: replace `[at, at + del)` by `ins`. For a pure insertion, [stick]
+/// says a selection end exactly at `at` moves behind it (an opening piece) or
+/// stays in front of it (a closing piece).
+typedef _Edit = (int at, int del, String ins, bool stick);
+
+List<_Edit> _cuts(_Span p) => [
+  (p.start, p.n, '', false),
+  (p.end - p.n, p.n, '', false),
+];
+
+/// Wrap `[s, e)` in [open] / [close]; pairs of [kind] already inside it are
+/// merged into the new one (their markers go).
+List<_Edit> _around(
+  (int, int) seg,
+  String open,
+  String close,
+  List<_Span> spans,
+  String? kind,
+) => [
+  (seg.$1, 0, open, true),
+  (seg.$2, 0, close, false),
+  if (kind != null)
+    for (final p in spans)
+      if (p.kind == kind && p.start >= seg.$1 && p.end <= seg.$2) ..._cuts(p),
+];
+
+/// Applies disjoint [edits] (original coordinates) and maps the selection so
+/// it keeps its text: through a cut it clamps to the cut's start.
+TextEditingValue _edit(String text, TextSelection sel, List<_Edit> edits) {
+  // Back to front; a cut before an insertion at the same spot (the insertion
+  // must not be eaten), a closing piece before an opening one (`[` + `]()`).
+  edits.sort((x, y) {
+    final c = y.$1.compareTo(x.$1);
+    if (c != 0) return c;
+    if (x.$2 != y.$2) return y.$2.compareTo(x.$2);
+    return x.$4 == y.$4 ? 0 : (x.$4 ? 1 : -1);
+  });
+  int map(int p) {
+    var d = 0;
+    for (final (at, del, ins, stick) in edits) {
+      if (del > 0) {
+        if (p >= at + del) {
+          d += ins.length - del;
+        } else if (p > at) {
+          d += at - p;
+        }
+      } else if (stick ? at <= p : at < p) {
+        d += ins.length;
+      }
+    }
+    return p + d;
+  }
+
+  var out = text;
+  for (final (at, del, ins, _) in edits) {
+    out = out.replaceRange(at, at + del, ins);
+  }
+  return _value(out, map(sel.baseOffset), map(sel.extentOffset));
+}
+
+// ── Code ─────────────────────────────────────────────────────────────────
+
+/// The fenced block `[start, end)` (whole lines, no trailing `\n`) that holds
+/// [offset], or null. An unclosed fence runs to the end of the text.
+({int start, int end, bool closed})? _fenceBlock(String text, int offset) {
+  final f = _Fence();
+  int? open;
+  var i = 0;
+  while (true) {
+    final nl = text.indexOf('\n', i);
+    final e = nl < 0 ? text.length : nl;
+    final k = f.step(text, i, e);
+    if (k == 1 && f.ch != 0) open = i; // opening fence line
+    if (open != null && k == 1 && f.ch == 0) {
+      if (offset >= open && offset <= e) {
+        return (start: open, end: e, closed: true);
+      }
+      open = null;
+    }
+    if (nl < 0) break;
+    if (open == null && offset <= e) return null;
+    i = nl + 1;
+  }
+  if (open != null && offset >= open) {
+    return (start: open, end: text.length, closed: false);
+  }
+  return null;
+}
+
+/// True if the selection start is in a fenced block or in inline code.
+bool codeState(TextEditingValue v) => formatState(v).code;
+
+/// Code button. Inside a fenced block: unwrap the whole block. One line:
+/// inline `` `x` `` ([toggleInline]). Several lines: the whole lines go into a
+/// fenced block (the live parser reads inline code per line, so a backtick
+/// pair around a line break would never be styled).
 TextEditingValue toggleCode(TextEditingValue v) {
   final text = v.text;
   final sel = _sel(v);
+  final block = _fenceBlock(text, sel.start);
+  if (block != null) {
+    final lines = text.substring(block.start, block.end).split('\n');
+    final inner = lines
+        .sublist(1, block.closed ? lines.length - 1 : lines.length)
+        .join('\n');
+    return _value(
+      text.replaceRange(block.start, block.end, inner),
+      block.start,
+      block.start + inner.length,
+    );
+  }
   var e = sel.end;
   if (e > sel.start && text.codeUnitAt(e - 1) == 0x0a) e--;
   if (!text.substring(sel.start, e).contains('\n')) {
@@ -1092,19 +1342,15 @@ TextEditingValue toggleCode(TextEditingValue v) {
       chunk.endsWith('`') &&
       !chunk.startsWith('```')) {
     // an old `a⏎b` pair: just take the backticks off
-    return toggleInline(_value(text, sel.start, e), '`');
+    final inner = chunk.substring(1, chunk.length - 1);
+    return _value(
+      text.replaceRange(sel.start, e, inner),
+      sel.start,
+      sel.start + inner.length,
+    );
   }
   final (a, b) = _lineBlock(text, sel);
-  final lines = text.substring(a, b).split('\n');
-  final f = _Fence();
-  if (lines.length >= 2 &&
-      f.step(lines.first, 0, lines.first.length) == 1 &&
-      f.step(lines.last, 0, lines.last.length) == 1 &&
-      f.ch == 0) {
-    final inner = lines.sublist(1, lines.length - 1).join('\n');
-    return _value(text.replaceRange(a, b, inner), a, a + inner.length);
-  }
-  final body = lines.join('\n');
+  final body = text.substring(a, b);
   var fence = '```';
   while (body.contains(fence)) {
     fence += '`';
@@ -1117,43 +1363,62 @@ TextEditingValue toggleCode(TextEditingValue v) {
   );
 }
 
-/// `[text](url)`: wraps the selection (caret lands in the parens); on an
-/// existing link it removes the link syntax and keeps the text; inside a bare
-/// or `<url>` autolink it turns that URL into `[url](url)`. Links are found by
-/// the live parser itself (same line, same rules), so URL parentheses agree.
-TextEditingValue toggleLink(TextEditingValue v) {
-  final text = v.text;
-  final sel = _sel(v);
-  final s = sel.start, e = sel.end;
-  final ls = s > 0 ? text.lastIndexOf('\n', s - 1) + 1 : 0;
-  var le = text.indexOf('\n', e);
-  if (le < 0) le = text.length;
-  if (!text.substring(s, e).contains('\n') && !inCode(text, ls)) {
-    final out = _Out(text.length)..links = [];
-    _block(text, ls, le, const LiveStyles(), out);
-    for (final l in out.links!) {
-      if (l.start > s || e > l.end) continue;
-      if (text.codeUnitAt(l.start) == 0x5b) {
-        final label = text.substring(
-          l.start + 1,
-          text.indexOf(']', l.start + 1),
-        );
-        return _value(
-          text.replaceRange(l.start, l.end, label),
-          l.start,
-          l.start + label.length,
-        );
-      }
-      final md = '[${l.url}](${l.url})';
-      return _value(
-        text.replaceRange(l.start, l.end, md),
-        l.start + 1,
-        l.start + 1 + l.url.length,
-      );
-    }
+// ── Link ─────────────────────────────────────────────────────────────────
+
+/// The link holding `[s, e)`, if any.
+LiveLink? _linkAt(List<LiveLink> links, int s, int e) {
+  for (final l in links) {
+    if (l.start <= s && e <= l.end) return l;
   }
-  final label = text.substring(s, e);
-  final out = text.replaceRange(s, e, '[$label]()');
-  final caret = label.isEmpty ? s + 1 : s + label.length + 3;
-  return _value(out, caret, caret);
+  return null;
+}
+
+/// `[text](url)` on every selected line part (like [toggleInline]); the
+/// caret lands in the first `()`, ready for the URL. Where the selection is
+/// already a link the link syntax goes and the text stays; inside a bare or
+/// `<url>` autolink the URL becomes `[url](url)`. Links are found by the live
+/// parser itself, so URL parentheses agree. A caret alone inserts `[]()`.
+TextEditingValue toggleLink(TextEditingValue v) {
+  final text = v.text, sel = _sel(v);
+  final segs = _segments(text, sel);
+  if (segs.isEmpty) return v;
+  final links = _scan(text).links;
+  final found = [for (final g in segs) _linkAt(links, g.$1, g.$2)];
+  if (found.every((l) => l != null)) {
+    // Back to the label (or `[url](url)` for an autolink); the selection then
+    // covers the label(s), so a second press is predictable.
+    final hit = {for (final l in found) l!.start: l}.values.toList()
+      ..sort((x, y) => x.start.compareTo(y.start));
+    var out = text, delta = 0;
+    int? from, to;
+    for (final l in hit) {
+      final md = text.codeUnitAt(l.start) == 0x5b;
+      final label = md
+          ? text.substring(l.start + 1, text.indexOf(']', l.start + 1))
+          : l.url;
+      final at = l.start + delta;
+      out = out.replaceRange(
+        at,
+        l.end + delta,
+        md ? label : '[$label]($label)',
+      );
+      from ??= at + (md ? 0 : 1);
+      to = at + (md ? 0 : 1) + label.length;
+      delta += (md ? label.length : label.length * 2 + 4) - (l.end - l.start);
+    }
+    return _value(out, from!, to!);
+  }
+  final todo = [
+    for (var k = 0; k < segs.length; k++)
+      if (found[k] == null) segs[k],
+  ];
+  final first = todo.first;
+  final out = _edit(text, sel, [
+    for (final g in todo) ..._around(g, '[', ']()', const [], null),
+  ]);
+  // The first piece has nothing inserted before it: caret in its `()`, or in
+  // the empty `[]` for a bare caret (type the label first).
+  final len = first.$2 - first.$1;
+  final caret = first.$1 + 1 + (len == 0 ? 0 : len + 2);
+  return _value(out.text, caret, caret);
 }

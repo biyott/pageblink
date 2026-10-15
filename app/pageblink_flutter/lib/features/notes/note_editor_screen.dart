@@ -256,17 +256,22 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   }
 
   /// Applies a toggle result to the body and keeps typing focus there.
+  /// Every format entry point (toolbar, mini bar, menu, shortcuts) comes
+  /// here; nothing is applied while an IME composition is open.
   void _apply(TextEditingValue Function(TextEditingValue) toggle) {
+    final c = _body.value.composing;
+    if (c.isValid && !c.isCollapsed) return;
     _body.value = toggle(_body.value);
     _bodyFocus.requestFocus();
   }
 
   /// Inline formats shared by the toolbar, the mini bar and the touch menu.
-  List<FormatAction> _inlineActions(L l) => [
-    (l.fmtBold, AppIcons.bold, (v) => toggleInline(v, '**')),
-    (l.fmtItalic, AppIcons.italic, (v) => toggleInline(v, '_')),
-    (l.fmtCode, AppIcons.code, toggleCode),
-    (l.fmtLink, AppIcons.link, toggleLink),
+  /// [on] is the current `formatState` (button highlight); one parse per build.
+  List<FormatAction> _inlineActions(L l, FormatState on) => [
+    (l.fmtBold, AppIcons.bold, (v) => toggleInline(v, '**'), on.bold),
+    (l.fmtItalic, AppIcons.italic, (v) => toggleInline(v, '_'), on.italic),
+    (l.fmtCode, AppIcons.code, toggleCode, on.code),
+    (l.fmtLink, AppIcons.link, toggleLink, on.link),
   ];
 
   void _syncBar() {
@@ -411,41 +416,50 @@ class _NoteEditorViewState extends State<NoteEditorView> {
 
   Widget _toolbar(BuildContext context) {
     final l = context.l;
-    final inline = _inlineActions(l);
     Widget button(
       String tip,
       IconData icon,
-      TextEditingValue Function(TextEditingValue) f,
-    ) => IconButton(
+      TextEditingValue Function(TextEditingValue) f, [
+      bool active = false,
+    ]) => FormatButton(
       tooltip: tip,
-      icon: Icon(icon),
-      visualDensity: VisualDensity.compact,
+      icon: icon,
+      active: active,
       onPressed: () => _apply(f),
     );
-    // ExcludeFocus: tapping a button must not take focus from the body.
+    // ExcludeFocus: tapping a button must not take focus from the body, and
+    // the tap region keeps a press here from running the field's tap-outside
+    // unfocus (desktop / web), so the caret and selection stay live.
     // Rebuilt with the body so the heading button shows the current level.
-    return ExcludeFocus(
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ListenableBuilder(
-          listenable: _body,
-          builder: (context, _) => Row(
-            children: [
-              _headingButton(l, Theme.of(context)),
-              button(inline[0].$1, inline[0].$2, inline[0].$3),
-              button(inline[1].$1, inline[1].$2, inline[1].$3),
-              button(
-                l.fmtStrike,
-                AppIcons.strikethrough,
-                (v) => toggleInline(v, '~~'),
-              ),
-              button(l.fmtList, AppIcons.bulletList, toggleBullet),
-              button(l.fmtOrderedList, AppIcons.orderedList, toggleOrdered),
-              button(l.fmtCheckbox, AppIcons.checklist, toggleCheck),
-              button(l.fmtQuote, AppIcons.quote, toggleQuote),
-              button(inline[2].$1, inline[2].$2, inline[2].$3),
-              button(inline[3].$1, inline[3].$2, inline[3].$3),
-            ],
+    return TextFieldTapRegion(
+      child: ExcludeFocus(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ListenableBuilder(
+            listenable: _body,
+            builder: (context, _) {
+              final on = formatState(_body.value);
+              final [bold, italic, code, link] = _inlineActions(l, on);
+              return Row(
+                children: [
+                  _headingButton(l, Theme.of(context)),
+                  button(bold.$1, bold.$2, bold.$3, bold.$4),
+                  button(italic.$1, italic.$2, italic.$3, italic.$4),
+                  button(
+                    l.fmtStrike,
+                    AppIcons.strikethrough,
+                    (v) => toggleInline(v, '~~'),
+                    on.strike,
+                  ),
+                  button(l.fmtList, AppIcons.bulletList, toggleBullet),
+                  button(l.fmtOrderedList, AppIcons.orderedList, toggleOrdered),
+                  button(l.fmtCheckbox, AppIcons.checklist, toggleCheck),
+                  button(l.fmtQuote, AppIcons.quote, toggleQuote),
+                  button(code.$1, code.$2, code.$3, code.$4),
+                  button(link.$1, link.$2, link.$3, link.$4),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -644,9 +658,11 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                               buttonItems: [
                                 ...state.contextMenuButtonItems,
                                 if (sel.isValid && !sel.isCollapsed)
-                                  for (final (tip, _, toggle) in _inlineActions(
-                                    context.l,
-                                  ))
+                                  for (final (tip, _, toggle, _)
+                                      in _inlineActions(
+                                        context.l,
+                                        formatState(state.textEditingValue),
+                                      ))
                                     ContextMenuButtonItem(
                                       label: tip,
                                       onPressed: () {
@@ -680,7 +696,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                         listenable: _body,
                         builder: (context, _) => SelectionMiniBar(
                           anchors: _barAnchors!,
-                          actions: _inlineActions(l),
+                          actions: _inlineActions(l, formatState(_body.value)),
                           onApply: _apply,
                           headingLevel: headingLevel(_body.value),
                           onHeading: (level) =>
