@@ -37,6 +37,155 @@ const noteColumnWidth = 680.0;
   return (title: 28, bodyHeight: 1.7, h1: 24, h2: 20, h3: 18);
 }
 
+/// Vertical rhythm and gutters of the editor (note-editor-spacing spec §3),
+/// by **pane** width (not window width: the column is as wide as the pane).
+/// One source for the title, the body, the toolbar and the quote banner, so the
+/// theme's field padding (18/14) never leaks into the layout.
+class NoteSpacing {
+  const NoteSpacing._({
+    required this.gutter,
+    required this.titleTop,
+    required this.titleBottom,
+    required this.bodyGap,
+    required this.endAir,
+    required this.scrollBottom,
+    required this.bannerTop,
+    required this.bannerToTitle,
+  });
+
+  /// Pane width classes: compact < 560 <= medium < 720 <= wide.
+  /// [short]: window height / text scale < 600, which tightens the top.
+  factory NoteSpacing.of(double paneWidth, {required bool short}) {
+    final (gutter, endAir, scrollBottom) = paneWidth < 560
+        ? (20.0, 64.0, 48.0)
+        : paneWidth < 720
+        ? (24.0, 96.0, 72.0)
+        : (32.0, 120.0, 96.0);
+    final top = paneWidth >= 720 ? 32.0 : 24.0;
+    return NoteSpacing._(
+      gutter: gutter,
+      titleTop: short ? 16 : top,
+      titleBottom: 8,
+      bodyGap: short ? 16 : 24,
+      endAir: short ? 48 : endAir,
+      scrollBottom: scrollBottom,
+      bannerTop: short ? 12 : 16,
+      bannerToTitle: short ? 12 : 16,
+    );
+  }
+
+  /// Text left edge, from the column edge: title, body, first toolbar icon and
+  /// banner text all sit on this line.
+  final double gutter;
+
+  /// Header line -> title text (no banner).
+  final double titleTop;
+
+  /// Title text -> toolbar / divider (inside the title field).
+  final double titleBottom;
+
+  /// Toolbar (phone: title) -> the hairline above the body.
+  final double bodyGap;
+
+  /// Extra scroll range under the last line of a note that overflows.
+  final double endAir;
+
+  /// `scrollPadding.bottom`: caret distance from the bottom while typing.
+  final double scrollBottom;
+
+  /// Banner: header line -> banner, banner -> title text.
+  final double bannerTop, bannerToTitle;
+
+  /// Overlays (mini bar, link popover, code block bleed) stay this far inside
+  /// the column edge; the body field's own padding is `gutter - overlayClear`.
+  static const overlayClear = 8.0;
+
+  static const bannerRadius = 12.0;
+
+  /// Body field's left/right content padding.
+  double get bodyInset => gutter - overlayClear;
+
+  static bool isShort(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(16) / 16;
+    return MediaQuery.sizeOf(context).height / (scale < 1 ? 1 : scale) < 600;
+  }
+}
+
+/// A [ScrollPosition] whose scroll range is [NoteScrollController.air] longer
+/// than the content, but only when the content overflows (a short note stays
+/// put). `expands: true` fields cannot get this from padding: their
+/// `contentPadding` sits outside the scrolled area.
+class _EndAirPosition extends ScrollPositionWithSingleContext {
+  _EndAirPosition({
+    required super.physics,
+    required super.context,
+    super.oldPosition,
+    required this.owner,
+  });
+
+  /// The controller, not the value: a changed [NoteScrollController.air] is
+  /// picked up by the next layout.
+  final NoteScrollController owner;
+
+  @override
+  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) =>
+      super.applyContentDimensions(
+        minScrollExtent,
+        maxScrollExtent > 0 ? maxScrollExtent + owner.air : maxScrollExtent,
+      );
+}
+
+/// Body scroll controller with end air (see [_EndAirPosition]). Relies on
+/// `ScrollPositionWithSingleContext`/`applyContentDimensions` (Flutter 3.47.7);
+/// note_editor_spacing_test (T5/T6) fails if an upgrade changes that.
+class NoteScrollController extends ScrollController {
+  NoteScrollController([this.air = 0]);
+
+  double air;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _EndAirPosition(
+    physics: physics,
+    context: context,
+    oldPosition: oldPosition,
+    owner: this,
+  );
+}
+
+/// 1px line under the title block that appears once the body is scrolled: its
+/// top is the body field's top, where the text is clipped.
+class _ScrolledHairline extends StatelessWidget {
+  const _ScrolledHairline({
+    super.key,
+    required this.scroll,
+    required this.color,
+  });
+
+  final ScrollController scroll;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: scroll,
+    builder: (context, _) {
+      final shown = scroll.hasClients && scroll.position.pixels > 0.5;
+      return SizedBox(
+        height: 1,
+        width: double.infinity,
+        child: AnimatedOpacity(
+          opacity: shown ? 1 : 0,
+          duration: const Duration(milliseconds: 120),
+          child: ColoredBox(color: color),
+        ),
+      );
+    },
+  );
+}
+
 /// Body family for a weight. Pretendard is one family with declared weights, so
 /// Flutter picks the face from `fontWeight` (w700 -> the bundled 600 face).
 String _inter(FontWeight w) => pbSansFamily;
@@ -160,7 +309,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   final _bodyFocus = FocusNode();
   final _bodyKey = GlobalKey();
   final _stackKey = GlobalKey();
-  final _bodyScroll = ScrollController();
+  final _bodyScroll = NoteScrollController();
   late int? _id = widget.note?.id;
   late String _savedTitle = widget.note?.title ?? '';
   late String _savedBody = widget.note?.body ?? '';
@@ -709,7 +858,9 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     );
   }
 
-  Widget _toolbar(BuildContext context) {
+  /// The only place that insets the toolbar: its first icon sits on the text
+  /// line ([NoteSpacing.gutter]; the heading button has 8 of its own padding).
+  Widget _toolbar(BuildContext context, NoteSpacing sp) {
     final l = context.l;
     Widget button(
       String tip,
@@ -730,6 +881,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       child: ExcludeFocus(
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          padding: EdgeInsets.only(left: sp.bodyInset),
           child: ListenableBuilder(
             listenable: _body,
             builder: (context, _) {
@@ -797,376 +949,443 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _saveAndClose();
       },
-      child: Column(
-        children: [
-          PaneHeader(
-            embedded: widget.embedded,
-            onBack: _saveAndClose,
-            onClose: _saveAndClose,
-            title: Row(
-              children: [
-                Flexible(
-                  child: ValueListenableBuilder(
-                    valueListenable: _title,
-                    builder: (context, value, _) => Text(
-                      value.text.trim().isNotEmpty
-                          ? value.text.trim()
-                          : (widget.note == null ? l.newNote : l.titleHint),
-                    ),
-                  ),
-                ),
-                // Index state of a stored note, small and quiet.
-                if (_doc?.status == 'failed')
-                  Tooltip(
-                    message: _doc?.lastError == null
-                        ? l.indexingFailed
-                        : l.indexingError(_doc?.lastError),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: Icon(
-                        AppIcons.warning,
-                        key: const ValueKey('index-failed'),
-                        size: 16,
-                        color: theme.colorScheme.error,
+      child: LayoutBuilder(
+        builder: (context, box) {
+          // Rhythm and gutters follow the pane (the column's real width).
+          final sp = NoteSpacing.of(
+            box.maxWidth,
+            short: NoteSpacing.isShort(context),
+          );
+          _bodyScroll.air = sp.endAir;
+          return Column(
+            children: [
+              PaneHeader(
+                embedded: widget.embedded,
+                onBack: _saveAndClose,
+                onClose: _saveAndClose,
+                title: Row(
+                  children: [
+                    Flexible(
+                      child: ValueListenableBuilder(
+                        valueListenable: _title,
+                        builder: (context, value, _) => Text(
+                          value.text.trim().isNotEmpty
+                              ? value.text.trim()
+                              : (widget.note == null ? l.newNote : l.titleHint),
+                        ),
                       ),
                     ),
-                  )
-                else if (_doc?.status == 'indexing')
-                  Padding(
-                    padding: const EdgeInsets.only(left: 8),
-                    child: Text(
-                      '${l.indexing}…',
-                      key: const ValueKey('index-running'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: context.pb.inkMuted,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            actions: [
-              // Labeled Live | Source toggle; icons only on narrow phones.
-              SegmentedButton<bool>(
-                showSelectedIcon: false,
-                style: const ButtonStyle(
-                  visualDensity: VisualDensity.compact,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                segments: [
-                  ButtonSegment(
-                    value: true,
-                    label: width < 400 ? null : Text(l.modeLive),
-                    icon: width < 400 ? const Icon(AppIcons.modeLive) : null,
-                    tooltip: l.modeLive,
-                  ),
-                  ButtonSegment(
-                    value: false,
-                    label: width < 400 ? null : Text(l.modeSource),
-                    icon: width < 400 ? const Icon(AppIcons.modeSource) : null,
-                    tooltip: l.modeSource,
-                  ),
-                ],
-                selected: {_body.live},
-                onSelectionChanged: (s) => setState(() => _body.live = s.first),
-              ),
-              // Only a stored note can be re-indexed or deleted.
-              if (_id != null)
-                PopupMenuButton<bool>(
-                  tooltip: l.moreActions,
-                  icon: const Icon(AppIcons.more),
-                  enabled: !_saving && !_deleting,
-                  onSelected: (reindex) =>
-                      reindex ? _reindex() : _confirmDelete(),
-                  itemBuilder: (_) => [
-                    PopupMenuItem(value: true, child: Text(l.reindex)),
-                    PopupMenuItem(value: false, child: Text(l.delete)),
-                  ],
-                ),
-              if (_saving)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: SizedBox.square(
-                    dimension: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              else
-                IconButton(
-                  tooltip: l.save,
-                  icon: const Icon(AppIcons.check),
-                  onPressed: _saveAndClose,
-                ),
-            ],
-          ),
-          // Title, quote banner and body share one column (Column centers it).
-          if (widget.highlight != null)
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: noteColumnWidth),
-              child: Container(
-                width: double.infinity,
-                color: theme.colorScheme.secondaryContainer,
-                padding: const EdgeInsets.all(12),
-                child: Text(
-                  '⚡ “${widget.highlight}”',
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: noteColumnWidth),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: TextField(
-                controller: _title,
-                style: titleStyle,
-                decoration: InputDecoration(
-                  hintText: context.l.titleHint,
-                  filled: false,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                ),
-              ),
-            ),
-          ),
-          // Desktop/tablet: toolbar pinned above the body, on the 680 column.
-          if (wide) ...[
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: noteColumnWidth),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: _toolbar(context),
-              ),
-            ),
-            const Divider(height: 1),
-          ],
-          Expanded(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: noteColumnWidth),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                // Pointer over a box: outline, and the click cursor (the field's
-                // own cursor is not under the pointer there, the layer is).
-                child: ListenableBuilder(
-                  listenable: Listenable.merge([_hover, _codeUi]),
-                  builder: (context, stack) => MouseRegion(
-                    opaque: false,
-                    cursor: _hover.value == null && !_codeUi.overButton
-                        ? MouseCursor.defer
-                        : SystemMouseCursors.click,
-                    onHover: (e) => _updateHover(e.localPosition),
-                    onExit: (_) {
-                      _hoverPos = null;
-                      _hover.value = null;
-                      _codeUi.hover(null);
-                    },
-                    child: stack,
-                  ),
-                  child: Stack(
-                    key: _stackKey,
-                    // Code block backgrounds reach past the text area.
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Behind the field: code block backgrounds and labels.
-                      LiveCodeBackLayer(
-                        enabled: _body.live,
-                        controller: _body,
-                        scroll: _bodyScroll,
-                        ui: _codeUi,
-                        render: _bodyRender,
-                        stack: _stackBox,
-                        fill: theme.brightness == Brightness.dark
-                            ? context.pb.ink.withValues(alpha: 0.10)
-                            : context.pb.ink.withValues(alpha: 0.055),
-                        labelStyle:
-                            (theme.textTheme.labelSmall ?? const TextStyle())
-                                .copyWith(
-                                  fontSize: 11,
-                                  color: context.pb.inkMuted,
-                                ),
-                        copyEnabled: !_touchDevice,
-                      ),
-                      Listener(
-                        onPointerDown: (e) {
-                          _pointerDown = true;
-                          if (e.buttons == kSecondaryMouseButton) {
-                            _barDismissed = _body.selection; // context menu
-                          }
-                          _syncBar();
-                        },
-                        onPointerUp: (_) {
-                          _pointerDown = false;
-                          _syncBar();
-                        },
-                        onPointerCancel: (_) {
-                          _pointerDown = false;
-                          _syncBar();
-                        },
-                        child: CallbackShortcuts(
-                          bindings: {
-                            key(LogicalKeyboardKey.keyB): () =>
-                                _apply((v) => toggleInline(v, '**')),
-                            key(LogicalKeyboardKey.keyI): () =>
-                                _apply((v) => toggleInline(v, '_')),
-                            // Check / uncheck the item(s) on the caret's lines.
-                            key(LogicalKeyboardKey.enter): () =>
-                                _apply(toggleDone),
-                            if (_barAnchors != null || _link != null)
-                              const SingleActivator(
-                                LogicalKeyboardKey.escape,
-                              ): () {
-                                _barDismissed = _body.selection;
-                                _syncBar();
-                              },
-                          },
-                          child: TextField(
-                            key: _bodyKey,
-                            controller: _body,
-                            focusNode: _bodyFocus,
-                            scrollController: _bodyScroll,
-                            contextMenuBuilder: (context, state) {
-                              final sel = state.textEditingValue.selection;
-                              return AdaptiveTextSelectionToolbar.buttonItems(
-                                anchors: state.contextMenuAnchors,
-                                buttonItems: [
-                                  ...state.contextMenuButtonItems,
-                                  if (sel.isValid && !sel.isCollapsed)
-                                    for (final (tip, _, toggle, _)
-                                        in _inlineActions(
-                                          context.l,
-                                          formatState(state.textEditingValue),
-                                        ))
-                                      ContextMenuButtonItem(
-                                        label: tip,
-                                        onPressed: () {
-                                          state.hideToolbar(false);
-                                          _apply(toggle);
-                                        },
-                                      ),
-                                ],
-                              );
-                            },
-                            style: bodyStyle,
-                            autofocus: widget.note == null,
-                            maxLines: null,
-                            expands: true,
-                            keyboardType: TextInputType.multiline,
-                            inputFormatters: const [
-                              ListContinuationFormatter(),
-                            ],
-                            textAlignVertical: TextAlignVertical.top,
-                            decoration: InputDecoration(
-                              hintText: context.l.noteHint,
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                            ),
+                    // Index state of a stored note, small and quiet.
+                    if (_doc?.status == 'failed')
+                      Tooltip(
+                        message: _doc?.lastError == null
+                            ? l.indexingFailed
+                            : l.indexingError(_doc?.lastError),
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: Icon(
+                            AppIcons.warning,
+                            key: const ValueKey('index-failed'),
+                            size: 16,
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      )
+                    else if (_doc?.status == 'indexing')
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Text(
+                          '${l.indexing}…',
+                          key: const ValueKey('index-running'),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: context.pb.inkMuted,
                           ),
                         ),
                       ),
-                      // Checkboxes over the field (live mode only; source mode
-                      // shows the plain `- [ ]`).
-                      if (_body.live)
-                        LiveCheckLayer(
-                          controller: _body,
-                          scroll: _bodyScroll,
-                          hover: _hover,
-                          render: _bodyRender,
-                          stack: _stackBox,
-                          accent: theme.colorScheme.primary,
-                          onAccent: theme.colorScheme.onPrimary,
-                          border: context.pb.hairline,
-                          doneLabel: l.checkDone,
-                          todoLabel: l.checkTodo,
-                          onToggle: _toggleCheck,
-                          touch: _touchDevice,
-                        ),
-                      if (_barAnchors != null)
-                        ListenableBuilder(
-                          listenable: _body,
-                          builder: (context, _) {
-                            final c = checkState(_body.value, _body.checks);
-                            return SelectionMiniBar(
-                              anchors: _barAnchors!,
-                              actions: [
-                                ..._inlineActions(l, formatState(_body.value)),
-                                // Only when the selection holds checklist items.
-                                if (c.any)
-                                  (
-                                    c.allDone ? l.fmtUncheckAll : l.fmtCheckAll,
-                                    AppIcons.checklist,
-                                    toggleDone,
-                                    c.allDone,
-                                  ),
-                              ],
-                              onApply: _apply,
-                              headingLevel: headingLevel(_body.value),
-                              onHeading: (level) =>
-                                  _apply((v) => setHeading(v, level)),
-                            );
-                          },
-                        ),
-                      // Copy button of the code block under the mouse.
-                      if (_body.live && !_touchDevice)
-                        LiveCodeCopyLayer(
-                          controller: _body,
-                          scroll: _bodyScroll,
-                          ui: _codeUi,
-                          render: _bodyRender,
-                          stack: _stackBox,
-                          color: context.pb.inkMuted,
-                          hoverFill: context.pb.ink.withValues(alpha: 0.08),
-                          accent: theme.colorScheme.primary,
-                          labelStyle:
-                              (theme.textTheme.labelSmall ?? const TextStyle())
-                                  .copyWith(fontSize: 11),
-                          copyLabel: l.codeCopy,
-                          copiedLabel: l.copied,
-                          onCopy: _copyCode,
-                        ),
-                      if (_edit case final e? when _editAnchors != null)
-                        LinkEditPopover(
-                          key: ValueKey(e),
-                          anchors: _editAnchors!,
-                          initialText: e.text,
-                          initialUrl: e.url,
-                          prefill: e.prefill,
-                          onApply: (text, url) => _applyEdit(e, text, url),
-                          onCancel: () => _cancelEdit(e, refocus: true),
-                          onLeave: () => _cancelEdit(e, refocus: false),
-                        )
-                      else if (_link != null &&
-                          (_barAnchors == null || _linkForced != null))
-                        LinkPopover(
-                          key: const ValueKey('link-popover'),
-                          anchors: _link!.anchors,
-                          url: _link!.url,
-                          openEnabled: _link!.uri != null,
-                          canRemove: _link!.bracket,
-                          onOpen: () => _openLink(_link!.uri!),
-                          onEdit: _editLink,
-                          onRemove: _removeLink,
-                        ),
+                  ],
+                ),
+                actions: [
+                  // Labeled Live | Source toggle; icons only on narrow phones.
+                  SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    segments: [
+                      ButtonSegment(
+                        value: true,
+                        label: width < 400 ? null : Text(l.modeLive),
+                        icon: width < 400
+                            ? const Icon(AppIcons.modeLive)
+                            : null,
+                        tooltip: l.modeLive,
+                      ),
+                      ButtonSegment(
+                        value: false,
+                        label: width < 400 ? null : Text(l.modeSource),
+                        icon: width < 400
+                            ? const Icon(AppIcons.modeSource)
+                            : null,
+                        tooltip: l.modeSource,
+                      ),
                     ],
+                    selected: {_body.live},
+                    onSelectionChanged: (s) =>
+                        setState(() => _body.live = s.first),
+                  ),
+                  // Only a stored note can be re-indexed or deleted.
+                  if (_id != null)
+                    PopupMenuButton<bool>(
+                      tooltip: l.moreActions,
+                      icon: const Icon(AppIcons.more),
+                      enabled: !_saving && !_deleting,
+                      onSelected: (reindex) =>
+                          reindex ? _reindex() : _confirmDelete(),
+                      itemBuilder: (_) => [
+                        PopupMenuItem(value: true, child: Text(l.reindex)),
+                        PopupMenuItem(value: false, child: Text(l.delete)),
+                      ],
+                    ),
+                  if (_saving)
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: SizedBox.square(
+                        dimension: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      tooltip: l.save,
+                      icon: const Icon(AppIcons.check),
+                      onPressed: _saveAndClose,
+                    ),
+                ],
+              ),
+              // Title, quote banner and body share one column (Column centers it).
+              // Everything starts on the gutter line (text, not box).
+              if (widget.highlight != null)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: noteColumnWidth),
+                  child: Container(
+                    width: double.infinity,
+                    margin: EdgeInsets.fromLTRB(
+                      sp.gutter - NoteSpacing.bannerRadius,
+                      sp.bannerTop,
+                      sp.gutter - NoteSpacing.bannerRadius,
+                      0,
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(
+                        NoteSpacing.bannerRadius,
+                      ),
+                    ),
+                    child: Text(
+                      '⚡ “${widget.highlight}”',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: noteColumnWidth),
+                // The field's contentPadding is the only padding (the theme's 18/14
+                // would otherwise leak in): top is the gap to the header or banner.
+                child: TextField(
+                  controller: _title,
+                  style: titleStyle,
+                  scrollPadding: const EdgeInsets.all(20),
+                  decoration: InputDecoration(
+                    hintText: context.l.titleHint,
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.fromLTRB(
+                      sp.gutter,
+                      widget.highlight != null ? sp.bannerToTitle : sp.titleTop,
+                      sp.gutter,
+                      sp.titleBottom,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          // Phone: toolbar above the keyboard, as before.
-          if (!wide)
-            SafeArea(
-              top: false,
-              child: Material(
-                color: theme.colorScheme.surfaceContainer,
-                child: _toolbar(context),
+              // Desktop/tablet: toolbar pinned above the body, on the 680 column,
+              // starting at the left line (a scroll view would shrink and center).
+              if (wide)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: noteColumnWidth),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _toolbar(context, sp),
+                  ),
+                ),
+              // Air, then a hairline that only shows while scrolled (no second
+              // rule under the toolbar at rest); the body field starts below it.
+              SizedBox(height: sp.bodyGap),
+              _ScrolledHairline(
+                key: const ValueKey('note-hairline'),
+                scroll: _bodyScroll,
+                color: context.pb.hairline,
               ),
-            ),
-        ],
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: noteColumnWidth),
+                  child: Padding(
+                    // Overlays (mini bar, popovers, code bleed) keep this far
+                    // inside the column; the text line is `gutter` (field padding).
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: NoteSpacing.overlayClear,
+                    ),
+                    // Pointer over a box: outline, and the click cursor (the field's
+                    // own cursor is not under the pointer there, the layer is).
+                    child: ListenableBuilder(
+                      listenable: Listenable.merge([_hover, _codeUi]),
+                      builder: (context, stack) => MouseRegion(
+                        opaque: false,
+                        cursor: _hover.value == null && !_codeUi.overButton
+                            ? MouseCursor.defer
+                            : SystemMouseCursors.click,
+                        onHover: (e) => _updateHover(e.localPosition),
+                        onExit: (_) {
+                          _hoverPos = null;
+                          _hover.value = null;
+                          _codeUi.hover(null);
+                        },
+                        child: stack,
+                      ),
+                      child: Stack(
+                        key: _stackKey,
+                        // Code block backgrounds reach past the text area.
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Behind the field: code block backgrounds and labels.
+                          LiveCodeBackLayer(
+                            enabled: _body.live,
+                            controller: _body,
+                            scroll: _bodyScroll,
+                            ui: _codeUi,
+                            render: _bodyRender,
+                            stack: _stackBox,
+                            fill: theme.brightness == Brightness.dark
+                                ? context.pb.ink.withValues(alpha: 0.10)
+                                : context.pb.ink.withValues(alpha: 0.055),
+                            labelStyle:
+                                (theme.textTheme.labelSmall ??
+                                        const TextStyle())
+                                    .copyWith(
+                                      fontSize: 11,
+                                      color: context.pb.inkMuted,
+                                    ),
+                            copyEnabled: !_touchDevice,
+                          ),
+                          Listener(
+                            onPointerDown: (e) {
+                              _pointerDown = true;
+                              if (e.buttons == kSecondaryMouseButton) {
+                                _barDismissed = _body.selection; // context menu
+                              }
+                              _syncBar();
+                            },
+                            onPointerUp: (_) {
+                              _pointerDown = false;
+                              _syncBar();
+                            },
+                            onPointerCancel: (_) {
+                              _pointerDown = false;
+                              _syncBar();
+                            },
+                            child: CallbackShortcuts(
+                              bindings: {
+                                key(LogicalKeyboardKey.keyB): () =>
+                                    _apply((v) => toggleInline(v, '**')),
+                                key(LogicalKeyboardKey.keyI): () =>
+                                    _apply((v) => toggleInline(v, '_')),
+                                // Check / uncheck the item(s) on the caret's lines.
+                                key(LogicalKeyboardKey.enter): () =>
+                                    _apply(toggleDone),
+                                if (_barAnchors != null || _link != null)
+                                  const SingleActivator(
+                                    LogicalKeyboardKey.escape,
+                                  ): () {
+                                    _barDismissed = _body.selection;
+                                    _syncBar();
+                                  },
+                              },
+                              child: TextField(
+                                key: _bodyKey,
+                                controller: _body,
+                                focusNode: _bodyFocus,
+                                scrollController: _bodyScroll,
+                                contextMenuBuilder: (context, state) {
+                                  final sel = state.textEditingValue.selection;
+                                  return AdaptiveTextSelectionToolbar.buttonItems(
+                                    anchors: state.contextMenuAnchors,
+                                    buttonItems: [
+                                      ...state.contextMenuButtonItems,
+                                      if (sel.isValid && !sel.isCollapsed)
+                                        for (final (tip, _, toggle, _)
+                                            in _inlineActions(
+                                              context.l,
+                                              formatState(
+                                                state.textEditingValue,
+                                              ),
+                                            ))
+                                          ContextMenuButtonItem(
+                                            label: tip,
+                                            onPressed: () {
+                                              state.hideToolbar(false);
+                                              _apply(toggle);
+                                            },
+                                          ),
+                                    ],
+                                  );
+                                },
+                                style: bodyStyle,
+                                autofocus: widget.note == null,
+                                maxLines: null,
+                                expands: true,
+                                keyboardType: TextInputType.multiline,
+                                inputFormatters: const [
+                                  ListContinuationFormatter(),
+                                ],
+                                textAlignVertical: TextAlignVertical.top,
+                                // Caret stays this far above the bottom while typing
+                                // (the air under the last line is the scroll range).
+                                scrollPadding: EdgeInsets.fromLTRB(
+                                  20,
+                                  20,
+                                  20,
+                                  sp.scrollBottom,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: context.l.noteHint,
+                                  filled: false,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  // Top/bottom 0: a padding there is a dead band
+                                  // outside the scrolled area (gap above is
+                                  // [NoteSpacing.bodyGap], below is the end air).
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: sp.bodyInset,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          // Checkboxes over the field (live mode only; source mode
+                          // shows the plain `- [ ]`).
+                          if (_body.live)
+                            LiveCheckLayer(
+                              controller: _body,
+                              scroll: _bodyScroll,
+                              hover: _hover,
+                              render: _bodyRender,
+                              stack: _stackBox,
+                              accent: theme.colorScheme.primary,
+                              onAccent: theme.colorScheme.onPrimary,
+                              border: context.pb.hairline,
+                              doneLabel: l.checkDone,
+                              todoLabel: l.checkTodo,
+                              onToggle: _toggleCheck,
+                              touch: _touchDevice,
+                            ),
+                          if (_barAnchors != null)
+                            ListenableBuilder(
+                              listenable: _body,
+                              builder: (context, _) {
+                                final c = checkState(_body.value, _body.checks);
+                                return SelectionMiniBar(
+                                  anchors: _barAnchors!,
+                                  actions: [
+                                    ..._inlineActions(
+                                      l,
+                                      formatState(_body.value),
+                                    ),
+                                    // Only when the selection holds checklist items.
+                                    if (c.any)
+                                      (
+                                        c.allDone
+                                            ? l.fmtUncheckAll
+                                            : l.fmtCheckAll,
+                                        AppIcons.checklist,
+                                        toggleDone,
+                                        c.allDone,
+                                      ),
+                                  ],
+                                  onApply: _apply,
+                                  headingLevel: headingLevel(_body.value),
+                                  onHeading: (level) =>
+                                      _apply((v) => setHeading(v, level)),
+                                );
+                              },
+                            ),
+                          // Copy button of the code block under the mouse.
+                          if (_body.live && !_touchDevice)
+                            LiveCodeCopyLayer(
+                              controller: _body,
+                              scroll: _bodyScroll,
+                              ui: _codeUi,
+                              render: _bodyRender,
+                              stack: _stackBox,
+                              color: context.pb.inkMuted,
+                              hoverFill: context.pb.ink.withValues(alpha: 0.08),
+                              accent: theme.colorScheme.primary,
+                              labelStyle:
+                                  (theme.textTheme.labelSmall ??
+                                          const TextStyle())
+                                      .copyWith(fontSize: 11),
+                              copyLabel: l.codeCopy,
+                              copiedLabel: l.copied,
+                              onCopy: _copyCode,
+                            ),
+                          if (_edit case final e? when _editAnchors != null)
+                            LinkEditPopover(
+                              key: ValueKey(e),
+                              anchors: _editAnchors!,
+                              initialText: e.text,
+                              initialUrl: e.url,
+                              prefill: e.prefill,
+                              onApply: (text, url) => _applyEdit(e, text, url),
+                              onCancel: () => _cancelEdit(e, refocus: true),
+                              onLeave: () => _cancelEdit(e, refocus: false),
+                            )
+                          else if (_link != null &&
+                              (_barAnchors == null || _linkForced != null))
+                            LinkPopover(
+                              key: const ValueKey('link-popover'),
+                              anchors: _link!.anchors,
+                              url: _link!.url,
+                              openEnabled: _link!.uri != null,
+                              canRemove: _link!.bracket,
+                              onOpen: () => _openLink(_link!.uri!),
+                              onEdit: _editLink,
+                              onRemove: _removeLink,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              // Phone: toolbar above the keyboard, as before.
+              if (!wide)
+                SafeArea(
+                  top: false,
+                  child: Material(
+                    color: theme.colorScheme.surfaceContainer,
+                    child: _toolbar(context, sp),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
