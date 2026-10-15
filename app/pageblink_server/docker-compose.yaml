@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: pageblink
-      POSTGRES_PASSWORD: "ccdXAGg3QDbW8w62NSq70ygJUDCVGXfh"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     volumes:
       - pageblink_data:/var/lib/postgresql/data
 
@@ -20,7 +20,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_DB: pageblink_test
-      POSTGRES_PASSWORD: "44Sn0pbfBcaNg5cX9hJGI9RSyEOQgcrc"
+      POSTGRES_PASSWORD: ${POSTGRES_TEST_PASSWORD:-changeme}
     volumes:
       - pageblink_test_data:/var/lib/postgresql/data
 
