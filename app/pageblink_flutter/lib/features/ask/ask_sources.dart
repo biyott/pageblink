@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
@@ -7,47 +9,98 @@ import '../../app/theme.dart';
 
 // Spec: docs/design/ask-sources/spec.md (inline marker, source rows, motion).
 
-/// Row flash timeline (spec §3.2) behind a 160ms start delay: 1.0 -> 0.35 ->
-/// 0.75 -> 0 over 1600ms. Evaluate with the controller value.
-const sourceFlashLead = Duration(milliseconds: 160);
-const sourceFlashDuration = Duration(milliseconds: 1760);
-const sourceFlashReducedDuration = Duration(milliseconds: 1200);
+/// Row selection timeline (after spec §3, revised 2026-10-15): a 140ms start
+/// delay, then 1400ms in four beats ending in a resting state that stays until
+/// another source is picked. 12.5% shorter than the 1760ms it replaces; every
+/// beat is the old one x 0.875.
+///   rise   245ms  fill and purple glow up to 1.0        easeOutCubic
+///   dip    420ms  1.0 -> 0.35 (breathe)                 easeInOutSine
+///   rise2  262ms  0.35 -> 0.85                          easeInOutSine
+///   bloom  473ms  a light spreads from the centre; the inside goes back to
+///                 chipBg; the glow turns into the rainbow halo that stays
+const sourceFlashLead = Duration(milliseconds: 140);
+const sourceFlashDuration = Duration(milliseconds: 1540);
 
-final sourceFlashCurve = TweenSequence<double>([
-  TweenSequenceItem(tween: ConstantTween(0), weight: 160),
-  TweenSequenceItem(
-    tween: Tween(
-      begin: 0.0,
-      end: 1.0,
-    ).chain(CurveTween(curve: Curves.easeOutCubic)),
-    weight: 280,
-  ),
-  TweenSequenceItem(
-    tween: Tween(
-      begin: 1.0,
-      end: 0.35,
-    ).chain(CurveTween(curve: Curves.easeInOutSine)),
-    weight: 480,
-  ),
-  TweenSequenceItem(
-    tween: Tween(
-      begin: 0.35,
-      end: 0.75,
-    ).chain(CurveTween(curve: Curves.easeInOutSine)),
-    weight: 300,
-  ),
-  TweenSequenceItem(
-    tween: Tween(
-      begin: 0.75,
-      end: 0.0,
-    ).chain(CurveTween(curve: Curves.easeInOutSine)),
-    weight: 540,
-  ),
-]);
+const _lead = 140.0,
+    _rise = 245.0,
+    _dip = 420.0,
+    _rise2 = 262.0,
+    _bloomMs = 473.0;
+const _total = _lead + _rise + _dip + _rise2 + _bloomMs;
+
+/// What one source row shows. All values 0..1.
+class SourceFx {
+  const SourceFx({
+    this.fill = 0,
+    this.halo = 0,
+    this.rainbow = 0,
+    this.bloom = 0,
+    this.bloomAlpha = 0,
+  });
+
+  /// accentContainer share of the inside (0 = chipBg).
+  final double fill;
+
+  /// Strength of the outer glow; 0 = no shadows at all.
+  final double halo;
+
+  /// 0 = one purple glow, 1 = the mixed-colour halo.
+  final double rainbow;
+
+  /// Radius progress and brightness of the centre-out light.
+  final double bloom, bloomAlpha;
+
+  static const none = SourceFx();
+
+  /// The state after the animation, kept until another source is selected.
+  static const settled = SourceFx(halo: 1, rainbow: 1);
+}
+
+double _ease(Curve c, double a, double b, double t) =>
+    a + (b - a) * c.transform(t.clamp(0.0, 1.0));
+
+/// The row's look at controller value [v] (0..1). [replay] starts from the
+/// resting halo instead of nothing (the same source was picked again).
+SourceFx sourceFx(double v, {bool replay = false}) {
+  var t = v * _total;
+  if (t <= _lead) return replay ? SourceFx.settled : SourceFx.none;
+  t -= _lead;
+  final from = replay ? 1.0 : 0.0;
+  if (t < _rise) {
+    final e = Curves.easeOutCubic.transform(t / _rise);
+    return SourceFx(
+      fill: e,
+      halo: from + (1 - from) * e,
+      rainbow: from * (1 - e),
+    );
+  }
+  t -= _rise;
+  if (t < _dip) {
+    final g = _ease(Curves.easeInOutSine, 1, 0.35, t / _dip);
+    return SourceFx(fill: g, halo: g);
+  }
+  t -= _dip;
+  if (t < _rise2) {
+    final g = _ease(Curves.easeInOutSine, 0.35, 0.85, t / _rise2);
+    return SourceFx(fill: g, halo: g);
+  }
+  t -= _rise2;
+  if (t < _bloomMs) {
+    final u = t / _bloomMs;
+    return SourceFx(
+      // The inside waits until the light has crossed the middle.
+      fill: _ease(Curves.easeInOutCubic, 0.85, 0, (u - 0.25) / 0.75),
+      halo: _ease(Curves.easeInOut, 0.85, 1, u),
+      rainbow: Curves.easeInOut.transform(u),
+      bloom: Curves.easeOutCubic.transform(u),
+      bloomAlpha: math.sin(math.pi * u),
+    );
+  }
+  return SourceFx.settled;
+}
 
 /// Where the flash timeline sits right after the start delay.
-final sourceFlashSkipLead =
-    sourceFlashLead.inMilliseconds / sourceFlashDuration.inMilliseconds;
+final sourceFlashSkipLead = _lead / _total;
 
 /// Marker acknowledgement (spec §3.3): up 0-120ms, hold to 200ms, ease out to
 /// 600ms.
@@ -86,16 +139,22 @@ class CiteMarker extends StatefulWidget {
     required this.ack,
     required this.ackValue,
     required this.reduced,
+    required this.selected,
     this.onTap,
   });
 
   final int index;
   final double height;
 
-  /// Ticks while some marker is acknowledging; [ackValue] is read on each tick.
+  /// Ticks while some marker is acknowledging or the pick changes; [ackValue]
+  /// and [selected] are read on each tick (the markdown package does not
+  /// rebuild the pill when its inputs change).
   final Listenable ack;
   final double Function() ackValue;
   final bool reduced;
+
+  /// This number's source is the one currently picked: a slightly deeper fill.
+  final bool Function() selected;
   final VoidCallback? onTap;
 
   @override
@@ -143,7 +202,9 @@ class _CiteMarkerState extends State<CiteMarker> {
                 builder: (context, _) {
                   final a = widget.ackValue();
                   var fill = pb.accentContainer;
-                  final tint = _down ? 0.24 : (_hover ? 0.12 : 0.0);
+                  final tint = _down
+                      ? 0.24
+                      : (_hover ? 0.12 : (widget.selected() ? 0.16 : 0.0));
                   if (tint > 0) {
                     fill = Color.alphaBlend(
                       pb.accent.withValues(alpha: tint),
@@ -211,20 +272,19 @@ class _CiteMarkerState extends State<CiteMarker> {
 }
 
 /// One source under an answer: number badge, title, kind · page, chevron.
-/// [glow] is the flash value g in 0..1; the keyed [DecoratedBox] carries the
-/// glow as `ShapeDecoration.shadows` (null at rest).
+/// [fx] is the selection look; the keyed [DecoratedBox] carries the glow as
+/// `ShapeDecoration.shadows` (null when the row is not selected). The glow is
+/// clipped away from the row's inside so the resting inside is exactly chipBg.
 class SourceRow extends StatefulWidget {
   const SourceRow({
     super.key,
     required this.citation,
-    required this.glow,
-    required this.reduced,
+    required this.fx,
     required this.onTap,
   });
 
   final Citation citation;
-  final double glow;
-  final bool reduced;
+  final SourceFx fx;
   final VoidCallback onTap;
 
   @override
@@ -241,7 +301,7 @@ class _SourceRowState extends State<SourceRow> {
     final pb = context.pb;
     final l = context.l;
     final c = widget.citation;
-    final g = widget.glow;
+    final fx = widget.fx;
     final isNote = c.kind == 'note';
     final sub = subInk(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -254,116 +314,216 @@ class _SourceRowState extends State<SourceRow> {
               color: Color.lerp(
                 pb.hairline,
                 pb.accent.withValues(alpha: 0.55),
-                g,
+                fx.fill,
               )!,
             ),
     );
     final subtitle = isNote ? l.kindNote : '${l.kindPdf} · ${l.pageN(c.page)}';
-    return DecoratedBox(
-      key: ValueKey('source-chip-${c.index}'),
-      decoration: ShapeDecoration(
-        shape: RoundedRectangleBorder(borderRadius: radius),
-        shadows: g == 0
-            ? null
-            : [
-                BoxShadow(
-                  color: pb.accent.withValues(alpha: (dark ? 0.38 : 0.30) * g),
-                  blurRadius: widget.reduced ? 12 : 20,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-      ),
-      child: Semantics(
-        button: true,
-        label: l.sourceRowLabel(
-          c.index,
-          c.documentTitle,
-          isNote: isNote,
-          page: c.page,
-        ),
-        excludeSemantics: true,
-        onTap: widget.onTap,
-        child: Material(
-          color: Color.lerp(pb.chipBg, pb.accentContainer, g),
-          shape: shape,
-          child: InkWell(
-            customBorder: shape,
-            onTap: widget.onTap,
-            onHover: (v) => setState(() => _hover = v),
-            onHighlightChanged: (v) => setState(() => _down = v),
-            onFocusChange: (v) => setState(() => _focus = v),
-            overlayColor: WidgetStateProperty.resolveWith((s) {
-              if (s.contains(WidgetState.pressed)) {
-                return pb.accent.withValues(alpha: 0.14);
-              }
-              if (s.contains(WidgetState.hovered)) {
-                return pb.accent.withValues(alpha: 0.08);
-              }
-              return null;
-            }),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Row(
-                  children: [
-                    _Badge(c.index),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            c.documentTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: pb.ink,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Icon(
-                                isNote ? AppIcons.note : AppIcons.pdf,
-                                size: 12,
-                                color: sub,
-                              ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(fontSize: 12, color: sub),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      AppIcons.next,
-                      size: 16,
-                      color: _hover || _down ? pb.accent : sub,
-                    ),
-                  ],
+    return Stack(
+      // The halo spills over the row's edge; the stack must not clip it.
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(
+          child: IgnorePointer(
+            child: ClipPath(
+              clipper: const _OutsideClip(14),
+              child: DecoratedBox(
+                key: ValueKey('source-chip-${c.index}'),
+                decoration: ShapeDecoration(
+                  shape: RoundedRectangleBorder(borderRadius: radius),
+                  shadows: _halo(pb, dark, fx),
                 ),
               ),
             ),
           ),
         ),
-      ),
+        Semantics(
+          button: true,
+          label: l.sourceRowLabel(
+            c.index,
+            c.documentTitle,
+            isNote: isNote,
+            page: c.page,
+          ),
+          excludeSemantics: true,
+          onTap: widget.onTap,
+          child: Material(
+            color: Color.lerp(pb.chipBg, pb.accentContainer, fx.fill),
+            shape: shape,
+            child: InkWell(
+              customBorder: shape,
+              onTap: widget.onTap,
+              onHover: (v) => setState(() => _hover = v),
+              onHighlightChanged: (v) => setState(() => _down = v),
+              onFocusChange: (v) => setState(() => _focus = v),
+              overlayColor: WidgetStateProperty.resolveWith((s) {
+                if (s.contains(WidgetState.pressed)) {
+                  return pb.accent.withValues(alpha: 0.14);
+                }
+                if (s.contains(WidgetState.hovered)) {
+                  return pb.accent.withValues(alpha: 0.08);
+                }
+                return null;
+              }),
+              child: Stack(
+                children: [
+                  if (fx.bloomAlpha > 0)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: radius,
+                            gradient: _bloom(pb, dark, fx),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minHeight: 44),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          _Badge(c.index),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  c.documentTitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: pb.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      isNote ? AppIcons.note : AppIcons.pdf,
+                                      size: 12,
+                                      color: sub,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Flexible(
+                                      child: Text(
+                                        subtitle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: sub,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            AppIcons.next,
+                            size: 16,
+                            color: _hover || _down ? pb.accent : sub,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
+}
+
+/// Mixed-colour halo. [SourceFx.rainbow] 0 is one purple glow (offset down 2,
+/// as the old flash); 1 is four glows whose hues turn away from the accent
+/// (teal, blue, pink, lavender) and sit on different sides of the row.
+List<BoxShadow>? _halo(Pb pb, bool dark, SourceFx fx) {
+  if (fx.halo <= 0) return null;
+  final hsl = HSLColor.fromColor(pb.accent);
+  const turn = [-70.0, -35.0, 65.0, 20.0]; // teal, blue, pink, lavender
+  const at = [Offset(-7, 0), Offset(0, 6), Offset(7, 0), Offset(0, -5)];
+  final r = fx.rainbow;
+  // Four equal purple glows sum to about the old single 30%; in the resting
+  // halo each is its own colour, so they stay fainter than one glow would be.
+  final alpha = (dark ? 0.38 : 0.36) * fx.halo;
+  return [
+    for (var i = 0; i < 4; i++)
+      BoxShadow(
+        color: Color.lerp(
+          pb.accent,
+          hsl
+              .withHue((hsl.hue + turn[i]) % 360)
+              .withSaturation(dark ? 0.9 : 0.8)
+              .withLightness(dark ? 0.74 : 0.62)
+              .toColor(),
+          r,
+        )!.withValues(alpha: alpha * (0.4 + 0.6 * r) * (i == 3 ? 0.8 : 1)),
+        blurRadius: 20,
+        offset: Offset.lerp(const Offset(0, 2), at[i], r)!,
+      ),
+  ];
+}
+
+/// The light that spreads from the middle of the row (an ellipse, so it
+/// reaches the long edges at the same time as the short ones).
+RadialGradient _bloom(Pb pb, bool dark, SourceFx fx) {
+  final c = dark ? Color.lerp(pb.accent, Colors.white, 0.4)! : Colors.white;
+  final a = (dark ? 0.5 : 0.8) * fx.bloomAlpha;
+  return RadialGradient(
+    radius: 0.08 + 0.7 * fx.bloom,
+    colors: [
+      c.withValues(alpha: a),
+      c.withValues(alpha: a * 0.5),
+      c.withValues(alpha: 0),
+    ],
+    stops: const [0, 0.55, 1],
+    transform: const _Ellipse(),
+  );
+}
+
+class _Ellipse extends GradientTransform {
+  const _Ellipse();
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    final cx = bounds.center.dx;
+    return Matrix4.translationValues(cx, 0, 0)
+      ..multiply(Matrix4.diagonal3Values(bounds.width / bounds.height, 1, 1))
+      ..multiply(Matrix4.translationValues(-cx, 0, 0));
+  }
+}
+
+/// Everything except the row itself: the halo must not tint the inside.
+class _OutsideClip extends CustomClipper<Path> {
+  const _OutsideClip(this.radius);
+
+  final double radius;
+
+  @override
+  Path getClip(Size size) => Path()
+    ..fillType = PathFillType.evenOdd
+    ..addRect((Offset.zero & size).inflate(80))
+    ..addRRect(
+      RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+    );
+
+  @override
+  bool shouldReclip(_OutsideClip old) => old.radius != radius;
 }
 
 class _Badge extends StatelessWidget {

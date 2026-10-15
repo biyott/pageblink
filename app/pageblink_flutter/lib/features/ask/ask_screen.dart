@@ -698,8 +698,8 @@ class AskTurnView extends StatefulWidget {
 
 class _AskTurnViewState extends State<AskTurnView>
     with TickerProviderStateMixin {
-  /// Row flash: 160ms start delay + 1600ms asymmetric double pulse
-  /// (ask_sources.dart `sourceFlashCurve`).
+  /// Selected row: 140ms delay + 1400ms (ask_sources.dart `sourceFx`), then the
+  /// resting halo, which has no end.
   late final _flash = AnimationController(
     vsync: this,
     duration: sourceFlashDuration,
@@ -711,8 +711,21 @@ class _AskTurnViewState extends State<AskTurnView>
     duration: citeAckDuration,
   );
   final _chipKeys = <int, GlobalKey>{};
-  int? _flashing;
   int? _acking;
+
+  /// The source picked last (marker or row). Its halo stays after the
+  /// animation, until another source is picked or the turn is rebuilt.
+  late final _pick = ValueNotifier<int?>(null);
+  late final _markerTick = Listenable.merge([_ack, _pick]);
+  int? get _selected => _pick.value;
+  set _selected(int? v) => _pick.value = v;
+
+  /// The animation for [_selected] has begun (it waits for a scroll first).
+  bool _started = false;
+
+  /// [_selected] was picked again after resting: the halo stays through the
+  /// start delay instead of going out.
+  bool _replay = false;
 
   /// The folded sources are shown (per turn).
   bool _expanded = false;
@@ -723,10 +736,29 @@ class _AskTurnViewState extends State<AskTurnView>
   /// Bumped per marker tap so an older, still-awaiting tap gives up.
   int _citeToken = 0;
 
+  /// The list reuses this state by position; a different turn starts clean.
+  @override
+  void didUpdateWidget(AskTurnView old) {
+    super.didUpdateWidget(old);
+    if (!identical(old.turn, widget.turn)) {
+      _citeToken++;
+      _selected = null;
+      _acking = null;
+      _started = false;
+      _replay = false;
+      _expanded = false;
+      _snap = false;
+      _chipKeys.clear();
+      _flash.value = 0;
+      _ack.value = 0;
+    }
+  }
+
   @override
   void dispose() {
     _flash.dispose();
     _ack.dispose();
+    _pick.dispose();
     super.dispose();
   }
 
@@ -745,7 +777,7 @@ class _AskTurnViewState extends State<AskTurnView>
   /// The number is looked up at tap time: an unknown or not yet arrived
   /// source does nothing, and works once its citation event has come in.
   /// A folded source is unfolded first, then scrolled to and flashed.
-  Future<void> _cite(int index) async {
+  Future<void> _cite(int index, {bool scroll = true}) async {
     final turn = widget.turn;
     if (!turn.citations.containsKey(index)) return;
     final token = ++_citeToken;
@@ -764,10 +796,16 @@ class _AskTurnViewState extends State<AskTurnView>
       chip = _chipKeys[index]?.currentContext;
       if (chip == null || !chip.mounted) return;
     }
-    setState(() => _acking = index);
+    final replay = _selected == index && _started && _flash.isCompleted;
+    setState(() {
+      _acking = index;
+      _selected = index;
+      _started = false;
+      _replay = replay;
+    });
     _ack.forward(from: 0);
     var scrolled = false;
-    if (!_visible(chip)) {
+    if (scroll && !_visible(chip)) {
       scrolled = true;
       await Scrollable.ensureVisible(
         chip,
@@ -777,13 +815,14 @@ class _AskTurnViewState extends State<AskTurnView>
       );
     }
     if (!mounted || token != _citeToken) return;
-    setState(() => _flashing = index);
-    // Reduced motion: held highlight for 1200ms. Otherwise the 160ms start
-    // delay is already spent when we had to scroll.
-    _flash.duration = reduced
-        ? sourceFlashReducedDuration
-        : sourceFlashDuration;
-    _flash.forward(from: scrolled && !reduced ? sourceFlashSkipLead : 0);
+    setState(() => _started = true);
+    // Reduced motion: no animation, the resting halo at once. Otherwise the
+    // start delay is already spent when we had to scroll.
+    if (reduced) {
+      _flash.value = 1;
+    } else {
+      _flash.forward(from: scrolled ? sourceFlashSkipLead : 0);
+    }
   }
 
   /// Fully inside the enclosing scrollable (true when there is none).
@@ -797,10 +836,12 @@ class _AskTurnViewState extends State<AskTurnView>
     return top >= 0 && top + box.size.height <= viewport.size.height;
   }
 
-  /// 0 at rest, else the flash value g (spec §3.2). Reduced motion: held at 1.
-  double _glow(int index) {
-    if (_flashing != index || !_flash.isAnimating) return 0;
-    return _reduced ? 1 : sourceFlashCurve.transform(_flash.value);
+  SourceFx _fx(int index) {
+    if (_selected != index) return SourceFx.none;
+    if (!_started) return _replay ? SourceFx.settled : SourceFx.none;
+    return _reduced
+        ? SourceFx.settled
+        : sourceFx(_flash.value, replay: _replay);
   }
 
   double _ackValue(int index) {
@@ -818,9 +859,10 @@ class _AskTurnViewState extends State<AskTurnView>
         key: ValueKey('cite-marker-$n'),
         index: n,
         height: (line - 2).clamp(14.0, 18.0),
-        ack: _ack,
+        ack: _markerTick,
         ackValue: () => _ackValue(n),
         reduced: _reduced,
+        selected: () => _selected == n,
         onTap: tag.onTap,
       ),
     );
@@ -832,9 +874,11 @@ class _AskTurnViewState extends State<AskTurnView>
       animation: _flash,
       builder: (context, _) => SourceRow(
         citation: c,
-        glow: _glow(c.index),
-        reduced: _reduced,
-        onTap: () => widget.onBlink(all, c),
+        fx: _fx(c.index),
+        onTap: () {
+          _cite(c.index, scroll: false);
+          widget.onBlink(all, c);
+        },
       ),
     );
   }
