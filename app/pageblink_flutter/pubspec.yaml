@@ -80,22 +80,13 @@ flutter:
   assets:
     - assets/config.json
 
-  # To add custom fonts to your application, add a fonts section here,
-  # in this "flutter" section. Each entry in this list should have a
-  # "family" key with the font family name, and a "fonts" key with a
-  # list giving the asset and other descriptors for the font. For
-  # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
-  #       - asset: fonts/Schyler-Regular.ttf
-  #       - asset: fonts/Schyler-Italic.ttf
-  #         style: italic
-  #   - family: Trajan Pro
-  #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
-  #       - asset: fonts/TrajanPro_Bold.ttf
-  #         weight: 700
-  #
-  # For details regarding fonts from package dependencies,
-  # see https://flutter.dev/custom-fonts/#from-packages
+  # Hangul fallback (Noto Sans KR subset, SIL OFL: assets/fonts/OFL-NotoSansKR.txt).
+  # KS X 1001 2,350 syllables + compat jamo + Latin/punctuation. Declared here
+  # so the web engine loads it before the first frame (see docs/research/022).
+  fonts:
+    - family: NotoSansKRSubset
+      fonts:
+        - asset: assets/fonts/NotoSansKR-400-subset.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSansKR-600-subset.ttf
+          weight: 600

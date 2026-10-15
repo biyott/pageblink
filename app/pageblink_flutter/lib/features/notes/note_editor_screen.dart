@@ -42,7 +42,7 @@ LiveStyles liveStylesFor(BuildContext context, TextStyle base) {
   final theme = Theme.of(context);
   final pb = context.pb;
   final sizes = noteSizes(MediaQuery.sizeOf(context).width);
-  // titleLarge is the serif (Fraunces w600 + Noto Serif KR fallback).
+  // titleLarge is the serif (Fraunces w600 + bundled Noto Sans KR subset fallback).
   final serif = theme.textTheme.titleLarge;
   TextStyle head(double size, double height) => TextStyle(
     fontFamily: serif?.fontFamily,
