@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pageblink_client/pageblink_client.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_icons.dart';
 import '../../app/confirm_dialog.dart';
@@ -86,6 +87,17 @@ LiveStyles liveStylesFor(BuildContext context, TextStyle base) {
       color: pb.inkMuted,
       decoration: TextDecoration.lineThrough,
     ),
+    // List prefix pieces: bullet / number in the accent, box by state.
+    bullet: TextStyle(
+      color: theme.colorScheme.primary,
+      fontWeight: FontWeight.w700,
+    ),
+    number: TextStyle(color: theme.colorScheme.primary),
+    todo: TextStyle(color: pb.inkMuted, fontWeight: FontWeight.w700),
+    done: TextStyle(
+      color: theme.colorScheme.primary,
+      fontWeight: FontWeight.w700,
+    ),
     // Same tint as the citation banner above the note.
     highlight: theme.colorScheme.secondaryContainer,
   );
@@ -105,6 +117,7 @@ class NoteEditorView extends StatefulWidget {
     required this.embedded,
     required this.onClose,
     this.controller,
+    this.openLink,
   });
 
   final Document? note;
@@ -120,6 +133,10 @@ class NoteEditorView extends StatefulWidget {
 
   /// Lets the shell save this editor before it is replaced or closed.
   final OpenItemController? controller;
+
+  /// Opens an allowed link outside the app (tests inject a fake). Default:
+  /// the platform browser / mail app.
+  final Future<bool> Function(Uri uri)? openLink;
 
   @override
   State<NoteEditorView> createState() => _NoteEditorViewState();
@@ -152,6 +169,9 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   bool _barEnabled = false;
   bool _pointerDown = false;
   bool _barQueued = false;
+
+  // "Open" chip: the link under a collapsed caret, if its scheme is allowed.
+  ({TextSelectionToolbarAnchors anchors, Uri uri})? _link;
 
   bool get _changed => _title.text != _savedTitle || _body.text != _savedBody;
 
@@ -245,7 +265,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   List<FormatAction> _inlineActions(L l) => [
     (l.fmtBold, AppIcons.bold, (v) => toggleInline(v, '**')),
     (l.fmtItalic, AppIcons.italic, (v) => toggleInline(v, '_')),
-    (l.fmtCode, AppIcons.code, (v) => toggleInline(v, '`')),
+    (l.fmtCode, AppIcons.code, toggleCode),
     (l.fmtLink, AppIcons.link, toggleLink),
   ];
 
@@ -257,9 +277,17 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       if (!mounted) return;
       final next = _measureBar();
       final cur = _barAnchors;
+      final link = _measureLink();
+      final curLink = _link;
       if (next?.primaryAnchor != cur?.primaryAnchor ||
-          next?.secondaryAnchor != cur?.secondaryAnchor) {
-        setState(() => _barAnchors = next);
+          next?.secondaryAnchor != cur?.secondaryAnchor ||
+          link?.uri != curLink?.uri ||
+          link?.anchors.primaryAnchor != curLink?.anchors.primaryAnchor ||
+          link?.anchors.secondaryAnchor != curLink?.anchors.secondaryAnchor) {
+        setState(() {
+          _barAnchors = next;
+          _link = link;
+        });
       }
     });
     WidgetsBinding.instance.scheduleFrame();
@@ -284,6 +312,103 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     return miniBarAnchors(editable, stack);
   }
 
+  /// The chip is for a caret inside a link. With a selection the mini bar (or
+  /// the system menu on touch) owns that spot, so no chip then.
+  ({TextSelectionToolbarAnchors anchors, Uri uri})? _measureLink() {
+    final v = _body.value, sel = v.selection;
+    final composing = v.composing.isValid && !v.composing.isCollapsed;
+    if (_pointerDown ||
+        composing ||
+        !_bodyFocus.hasFocus ||
+        !sel.isValid ||
+        !sel.isCollapsed ||
+        sel == _barDismissed) {
+      return null;
+    }
+    final link = linkAt(v.text, sel.baseOffset);
+    final uri = link == null ? null : safeLinkUri(link.url);
+    final editable = findEditableText(_bodyKey.currentContext);
+    final stack = _stackKey.currentContext?.findRenderObject();
+    if (uri == null || editable == null || stack is! RenderBox) return null;
+    if (!stack.attached) return null;
+    final anchors = miniBarAnchors(
+      editable,
+      stack,
+      selection: TextSelection(baseOffset: link!.start, extentOffset: link.end),
+    );
+    return anchors == null ? null : (anchors: anchors, uri: uri);
+  }
+
+  Future<void> _openLink(Uri uri) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final failed = context.l.linkOpenFailed;
+    try {
+      final open =
+          widget.openLink ??
+          (u) => launchUrl(u, mode: LaunchMode.externalApplication);
+      if (await open(uri)) return;
+    } catch (e) {
+      debugPrint('open link failed: $e');
+    }
+    messenger.showSnackBar(SnackBar(content: Text(failed)));
+  }
+
+  /// Heading button: icon plus the current level (H1-H6) while the caret is
+  /// in a heading; plain icon for body text or a mixed selection.
+  Widget _headingButton(L l, ThemeData theme) {
+    final level = headingLevel(_body.value);
+    final active = level > 0;
+    final fg = active
+        ? theme.colorScheme.onPrimaryContainer
+        : theme.colorScheme.onSurfaceVariant;
+    return PopupMenuButton<int>(
+      tooltip: l.fmtHeading,
+      padding: EdgeInsets.zero,
+      onSelected: (level) => _apply((v) => setHeading(v, level)),
+      itemBuilder: (_) {
+        final cur = headingLevel(_body.value);
+        return [
+          for (final (level, label) in [
+            (0, l.fmtBodyText),
+            for (var n = 1; n <= 6; n++) (n, 'H$n'),
+          ])
+            CheckedPopupMenuItem(
+              value: level,
+              checked: cur == level,
+              child: Text(label),
+            ),
+        ];
+      },
+      child: Container(
+        key: const ValueKey('heading-button'),
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: active ? theme.colorScheme.primaryContainer : null,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.heading, color: fg),
+            if (active)
+              Padding(
+                padding: const EdgeInsets.only(left: 2),
+                child: Text(
+                  'H$level',
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _toolbar(BuildContext context) {
     final l = context.l;
     final inline = _inlineActions(l);
@@ -298,40 +423,30 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       onPressed: () => _apply(f),
     );
     // ExcludeFocus: tapping a button must not take focus from the body.
+    // Rebuilt with the body so the heading button shows the current level.
     return ExcludeFocus(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            PopupMenuButton<int>(
-              tooltip: l.fmtHeading,
-              icon: const Icon(AppIcons.heading),
-              onSelected: (level) => _apply((v) => setHeading(v, level)),
-              itemBuilder: (_) {
-                final cur = headingLevel(_body.value);
-                return [
-                  for (final (level, label) in [
-                    (0, l.fmtBodyText),
-                    (1, 'H1'),
-                    (2, 'H2'),
-                    (3, 'H3'),
-                  ])
-                    CheckedPopupMenuItem(
-                      value: level,
-                      checked: cur == level || (level == 0 && cur > 3),
-                      child: Text(label),
-                    ),
-                ];
-              },
-            ),
-            button(inline[0].$1, inline[0].$2, inline[0].$3),
-            button(inline[1].$1, inline[1].$2, inline[1].$3),
-            button(l.fmtList, AppIcons.bulletList, toggleBullet),
-            button(l.fmtCheckbox, AppIcons.checklist, toggleCheck),
-            button(l.fmtQuote, AppIcons.quote, toggleQuote),
-            button(inline[2].$1, inline[2].$2, inline[2].$3),
-            button(inline[3].$1, inline[3].$2, inline[3].$3),
-          ],
+        child: ListenableBuilder(
+          listenable: _body,
+          builder: (context, _) => Row(
+            children: [
+              _headingButton(l, Theme.of(context)),
+              button(inline[0].$1, inline[0].$2, inline[0].$3),
+              button(inline[1].$1, inline[1].$2, inline[1].$3),
+              button(
+                l.fmtStrike,
+                AppIcons.strikethrough,
+                (v) => toggleInline(v, '~~'),
+              ),
+              button(l.fmtList, AppIcons.bulletList, toggleBullet),
+              button(l.fmtOrderedList, AppIcons.orderedList, toggleOrdered),
+              button(l.fmtCheckbox, AppIcons.checklist, toggleCheck),
+              button(l.fmtQuote, AppIcons.quote, toggleQuote),
+              button(inline[2].$1, inline[2].$2, inline[2].$3),
+              button(inline[3].$1, inline[3].$2, inline[3].$3),
+            ],
+          ),
         ),
       ),
     );
@@ -509,7 +624,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                               _apply((v) => toggleInline(v, '**')),
                           key(LogicalKeyboardKey.keyI): () =>
                               _apply((v) => toggleInline(v, '_')),
-                          if (_barAnchors != null)
+                          if (_barAnchors != null || _link != null)
                             const SingleActivator(
                               LogicalKeyboardKey.escape,
                             ): () {
@@ -547,6 +662,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                           maxLines: null,
                           expands: true,
                           keyboardType: TextInputType.multiline,
+                          inputFormatters: const [ListContinuationFormatter()],
                           textAlignVertical: TextAlignVertical.top,
                           decoration: InputDecoration(
                             hintText: context.l.noteHint,
@@ -560,10 +676,24 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                       ),
                     ),
                     if (_barAnchors != null)
-                      SelectionMiniBar(
-                        anchors: _barAnchors!,
-                        actions: _inlineActions(l),
-                        onApply: _apply,
+                      ListenableBuilder(
+                        listenable: _body,
+                        builder: (context, _) => SelectionMiniBar(
+                          anchors: _barAnchors!,
+                          actions: _inlineActions(l),
+                          onApply: _apply,
+                          headingLevel: headingLevel(_body.value),
+                          onHeading: (level) =>
+                              _apply((v) => setHeading(v, level)),
+                        ),
+                      ),
+                    if (_link != null && _barAnchors == null)
+                      LinkOpenChip(
+                        anchors: _link!.anchors,
+                        label: l.openLink,
+                        url: _link!.uri.toString(),
+                        icon: AppIcons.openLink,
+                        onPressed: () => _openLink(_link!.uri),
                       ),
                   ],
                 ),
