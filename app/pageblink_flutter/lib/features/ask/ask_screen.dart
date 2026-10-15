@@ -271,60 +271,66 @@ class _AskScreenState extends State<AskScreen> {
                       empty: _scopeEmpty,
                       onTap: _pickScope,
                     ),
-                    TextField(
-                      controller: _input,
-                      minLines: 1,
-                      maxLines: 5,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _ask(),
-                      decoration: InputDecoration(
-                        hintText: context.l.askPlaceholder,
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 14,
-                        ),
-                      ),
-                    ),
+                    // Input and send button share a row (chat style); the
+                    // button stays at the bottom edge when the text wraps.
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        if (_models.isNotEmpty)
-                          Flexible(
-                            child: _ModelPill(
-                              models: _models,
-                              selected: _modelId,
-                              onChanged: (id) => setState(() => _modelId = id),
+                        Expanded(
+                          child: TextField(
+                            controller: _input,
+                            minLines: 1,
+                            maxLines: 5,
+                            textInputAction: TextInputAction.send,
+                            onSubmitted: (_) => _ask(),
+                            decoration: InputDecoration(
+                              hintText: context.l.askPlaceholder,
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 14,
+                              ),
                             ),
                           ),
-                        const Spacer(),
-                        ListenableBuilder(
-                          listenable: _input,
-                          builder: (context, _) {
-                            final canSend =
-                                _input.text.trim().isNotEmpty &&
-                                !_streaming &&
-                                !_scopeEmpty;
-                            return IconButton.filled(
-                              onPressed: canSend ? _ask : null,
-                              tooltip: context.l.askTooltip,
-                              icon: const Icon(AppIcons.send),
-                              style: IconButton.styleFrom(
-                                fixedSize: const Size(40, 40),
-                                backgroundColor: pb.accent,
-                                foregroundColor: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimary,
-                                disabledBackgroundColor: pb.hairline,
-                                disabledForegroundColor: pb.inkMuted,
-                              ),
-                            );
-                          },
+                        ),
+                        const SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: ListenableBuilder(
+                            listenable: _input,
+                            builder: (context, _) {
+                              final canSend =
+                                  _input.text.trim().isNotEmpty &&
+                                  !_streaming &&
+                                  !_scopeEmpty;
+                              return IconButton.filled(
+                                onPressed: canSend ? _ask : null,
+                                tooltip: context.l.askTooltip,
+                                icon: const Icon(AppIcons.send),
+                                style: IconButton.styleFrom(
+                                  fixedSize: const Size(40, 40),
+                                  backgroundColor: pb.accent,
+                                  foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
+                                  disabledBackgroundColor: pb.hairline,
+                                  disabledForegroundColor: pb.inkMuted,
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ],
                     ),
+                    if (_models.isNotEmpty)
+                      _ModelPill(
+                        models: _models,
+                        selected: _modelId,
+                        onChanged: (id) => setState(() => _modelId = id),
+                      ),
                   ],
                 ),
               ),
