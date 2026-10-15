@@ -7,11 +7,11 @@ import '../client.dart';
 import '../app/app_icons.dart';
 import 'email_sign_in.dart';
 
-/// 12–50 chars, a lowercase letter and a number, plus an uppercase letter or
-/// a special character. (The server's own policy, ≥8 chars, is looser.)
+/// ≥12 chars, a lowercase letter and a number, plus an uppercase letter or
+/// a special character. No maximum shown (the server's own policy is just
+/// ≥8 chars, no trailing/leading space).
 List<PasswordRequirement> pageBlinkPasswordRequirements(L l) => [
   PasswordRequirement.minLength(12),
-  PasswordRequirement.maxLength(50),
   PasswordRequirement.containsLowercase(),
   PasswordRequirement.containsNumber(),
   PasswordRequirement(
