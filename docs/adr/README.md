@@ -47,3 +47,5 @@
 | [015](015-product-scope-notes-and-pdfs.md) | 제품 범위: Keep 스타일 마크다운 노트 + PDF 업로드, 둘 다에 RAG (실시간 협업 보류) | 채택 |
 | [016](016-app-icon-and-ui-icon-direction.md) | 앱 아이콘 V1b Sparkle Fold, UI 아이콘 Lucide 스트로크 먼저 (실패 시 S3 커스텀) | 채택 |
 | [017](017-image-generation-model-guidance.md) | 이미지 생성: 목업은 Nano Banana 2.1, 로고·아이콘 최종본은 손으로 쓴 SVG | 채택 |
+| [018](018-body-font-pretendard-single-family.md) | 본문 폰트를 Pretendard 한 가족으로 통일 (Inter·Noto Sans KR 제거) | 채택 |
+| [019](019-pdf-drag-drop-desktop-drop-shell-web-first.md) | PDF 드래그 앤 드롭: `desktop_drop`, 앱 셸 수준, 웹 우선 | 채택 |
