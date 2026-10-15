@@ -346,7 +346,8 @@ void main() {
           tones.pill,
         ),
       );
-      expect(fill(1).computeLuminance(), lessThan(rest.computeLuminance()));
+      // The light pill is translucent (tile tone): deeper = more alpha.
+      expect(fill(1).a, greaterThan(rest.a));
       expect(fill(2), rest2);
       expect(_markerRing(t, 1).strength, closeTo(0.65, 0.001));
       expect(_markerRing(t, 2).strength, 0);
@@ -428,7 +429,8 @@ void main() {
       await t.pump(const Duration(milliseconds: 120)); // ack peak
       expect(scale(1), closeTo(1.08, 0.001));
       expect(_markerRing(t, 1).strength, closeTo(1, 0.001));
-      expect(fill(1).computeLuminance(), lessThan(rest.computeLuminance()));
+      // The light pill is translucent (tile tone): deeper = more alpha.
+      expect(fill(1).a, greaterThan(rest.a));
       expect(scale(2), 1);
       expect(fill(2), rest2);
       await t.pumpAndSettle();
@@ -972,12 +974,12 @@ void main() {
         }
         // Slate: a grey with a hair of blue.
         final f = markerFill(t, 1);
-        expect(f, const Color(0xFF626874));
+        expect(f, tones.pill);
         expect(f.b - f.r, lessThan(0.08), reason: '$b');
         // The bolt is yellow (hue 35..55), not orange.
         final hue = HSLColor.fromColor(tones.bolt).hue;
         expect(hue, inInclusiveRange(35, 55), reason: '$b $hue');
-        // The digit is white, 12 / w600.
+        // The digit is the tone's own (dark ink on light), 12 / w600.
         final digit = t.widget<Text>(
           find
               .descendant(
@@ -1056,21 +1058,28 @@ void main() {
             greaterThanOrEqualTo(3),
             reason: 'selected border $dark $page',
           );
-          // Sub text against the pill's neighbour: the badge digit.
-          expect(
-            contrastRatio(tones.digit, tones.pill),
-            greaterThanOrEqualTo(4.5),
-            reason: 'badge $dark',
-          );
+          // The badge digit on the pill, over the bubble and over a row face.
+          for (final under in [bubble, row, pulse]) {
+            expect(
+              contrastRatio(tones.digit, Color.alphaBlend(tones.pill, under)),
+              greaterThanOrEqualTo(4.5),
+              reason: 'badge $dark $under',
+            );
+          }
         }
-        // Pill states: rest, hover, press, picked, ack. Pressing only darkens,
-        // so the digit and the bolt get better, never worse.
+        // Pill states: rest, hover, press, picked, ack (composited over the
+        // bubble: the light pill is translucent). Pressing only darkens, so
+        // the digit and the bolt get better, never worse.
+        final bubble = Color.alphaBlend(pb.glassStrong, pb.bgMid);
         final m = tones.markerAlpha;
         final states = [
           for (final a in [0.0, m.hover, m.press, m.picked, m.ack])
             Color.alphaBlend(
-              tones.markerOverlay.withValues(alpha: a),
-              tones.pill,
+              Color.alphaBlend(
+                tones.markerOverlay.withValues(alpha: a),
+                tones.pill,
+              ),
+              bubble,
             ),
         ];
         for (final f in states) {
@@ -1079,17 +1088,43 @@ void main() {
             greaterThanOrEqualTo(4.5),
             reason: 'digit $dark $f',
           );
-          // Graphic object: 3:1.
+          // Graphic object: 3:1. Light: the bolt's dark outline carries the
+          // shape (a yellow fill alone is ~1.3:1 on the pale pill).
           expect(
-            contrastRatio(tones.bolt, f),
+            contrastRatio(tones.boltOutline ?? tones.bolt, f),
             greaterThanOrEqualTo(3),
             reason: 'bolt $dark $f',
           );
         }
-        // The pill is told apart from the bubble.
-        final bubble = Color.alphaBlend(pb.glassStrong, pb.bgMid);
-        expect(contrastRatio(tones.pill, bubble), greaterThanOrEqualTo(1.5));
+        // The pill is told apart from the bubble (light: a tile is a quiet
+        // 1.17:1 step, which is what the client asked for).
+        expect(
+          contrastRatio(states.first, bubble),
+          greaterThanOrEqualTo(dark ? 1.5 : 1.1),
+        );
       }
+      // Light pill IS the sidebar tile tone (client: "grey chip still too
+      // dark; as light as the tier icon background"): one value, `Pb.tile`.
+      const light = SourceTones.light;
+      expect(light.pill, Pb.light.tile);
+      // A step darker than the row face, so the badge shows inside the row
+      // (never inverted), over every page stop.
+      for (final page in [Pb.light.bgStart, Pb.light.bgMid, Pb.light.bgEnd]) {
+        final bubble = Color.alphaBlend(Pb.light.glassStrong, page);
+        final row = Color.alphaBlend(light.rowFill, bubble);
+        final pulse = Color.alphaBlend(light.rowPulse, bubble);
+        for (final face in [bubble, row, pulse]) {
+          expect(
+            Color.alphaBlend(light.pill, face).computeLuminance(),
+            lessThan(face.computeLuminance()),
+          );
+        }
+      }
+      expect(light.boltOutline, isNotNull);
+      expect(SourceTones.dark.boltOutline, isNull);
+      // Neutral: no orange/yellow in the pill (ink tint, not blue, not warm).
+      expect((light.pill.r - light.pill.b).abs(), lessThan(0.08));
+      {}
     });
   });
 
@@ -1318,15 +1353,22 @@ void main() {
           }
 
           int ch(double v) => (v * 255).round();
+          // The light pill is translucent: what is painted is it over the
+          // answer bubble (glassStrong again, on top of the box above).
+          final bubble = Color.alphaBlend(
+            pb.glassStrong,
+            Color.alphaBlend(pb.glassStrong, pb.bgMid),
+          );
+          final base = Color.alphaBlend(tones.pill, bubble);
           final rest = await pill();
-          expect(rest[0], closeTo(ch(tones.pill.r), 1));
-          expect(rest[2], closeTo(ch(tones.pill.b), 1));
+          expect(rest[0], closeTo(ch(base.r), 1));
+          expect(rest[2], closeTo(ch(base.b), 1));
           await _tapMarker(t, 1);
           await t.pumpAndSettle();
           final done = await pill();
           final want = Color.alphaBlend(
             tones.markerOverlay.withValues(alpha: tones.markerAlpha.picked),
-            tones.pill,
+            base,
           );
           expect(done[0], closeTo(ch(want.r), 1));
           expect(done[1], closeTo(ch(want.g), 1));

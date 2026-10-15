@@ -181,15 +181,17 @@ const _rainbowDark = [
 /// The colours of the sources area (spec v2 §2). Kept here, not in `Pb`,
 /// until they are promoted app-wide.
 ///
-/// Swapping to the quiet light option A (spec §10): change [pill], [digit] and
-/// [bolt] of [light] (`#E6E7EB`, `#1F1B16`, `#E3A500`) and its
-/// [markerOverlay] / [markerAlpha] (ink 6/12/10/18%).
+/// Light is the app's tile tone (`Pb.light.tile`, ink 8%: the same grey as the
+/// tier icon tiles in the sidebar) with an ink digit and a yellow bolt that
+/// carries a thin ink outline: a yellow fill cannot reach 3:1 on a pale grey
+/// (spec §1), so the outline is what keeps the bolt readable (13:1).
 @immutable
 class SourceTones {
   const SourceTones({
     required this.pill,
     required this.digit,
     required this.bolt,
+    required this.boltOutline,
     required this.headerBolt,
     required this.rowFill,
     required this.rowPulse,
@@ -211,6 +213,10 @@ class SourceTones {
   /// Marker pill and number badge; [digit] is the number on it and [bolt] the
   /// filled bolt on the pill.
   final Color pill, digit, bolt;
+
+  /// Thin outline under the pill's bolt; null = none (dark: the slate is dark
+  /// enough for the yellow fill to hold 3:1 on its own).
+  final Color? boltOutline;
 
   /// The bolt of the `⚡ Sources N` header (sits on the bubble, decorative).
   final Color headerBolt;
@@ -245,9 +251,18 @@ class SourceTones {
   List<Color> get rainbowClosed => [...rainbow, rainbow.first];
 
   static const light = SourceTones(
-    pill: Color(0xFF626874),
-    digit: Color(0xFFFFFFFF),
-    bolt: Color(0xFFFFD54A),
+    // The tile tone, kept translucent like `Pb.tile` so it reads the same on
+    // the bubble (ink 8% over it = #EDEBEB, 1.17:1) and on a row face (the
+    // number badge: #E1E2E4 on #F2F3F5, still a step darker than the row).
+    // The ring painter clips out the pill's own shape and the overlay below
+    // is plain source-over, so translucency changes nothing else. A test pins
+    // this to `Pb.light.tile`. Digit and outline are `Pb.ink`: 14:1 at rest,
+    // 8:1 at the strongest overlay (ack, black 24%). Bolt: yellow fill + ink
+    // outline (the fill alone is 1.3:1, the outline is the shape).
+    pill: Color(0x141F1B16),
+    digit: Color(0xFF1F1B16),
+    bolt: Color(0xFFFFCB2E),
+    boltOutline: Color(0xFF1F1B16),
     headerBolt: Color(0xFFE3A500),
     rowFill: Color(0xFFF2F3F5),
     rowPulse: Color(0xFFE1E3E8),
@@ -270,6 +285,7 @@ class SourceTones {
     pill: Color(0xFF626874),
     digit: Color(0xFFFFFFFF),
     bolt: Color(0xFFFFD54A),
+    boltOutline: null,
     headerBolt: Color(0xFFFFD54A),
     rowFill: Color(0x0FFFFFFF),
     rowPulse: Color(0x1AFFFFFF),
@@ -294,11 +310,13 @@ class SourceTones {
 
 /// A filled lightning bolt (Feather `zap` polygon on a 24 grid) with a round
 /// 0.9px join in the same colour, so it keeps its mass at 11-12px where an
-/// outline icon would be a hairline.
+/// outline icon would be a hairline. [outline] (if any) is drawn underneath,
+/// 0.75px wider all round.
 class BoltPainter extends CustomPainter {
-  const BoltPainter(this.color);
+  const BoltPainter(this.color, {this.outline});
 
   final Color color;
+  final Color? outline;
 
   static const _points = [
     Offset(13, 2),
@@ -313,6 +331,16 @@ class BoltPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final s = size.width / 24;
     final path = Path()..addPolygon([for (final p in _points) p * s], true);
+    if (outline != null) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = outline!
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.9 + 1.5
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
     canvas.drawPath(
       path,
       Paint()
@@ -330,19 +358,21 @@ class BoltPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(BoltPainter old) => old.color != color;
+  bool shouldRepaint(BoltPainter old) =>
+      old.color != color || old.outline != outline;
 }
 
 class _Bolt extends StatelessWidget {
-  const _Bolt({required this.size, required this.color});
+  const _Bolt({required this.size, required this.color, this.outline});
 
   final double size;
   final Color color;
+  final Color? outline;
 
   @override
   Widget build(BuildContext context) => SizedBox.square(
     dimension: size,
-    child: CustomPaint(painter: BoltPainter(color)),
+    child: CustomPaint(painter: BoltPainter(color, outline: outline)),
   );
 }
 
@@ -541,7 +571,11 @@ class _CiteMarkerState extends State<CiteMarker> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                _Bolt(size: 11, color: tones.bolt),
+                                _Bolt(
+                                  size: 11,
+                                  color: tones.bolt,
+                                  outline: tones.boltOutline,
+                                ),
                                 const SizedBox(width: 2),
                                 Text(
                                   '${widget.index}',
