@@ -4,9 +4,40 @@ import '../generated/protocol.dart';
 import '../rag/chunker.dart';
 import '../rag/embedding_spec.dart';
 import '../sample/sample_note.dart';
+import '../providers/embedding_provider.dart';
 import '../services/acl.dart';
 import '../services/document_cleanup.dart';
 import '../services/rag_services.dart';
+
+/// A document stuck in `indexing` longer than this lost its request (restart,
+/// rollout, gateway kill). Normal indexing takes seconds: <= ~19 batches of
+/// 32 chunks for a 512 KiB upload, each capped at [embeddingRequestTimeout].
+const _staleIndexing = Duration(minutes: 10);
+
+/// True when an `indexing` document has not been touched for [_staleIndexing].
+/// `updatedAt` is set when indexing starts and not changed until it ends.
+/// `list` applies the same predicate atomically in SQL (updateWhere).
+bool isStaleIndexing(String status, DateTime updatedAt, DateTime now) =>
+    status == 'indexing' && updatedAt.isBefore(now.subtract(_staleIndexing));
+
+/// The save-note shortcut: same content AND already `ready`. A `failed` or
+/// stuck `indexing` note with identical content must be re-indexed.
+bool isUnchangedReadyNote(Document existing, String body, String title) =>
+    existing.status == 'ready' &&
+    existing.body == body &&
+    existing.title == title;
+
+/// Failure code the app localizes (`indexingError` in l10n.dart):
+/// quota | auth | rate | outage | timeout | unknown (+ interrupted, no_source).
+String friendlyIndexingError(Object e) {
+  final m = '$e';
+  if (m.contains(' 402')) return 'quota';
+  if (m.contains(' 401') || m.contains(' 403')) return 'auth';
+  if (m.contains(' 429')) return 'rate';
+  if (RegExp(r' 5\d\d').hasMatch(m)) return 'outage';
+  if (m.contains('timeout') || m.contains('TimeoutException')) return 'timeout';
+  return 'unknown';
+}
 
 /// Upload and list documents. Text is extracted on the client (ADR 003).
 class DocumentEndpoint extends Endpoint {
@@ -41,23 +72,27 @@ class DocumentEndpoint extends Endpoint {
     if (existing != null && existing.status == 'ready') return existing;
 
     final now = DateTime.now().toUtc();
-    var document =
-        existing ??
-        await Document.db.insertRow(
-          session,
-          Document(
-            ownerId: userId,
-            projectId: projectId,
-            title: title,
-            contentHash: contentHash,
-            version: 1,
-            pageCount: pages.length,
-            status: 'indexing',
-            embeddingModel: EmbeddingSpec.model,
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
+    // A retried failed/stuck document restarts the stale-indexing clock.
+    var document = existing != null
+        ? await Document.db.updateRow(
+            session,
+            existing.copyWith(status: 'indexing', updatedAt: now),
+          )
+        : await Document.db.insertRow(
+            session,
+            Document(
+              ownerId: userId,
+              projectId: projectId,
+              title: title,
+              contentHash: contentHash,
+              version: 1,
+              pageCount: pages.length,
+              status: 'indexing',
+              embeddingModel: EmbeddingSpec.model,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
 
     return _index(session, document, pages);
   }
@@ -107,16 +142,17 @@ class DocumentEndpoint extends Endpoint {
         throw ArgumentError('Note not found');
       }
       await _requireWrite(session, userId, existing);
-      if (existing.body == body && existing.title == cleanTitle) {
-        return existing;
-      }
+      if (isUnchangedReadyNote(existing, body, cleanTitle)) return existing;
+      // Same content but not ready: re-index without bumping the version.
+      final changed = existing.body != body || existing.title != cleanTitle;
       document = await Document.db.updateRow(
         session,
         existing.copyWith(
           title: cleanTitle,
           body: body,
           contentHash: sha256Hex(body),
-          version: existing.version + 1,
+          version: changed ? existing.version + 1 : existing.version,
+          lastError: null,
           status: 'indexing',
           updatedAt: now,
         ),
@@ -249,7 +285,10 @@ class DocumentEndpoint extends Endpoint {
     }
     final indexing = await Document.db.updateRow(
       session,
-      document.copyWith(status: 'indexing'),
+      document.copyWith(
+        status: 'indexing',
+        updatedAt: DateTime.now().toUtc(),
+      ),
     );
     return _index(session, indexing, texts);
   }
@@ -266,16 +305,6 @@ class DocumentEndpoint extends Endpoint {
       }
     }
     return ready;
-  }
-
-  /// Failure code the app localizes: quota | auth | rate | outage | unknown.
-  static String _friendlyError(Object e) {
-    final m = '$e';
-    if (m.contains(' 402')) return 'quota';
-    if (m.contains(' 401') || m.contains(' 403')) return 'auth';
-    if (m.contains(' 429')) return 'rate';
-    if (RegExp(r' 5\d\d').hasMatch(m)) return 'outage';
-    return 'unknown';
   }
 
   static String _titleFrom(String body) {
@@ -380,24 +409,45 @@ class DocumentEndpoint extends Endpoint {
       );
       document = document.copyWith(
         status: 'failed',
-        lastError: _friendlyError(e),
+        lastError: friendlyIndexingError(e),
         updatedAt: DateTime.now().toUtc(),
       );
     }
-    return Document.db.updateRow(session, document);
+    try {
+      return await Document.db.updateRow(session, document);
+    } catch (e, st) {
+      // Last resort: the row may stay `indexing`; `list` recovers it as
+      // `failed`/`interrupted` after [_staleIndexing].
+      session.log(
+        'Could not save indexing result for document ${document.id}',
+        level: LogLevel.error,
+        exception: e,
+        stackTrace: st,
+      );
+      rethrow;
+    }
   }
 
   /// Personal documents plus documents of every project the user belongs to.
   Future<List<Document>> list(Session session) async {
     final userId = Acl.requireUser(session);
     final projectIds = await Acl.memberProjectIds(session, userId);
+    Expression<dynamic> visible(DocumentTable t) =>
+        (t.ownerId.equals(userId) & t.projectId.equals(null)) |
+        (projectIds.isEmpty ? t.id.equals(-1) : t.projectId.inSet(projectIds));
+
+    // Recover documents whose indexing request died (restart, rollout).
+    await Document.db.updateWhere(
+      session,
+      columnValues: (t) => [t.status('failed'), t.lastError('interrupted')],
+      where: (t) =>
+          visible(t) &
+          t.status.equals('indexing') &
+          (t.updatedAt < DateTime.now().toUtc().subtract(_staleIndexing)),
+    );
     return Document.db.find(
       session,
-      where: (t) =>
-          (t.ownerId.equals(userId) & t.projectId.equals(null)) |
-          (projectIds.isEmpty
-              ? t.id.equals(-1)
-              : t.projectId.inSet(projectIds)),
+      where: visible,
       orderByList: (t) => [t.updatedAt.desc()],
     );
   }

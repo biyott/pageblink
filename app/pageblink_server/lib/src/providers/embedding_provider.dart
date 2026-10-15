@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -36,7 +37,8 @@ class DeepInfraEmbeddingProvider implements EmbeddingProvider {
         i,
         i + 32 > texts.length ? texts.length : i + 32,
       );
-      final response = await _client.post(
+      final response = await postEmbeddingRequest(
+        _client,
         _endpoint,
         headers: {
           'Authorization': 'Bearer $_apiKey',
@@ -71,6 +73,32 @@ class DeepInfraEmbeddingProvider implements EmbeddingProvider {
       }
     }
     return vectors;
+  }
+}
+
+/// Per-request cap for embedding HTTP calls. Without it a hung provider
+/// leaves the document in `indexing` until the request is killed.
+const embeddingRequestTimeout = Duration(seconds: 60);
+
+/// POSTs to an embedding endpoint; a stalled call becomes an
+/// [EmbeddingException] (code `timeout`, see `friendlyIndexingError`) so the
+/// callers' existing failure paths (index -> failed, ask -> keyword fallback)
+/// handle it.
+Future<http.Response> postEmbeddingRequest(
+  http.Client client,
+  Uri url, {
+  required Map<String, String> headers,
+  required String body,
+  Duration timeout = embeddingRequestTimeout,
+}) async {
+  try {
+    return await client
+        .post(url, headers: headers, body: body)
+        .timeout(timeout);
+  } on TimeoutException {
+    throw EmbeddingException(
+      'timeout: no response within ${timeout.inSeconds}s',
+    );
   }
 }
 

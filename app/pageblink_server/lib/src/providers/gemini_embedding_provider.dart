@@ -34,7 +34,8 @@ class GeminiEmbeddingProvider implements EmbeddingProvider {
     final vectors = <List<double>>[];
     for (var i = 0; i < texts.length; i += 100) {
       final batch = texts.sublist(i, math.min(i + 100, texts.length));
-      final response = await _client.post(
+      final response = await postEmbeddingRequest(
+        _client,
         _endpoint,
         headers: {
           'x-goog-api-key': _apiKey,

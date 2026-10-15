@@ -206,6 +206,14 @@ class L {
       'The AI service is temporarily unavailable. Try again later.',
       'AI 서비스가 일시적으로 응답하지 않아요. 나중에 다시 시도해 주세요.',
     ),
+    'timeout' => _t(
+      'The AI service did not respond in time. Try again.',
+      'AI 서비스가 제때 응답하지 않았어요. 다시 시도해 주세요.',
+    ),
+    'interrupted' => _t(
+      'Indexing was interrupted. Try again.',
+      '색인이 중간에 끊겼어요. 다시 시도해 주세요.',
+    ),
     'no_source' => _t(
       'No text could be extracted from the source (e.g. a scanned PDF).',
       '원본에서 텍스트를 추출하지 못했어요 (스캔한 PDF 등).',
