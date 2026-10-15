@@ -31,7 +31,7 @@ abstract final class AppIcons {
   // Actions
   static const newQuestion = LucideIcons.messageSquarePlus;
   static const newNote = LucideIcons.squarePen;
-  static const newProject = LucideIcons.userPlus;
+  static const newProject = LucideIcons.folderPlus;
   static const invite = LucideIcons.userPlus;
   static const add = LucideIcons.plus;
   static const upload = LucideIcons.upload;
