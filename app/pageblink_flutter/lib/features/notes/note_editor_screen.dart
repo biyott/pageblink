@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +12,7 @@ import '../../app/pane_header.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
 import 'markdown_live.dart';
+import 'selection_mini_bar.dart';
 
 /// Body column width cap (018): keeps lines readable on wide windows.
 const noteColumnWidth = 680.0;
@@ -128,10 +131,21 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     styleOf: liveStylesFor,
   );
   final _bodyFocus = FocusNode();
+  final _bodyKey = GlobalKey();
+  final _stackKey = GlobalKey();
+  final _bodyScroll = ScrollController();
   late int? _id = widget.note?.id;
   late String _savedTitle = widget.note?.title ?? '';
   late String _savedBody = widget.note?.body ?? '';
   bool _saving = false;
+
+  // Selection mini bar (desktop and web; touch apps extend the system menu).
+  // Anchors are measured after layout, never while composing or dragging.
+  TextSelectionToolbarAnchors? _barAnchors;
+  TextSelection? _barDismissed; // Esc / right-click: hidden until it changes
+  bool _barEnabled = false;
+  bool _pointerDown = false;
+  bool _barQueued = false;
 
   bool get _changed => _title.text != _savedTitle || _body.text != _savedBody;
 
@@ -140,6 +154,9 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     super.initState();
     widget.controller?.flushHandler = _flush;
     _body.quote = widget.highlight;
+    _body.addListener(_syncBar);
+    _bodyFocus.addListener(_syncBar);
+    _bodyScroll.addListener(_syncBar);
   }
 
   @override
@@ -149,6 +166,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     _title.dispose();
     _body.dispose();
     _bodyFocus.dispose();
+    _bodyScroll.dispose();
     super.dispose();
   }
 
@@ -189,8 +207,52 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     _bodyFocus.requestFocus();
   }
 
+  /// Inline formats shared by the toolbar, the mini bar and the touch menu.
+  List<FormatAction> _inlineActions(L l) => [
+    (l.fmtBold, AppIcons.bold, (v) => toggleInline(v, '**')),
+    (l.fmtItalic, AppIcons.italic, (v) => toggleInline(v, '_')),
+    (l.fmtCode, AppIcons.code, (v) => toggleInline(v, '`')),
+    (l.fmtLink, AppIcons.link, toggleLink),
+  ];
+
+  void _syncBar() {
+    if (_barQueued) return;
+    _barQueued = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _barQueued = false;
+      if (!mounted) return;
+      final next = _measureBar();
+      final cur = _barAnchors;
+      if (next?.primaryAnchor != cur?.primaryAnchor ||
+          next?.secondaryAnchor != cur?.secondaryAnchor) {
+        setState(() => _barAnchors = next);
+      }
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  TextSelectionToolbarAnchors? _measureBar() {
+    final v = _body.value, sel = v.selection;
+    // Hangul/IME composing: stay out of the way until it is committed.
+    final composing = v.composing.isValid && !v.composing.isCollapsed;
+    if (!_barEnabled ||
+        _pointerDown ||
+        composing ||
+        !_bodyFocus.hasFocus ||
+        !sel.isValid ||
+        sel.isCollapsed ||
+        sel == _barDismissed) {
+      return null;
+    }
+    final editable = findEditableText(_bodyKey.currentContext);
+    final stack = _stackKey.currentContext?.findRenderObject();
+    if (editable == null || stack is! RenderBox || !stack.attached) return null;
+    return miniBarAnchors(editable, stack);
+  }
+
   Widget _toolbar(BuildContext context) {
     final l = context.l;
+    final inline = _inlineActions(l);
     Widget button(
       String tip,
       IconData icon,
@@ -228,13 +290,13 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                 ];
               },
             ),
-            button(l.fmtBold, AppIcons.bold, (v) => toggleInline(v, '**')),
-            button(l.fmtItalic, AppIcons.italic, (v) => toggleInline(v, '_')),
+            button(inline[0].$1, inline[0].$2, inline[0].$3),
+            button(inline[1].$1, inline[1].$2, inline[1].$3),
             button(l.fmtList, AppIcons.bulletList, toggleBullet),
             button(l.fmtCheckbox, AppIcons.checklist, toggleCheck),
             button(l.fmtQuote, AppIcons.quote, toggleQuote),
-            button(l.fmtCode, AppIcons.code, (v) => toggleInline(v, '`')),
-            button(l.fmtLink, AppIcons.link, toggleLink),
+            button(inline[2].$1, inline[2].$2, inline[2].$3),
+            button(inline[3].$1, inline[3].$2, inline[3].$3),
           ],
         ),
       ),
@@ -264,6 +326,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
         theme.platform == TargetPlatform.windows ||
         theme.platform == TargetPlatform.linux;
     final wide = width >= 600 || desktop;
+    _barEnabled = kIsWeb || desktop;
     // Cmd on Apple platforms, Ctrl elsewhere (Ctrl+B/I are caret moves on Mac).
     final apple =
         theme.platform == TargetPlatform.macOS ||
@@ -380,31 +443,88 @@ class _NoteEditorViewState extends State<NoteEditorView> {
               constraints: const BoxConstraints(maxWidth: noteColumnWidth),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: CallbackShortcuts(
-                  bindings: {
-                    key(LogicalKeyboardKey.keyB): () =>
-                        _apply((v) => toggleInline(v, '**')),
-                    key(LogicalKeyboardKey.keyI): () =>
-                        _apply((v) => toggleInline(v, '_')),
-                  },
-                  child: TextField(
-                    controller: _body,
-                    focusNode: _bodyFocus,
-                    style: bodyStyle,
-                    autofocus: widget.note == null,
-                    maxLines: null,
-                    expands: true,
-                    keyboardType: TextInputType.multiline,
-                    textAlignVertical: TextAlignVertical.top,
-                    decoration: InputDecoration(
-                      hintText: context.l.noteHint,
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
+                child: Stack(
+                  key: _stackKey,
+                  children: [
+                    Listener(
+                      onPointerDown: (e) {
+                        _pointerDown = true;
+                        if (e.buttons == kSecondaryMouseButton) {
+                          _barDismissed = _body.selection; // context menu
+                        }
+                        _syncBar();
+                      },
+                      onPointerUp: (_) {
+                        _pointerDown = false;
+                        _syncBar();
+                      },
+                      onPointerCancel: (_) {
+                        _pointerDown = false;
+                        _syncBar();
+                      },
+                      child: CallbackShortcuts(
+                        bindings: {
+                          key(LogicalKeyboardKey.keyB): () =>
+                              _apply((v) => toggleInline(v, '**')),
+                          key(LogicalKeyboardKey.keyI): () =>
+                              _apply((v) => toggleInline(v, '_')),
+                          if (_barAnchors != null)
+                            const SingleActivator(
+                              LogicalKeyboardKey.escape,
+                            ): () {
+                              _barDismissed = _body.selection;
+                              _syncBar();
+                            },
+                        },
+                        child: TextField(
+                          key: _bodyKey,
+                          controller: _body,
+                          focusNode: _bodyFocus,
+                          scrollController: _bodyScroll,
+                          contextMenuBuilder: (context, state) {
+                            final sel = state.textEditingValue.selection;
+                            return AdaptiveTextSelectionToolbar.buttonItems(
+                              anchors: state.contextMenuAnchors,
+                              buttonItems: [
+                                ...state.contextMenuButtonItems,
+                                if (sel.isValid && !sel.isCollapsed)
+                                  for (final (tip, _, toggle) in _inlineActions(
+                                    context.l,
+                                  ))
+                                    ContextMenuButtonItem(
+                                      label: tip,
+                                      onPressed: () {
+                                        state.hideToolbar(false);
+                                        _apply(toggle);
+                                      },
+                                    ),
+                              ],
+                            );
+                          },
+                          style: bodyStyle,
+                          autofocus: widget.note == null,
+                          maxLines: null,
+                          expands: true,
+                          keyboardType: TextInputType.multiline,
+                          textAlignVertical: TextAlignVertical.top,
+                          decoration: InputDecoration(
+                            hintText: context.l.noteHint,
+                            filled: false,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    if (_barAnchors != null)
+                      SelectionMiniBar(
+                        anchors: _barAnchors!,
+                        actions: _inlineActions(l),
+                        onApply: _apply,
+                      ),
+                  ],
                 ),
               ),
             ),
