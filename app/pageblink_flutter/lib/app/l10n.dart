@@ -363,6 +363,9 @@ class L {
   String get askPlaceholder =>
       _t('Ask your notes & documents…', '노트와 문서에 질문하기…');
   String get sourcesLabel => _t('Sources', '출처');
+
+  /// Spoken label of the tappable ⚡n marker inside an answer.
+  String citeMarkerLabel(int n) => _t('Source $n', '출처 $n');
   String get copy => _t('Copy', '복사');
   String get copied => _t('Copied', '복사했어요');
   String get scope => _t('Search scope', '검색 범위');

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' show cos, pi;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +13,7 @@ import '../viewer/citation_sheet.dart';
 import '../../app/open_item_controller.dart';
 import '../documents/documents_screen.dart' show documentsNotifier;
 import '../open_item/open_item_view.dart';
+import 'ask_markers.dart';
 import 'ask_suggestions.dart';
 import '../../app/app_icons.dart';
 
@@ -25,8 +27,10 @@ class AskScreen extends StatefulWidget {
   State<AskScreen> createState() => _AskScreenState();
 }
 
-class _Turn {
-  _Turn(this.question);
+/// One question and its streaming answer.
+@visibleForTesting
+class AskTurn {
+  AskTurn(this.question);
   final String question;
   final answer = StringBuffer();
   final citations = <int, Citation>{};
@@ -39,7 +43,7 @@ class _Turn {
 class _AskScreenState extends State<AskScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  final _turns = <_Turn>[];
+  final _turns = <AskTurn>[];
   final _selectedProjects = <int>{};
   bool _includePersonal = true;
   StreamSubscription<AnswerEvent>? _subscription;
@@ -71,8 +75,6 @@ class _AskScreenState extends State<AskScreen> {
     _selectedProjects.retainWhere(ids.contains);
   }
 
-  static final _marker = RegExp(r'\[(\d{1,2})\]');
-
   @override
   void dispose() {
     _subscription?.cancel();
@@ -95,7 +97,7 @@ class _AskScreenState extends State<AskScreen> {
     if (question.isEmpty || _streaming || _scopeEmpty) return;
     final failed = context.l.askFailed;
     _input.clear();
-    final turn = _Turn(question);
+    final turn = AskTurn(question);
     setState(() => _turns.add(turn));
 
     final projectIds = widget.projects.isEmpty
@@ -247,7 +249,7 @@ class _AskScreenState extends State<AskScreen> {
                   padding: const EdgeInsets.all(16),
                   itemCount: _turns.length,
                   itemBuilder: (context, i) =>
-                      _TurnView(_turns[i], onBlink: _blink),
+                      AskTurnView(_turns[i], onBlink: _blink),
                 ),
         ),
         SafeArea(
@@ -349,17 +351,6 @@ class _AskScreenState extends State<AskScreen> {
       ],
     );
   }
-
-  /// Renders `[n]` markers as ⚡n so they read as tappable citation numbers.
-  /// A space goes before the chip and, unless punctuation follows, after it;
-  /// thin spaces inside the code span pad the chip itself.
-  static String renderMarkers(String text) =>
-      text.replaceAllMapped(_marker, (m) {
-        final next = m.end < text.length ? text[m.end] : '';
-        final gap = next.isEmpty || _noGapAfter.hasMatch(next) ? '' : ' ';
-        return ' `\u2009⚡${m[1]}\u2009`$gap';
-      });
-  static final _noGapAfter = RegExp(r'[\s.,;:!?)\]]');
 }
 
 /// Menu sentinel for Auto; never sent to the server (Auto sends null).
@@ -692,14 +683,139 @@ class _ScopeChecklistState extends State<_ScopeChecklist> {
   }
 }
 
-class _TurnView extends StatelessWidget {
-  const _TurnView(this.turn, {required this.onBlink});
+/// One turn: the question bubble, the streaming answer and its source chips.
+/// Tapping a ⚡n marker in the answer scrolls to and flashes source chip n.
+@visibleForTesting
+class AskTurnView extends StatefulWidget {
+  const AskTurnView(this.turn, {super.key, required this.onBlink});
 
-  final _Turn turn;
+  final AskTurn turn;
   final void Function(List<Citation> all, Citation c) onBlink;
 
   @override
+  State<AskTurnView> createState() => _AskTurnViewState();
+}
+
+class _AskTurnViewState extends State<AskTurnView>
+    with SingleTickerProviderStateMixin {
+  /// ~900ms, two pulses.
+  late final _flash = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  );
+  final _chipKeys = <int, GlobalKey>{};
+  int? _flashing;
+
+  @override
+  void dispose() {
+    _flash.dispose();
+    super.dispose();
+  }
+
+  bool get _reduced => MediaQuery.disableAnimationsOf(context);
+
+  /// The number is looked up at tap time: an unknown or not yet arrived
+  /// source does nothing, and works once its citation event has come in.
+  Future<void> _cite(int index) async {
+    if (!widget.turn.citations.containsKey(index)) return;
+    final chip = _chipKeys[index]?.currentContext;
+    if (chip == null) return;
+    if (!_visible(chip)) {
+      await Scrollable.ensureVisible(
+        chip,
+        alignment: 0.4,
+        duration: _reduced ? Duration.zero : const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    if (!mounted) return;
+    setState(() => _flashing = index);
+    _flash.forward(from: 0);
+  }
+
+  /// Fully inside the enclosing scrollable (true when there is none).
+  static bool _visible(BuildContext chip) {
+    final box = chip.findRenderObject();
+    final viewport = Scrollable.maybeOf(chip)?.context.findRenderObject();
+    if (box is! RenderBox || viewport is! RenderBox || !box.hasSize) {
+      return true;
+    }
+    final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
+    return top >= 0 && top + box.size.height <= viewport.size.height;
+  }
+
+  /// 0 at rest; pulses 0 -> 1 -> 0 twice. Reduced motion: held at 1, no ramp.
+  double _glow(int index) {
+    if (_flashing != index || !_flash.isAnimating) return 0;
+    return _reduced ? 1 : (1 - cos(4 * pi * _flash.value)) / 2;
+  }
+
+  InlineSpan _marker(SourceTagBuildDetails tag) {
+    final pb = context.pb;
+    final size = tag.style.fontSize;
+    return TappableTextSpan(
+      text: '\u2009⚡${tag.id}\u2009',
+      onTap: tag.onTap,
+      mouseCursor: SystemMouseCursors.click,
+      semanticsLabel: context.l.citeMarkerLabel(int.tryParse(tag.id) ?? 0),
+      style: tag.style.copyWith(
+        fontSize: size == null ? null : size * 0.92,
+        fontWeight: FontWeight.w600,
+        color: pb.onAccentContainer,
+        backgroundColor: pb.accent.withValues(alpha: 0.14),
+      ),
+      hoverStyle: TextStyle(backgroundColor: pb.accent.withValues(alpha: 0.26)),
+    );
+  }
+
+  Widget _sourceChip(List<Citation> all, Citation c) {
+    final pb = context.pb;
+    return AnimatedBuilder(
+      key: _chipKeys.putIfAbsent(c.index, GlobalKey.new),
+      animation: _flash,
+      builder: (context, child) {
+        final g = _glow(c.index);
+        return DecoratedBox(
+          key: ValueKey('source-chip-${c.index}'),
+          decoration: ShapeDecoration(
+            shape: const StadiumBorder(),
+            color: pb.accent.withValues(alpha: 0.22 * g),
+            shadows: g == 0
+                ? null
+                : [
+                    BoxShadow(
+                      color: pb.accent.withValues(alpha: 0.45 * g),
+                      blurRadius: 14 * g,
+                      spreadRadius: 2 * g,
+                    ),
+                  ],
+          ),
+          child: child,
+        );
+      },
+      child: ActionChip(
+        visualDensity: VisualDensity.compact,
+        avatar: Icon(AppIcons.citation, size: 16, color: pb.accent),
+        side: BorderSide(color: pb.accent),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+        backgroundColor: Colors.transparent,
+        labelStyle: TextStyle(
+          fontSize: 13,
+          color: pb.onAccentContainer,
+          fontWeight: FontWeight.w500,
+        ),
+        label: Text(
+          '${c.index} · ${c.documentTitle}'
+          '${c.kind == 'note' ? '' : ' p.${c.page}'}',
+        ),
+        onPressed: () => widget.onBlink(all, c),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final turn = widget.turn;
     final colors = Theme.of(context).colorScheme;
     final pb = context.pb;
     final l = context.l;
@@ -765,7 +881,12 @@ class _TurnView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GptMarkdown(
-                      _AskScreenState.renderMarkers(turn.answer.toString()),
+                      renderMarkers(turn.answer.toString()),
+                      inlineSourceTagBuilder: _marker,
+                      onSourceTagTap: (id) {
+                        final n = int.tryParse(id);
+                        if (n != null) _cite(n);
+                      },
                     ),
                     if (citations.isNotEmpty) ...[
                       const SizedBox(height: 12),
@@ -785,30 +906,7 @@ class _TurnView extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          for (final c in citations)
-                            ActionChip(
-                              visualDensity: VisualDensity.compact,
-                              avatar: Icon(
-                                AppIcons.citation,
-                                size: 16,
-                                color: pb.accent,
-                              ),
-                              side: BorderSide(color: pb.accent),
-                              labelPadding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                              ),
-                              backgroundColor: Colors.transparent,
-                              labelStyle: TextStyle(
-                                fontSize: 13,
-                                color: pb.onAccentContainer,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              label: Text(
-                                '${c.index} · ${c.documentTitle}'
-                                '${c.kind == 'note' ? '' : ' p.${c.page}'}',
-                              ),
-                              onPressed: () => onBlink(citations, c),
-                            ),
+                          for (final c in citations) _sourceChip(citations, c),
                         ],
                       ),
                     ],
