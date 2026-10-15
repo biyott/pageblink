@@ -151,7 +151,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 
 | # | 항목 | 상태 | 세부 |
 |---|---|---|---|
-| ① | **NFC 수정 검증 → 커밋 → 배포** | ✅ 완료 (`5a2b7d9`, 6차 배포). 라이브 확인만 사용자 몫 | 아래 §3-1 |
+| ① | **NFC 수정 검증 → 커밋 → 배포** | ✅ 완료·사용자 확인됨 (`5a2b7d9`, 6차 배포) | 아래 §3-1 |
 | ② | **노트별 색 변경 + 상단 고정** | 미착수 | 아래 §3-2 |
 | ③ | **PDF·노트 검색 컬럼** | 계획 | [010](010-pdf-search-column.md) |
 | ④ | **폼 입력란 PDF 폴백 (P3)** | 계획 | [011](011-pdf-form-field-fallback.md) |
@@ -170,7 +170,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 | 서버 `dart analyze` 이슈 0, `test/unit/text_norm_test.dart` 2개 통과 | ✅ |
 | NFC 관련 8개 파일만 커밋 (README·run-locally·config 제외) | ✅ `5a2b7d9` |
 | main → push → 배포(6차) → 라이브 200 | ✅ |
-| 라이브에서 NFD 파일명 PDF(예: `부산 여행 계획.pdf`)를 한글 IME 입력으로 제목 검색 | ⚠️ 사용자 확인 필요 (이미 저장된 NFD 제목도 검색 쪽 정규화로 잡혀야 함) |
+| 라이브에서 NFD 파일명 PDF(예: `부산 여행 계획.pdf`)를 한글 IME 입력으로 제목 검색 | ✅ 사용자 확인됨 (이미 저장된 NFD 제목도 잡힘, 텍스트 PDF 질문도 동작) |
 
 ### 3-2. ② 노트별 색 변경 + 상단 고정 (설계)
 
