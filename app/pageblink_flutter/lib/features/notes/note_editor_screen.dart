@@ -193,7 +193,11 @@ class _NoteEditorViewState extends State<NoteEditorView> {
               style: Theme.of(context).textTheme.titleLarge,
               decoration: InputDecoration(
                 hintText: context.l.titleHint,
+                filled: false,
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
               ),
             ),
           ),
@@ -217,7 +221,11 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                       textAlignVertical: TextAlignVertical.top,
                       decoration: InputDecoration(
                         hintText: context.l.noteHint,
+                        filled: false,
                         border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
                       ),
                     ),
                   ),

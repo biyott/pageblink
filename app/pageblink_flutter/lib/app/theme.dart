@@ -160,7 +160,7 @@ ThemeData buildPbTheme(Brightness brightness) {
         surfaceTint: Colors.transparent,
       );
 
-  const sansFallback = ['Noto Sans KR'];
+  final sansFallback = [GoogleFonts.notoSansKr().fontFamily!];
   final inter = GoogleFonts.interTextTheme(
     ThemeData(brightness: brightness).textTheme,
   ).apply(bodyColor: pb.ink, displayColor: pb.ink);
@@ -170,7 +170,11 @@ ThemeData buildPbTheme(Brightness brightness) {
         fontWeight: weight,
         height: 1.2,
         color: pb.ink,
-      ).copyWith(fontFamilyFallback: [GoogleFonts.notoSerifKr().fontFamily!]);
+      ).copyWith(
+        fontFamilyFallback: [
+          GoogleFonts.notoSerifKr(fontWeight: weight).fontFamily!,
+        ],
+      );
 
   final text = inter.copyWith(
     headlineMedium: serif(30),

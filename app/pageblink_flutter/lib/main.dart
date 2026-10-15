@@ -40,8 +40,10 @@ class PageBlinkApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      // English by default; Korean if any of the device/browser locales is ko.
+      // A chosen language always wins. System: English, or Korean if any device/
+      // browser locale is ko.
       localeResolutionCallback: (locale, supported) {
+        if (chosen != null) return chosen;
         final preferred = [
           ?locale,
           ...WidgetsBinding.instance.platformDispatcher.locales,

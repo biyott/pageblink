@@ -162,7 +162,11 @@ class _AskScreenState extends State<AskScreen> {
                   tooltip: context.l.newChat,
                   onPressed: _turns.isEmpty
                       ? null
-                      : () => setState(() => _turns.clear()),
+                      : () {
+                          _subscription?.cancel();
+                          _subscription = null;
+                          setState(_turns.clear);
+                        },
                   icon: const Icon(Icons.edit_outlined),
                 ),
               ],
@@ -578,16 +582,54 @@ class _EmptyHint extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                for (final s in context.l.askSuggestions)
-                  ActionChip(label: Text(s), onPressed: () => onPick(s)),
-              ],
-            ),
+            for (final s in context.l.askSuggestions)
+              _SuggestionCard(text: s, onTap: () => onPick(s)),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// One example question: wraps freely, never shorter than a 44px tap target.
+class _SuggestionCard extends StatelessWidget {
+  const _SuggestionCard({required this.text, required this.onTap});
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: BorderSide(color: pb.hairline),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420, minHeight: 44),
+        child: SizedBox(
+          width: double.infinity,
+          child: Material(
+            color: pb.chipBg,
+            shape: shape,
+            child: InkWell(
+              customBorder: shape,
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Text(
+                  text,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
