@@ -5,6 +5,7 @@ import '../../app/l10n.dart';
 import '../../app/locale_controller.dart';
 import '../../app/pane_header.dart';
 import '../../client.dart';
+import '../../app/app_icons.dart';
 
 /// Language preference and sign-out. Opens like a note: in the center pane
 /// ([embedded]) or as a page on phones.
@@ -69,7 +70,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               const Divider(height: 32),
               ListTile(
-                leading: const Icon(Icons.logout),
+                leading: const Icon(AppIcons.signOut),
                 title: Text(l.signOut),
                 // No pop needed: signing out replaces the whole HomeShell.
                 onTap: () => client.auth.signOutDevice(),

@@ -3,6 +3,7 @@ import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/l10n.dart';
 import '../../client.dart';
+import '../../app/app_icons.dart';
 
 /// Shared Vision: projects whose documents members can all ask about.
 class ProjectsScreen extends StatelessWidget {
@@ -80,7 +81,7 @@ class ProjectsScreen extends StatelessWidget {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _create(context),
-        icon: const Icon(Icons.group_add_outlined),
+        icon: const Icon(AppIcons.newProject),
         label: Text(context.l.newProject),
       ),
       body: projects.isEmpty
@@ -97,10 +98,10 @@ class ProjectsScreen extends StatelessWidget {
               children: [
                 for (final p in projects)
                   ListTile(
-                    leading: const Icon(Icons.groups_outlined),
+                    leading: const Icon(AppIcons.projects),
                     title: Text(p.name),
                     trailing: IconButton(
-                      icon: const Icon(Icons.person_add_alt),
+                      icon: const Icon(AppIcons.invite),
                       tooltip: context.l.invite,
                       onPressed: () => _invite(context, p),
                     ),

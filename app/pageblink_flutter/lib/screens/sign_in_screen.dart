@@ -4,6 +4,7 @@ import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../client.dart';
+import '../app/app_icons.dart';
 
 /// 12–50 chars, a lowercase letter and a number, plus an uppercase letter or
 /// a special character. (The server's own policy, ≥8 chars, is looser.)
@@ -243,21 +244,26 @@ class _Hero extends StatelessWidget {
     };
     final bullets = [
       (
-        Icons.sticky_note_2_outlined,
+        AppIcons.note,
         l.landingFeatureBoardTitle,
         l.landingFeatureBoardBody,
         false,
       ),
-      (Icons.bolt, l.landingFeatureCiteTitle, l.landingFeatureCiteBody, true),
       (
-        Icons.groups_outlined,
+        AppIcons.citation,
+        l.landingFeatureCiteTitle,
+        l.landingFeatureCiteBody,
+        true,
+      ),
+      (
+        AppIcons.projects,
         l.landingFeatureShareTitle,
         l.landingFeatureShareBody,
         false,
       ),
       if (desktop)
         (
-          Icons.shield_outlined,
+          AppIcons.privacy,
           l.landingFeaturePrivacyTitle,
           l.landingFeaturePrivacyBody,
           false,
@@ -417,7 +423,7 @@ class _PreviewCard extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.bolt, size: 12, color: pb.accent),
+            Icon(AppIcons.citation, size: 12, color: pb.accent),
             Text(
               '$n',
               style: TextStyle(

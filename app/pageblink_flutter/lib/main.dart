@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
+import 'app/app_icons.dart';
 import 'app/l10n.dart';
 import 'app/locale_controller.dart';
 import 'app/open_item_controller.dart';
@@ -143,15 +144,15 @@ class _HomeShellState extends State<HomeShell> {
   List<({IconData icon, IconData selected, String label})> _destinations(
     L l,
   ) => [
-    (icon: Icons.bolt_outlined, selected: Icons.bolt, label: l.tabAsk),
+    (icon: AppIcons.ask, selected: AppIcons.askSelected, label: l.tabAsk),
     (
-      icon: Icons.sticky_note_2_outlined,
-      selected: Icons.sticky_note_2,
+      icon: AppIcons.note,
+      selected: AppIcons.noteSelected,
       label: l.tabNotes,
     ),
     (
-      icon: Icons.groups_outlined,
-      selected: Icons.groups,
+      icon: AppIcons.projects,
+      selected: AppIcons.projectsSelected,
       label: l.tabProjects,
     ),
   ];
@@ -212,12 +213,12 @@ class _HomeShellState extends State<HomeShell> {
       title: const Text('⚡ PageBlink'),
       actions: [
         IconButton(
-          icon: const Icon(Icons.settings_outlined),
+          icon: const Icon(AppIcons.settings),
           tooltip: l.settings,
           onPressed: _openSettings,
         ),
         IconButton(
-          icon: const Icon(Icons.logout),
+          icon: const Icon(AppIcons.signOut),
           tooltip: l.signOut,
           onPressed: () => client.auth.signOutDevice(),
         ),
@@ -424,7 +425,7 @@ class _Sidebar extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
                   child: Row(
                     children: [
-                      Icon(Icons.bolt, size: 24, color: pb.accent),
+                      Icon(AppIcons.ask, size: 24, color: pb.accent),
                       const SizedBox(width: 6),
                       Text('PageBlink', style: text.titleLarge),
                     ],
@@ -438,21 +439,21 @@ class _Sidebar extends StatelessWidget {
                   ),
                 ),
                 _NavItem(
-                  icon: Icons.sticky_note_2_outlined,
+                  icon: AppIcons.note,
                   label: l.tabNotes,
                   count: docs.length,
                   active: selected == 1,
                   onTap: () => onSelect(1),
                 ),
                 _NavItem(
-                  icon: Icons.groups_outlined,
+                  icon: AppIcons.projects,
                   label: l.tabProjects,
                   count: projects.isEmpty ? null : projects.length,
                   active: selected == 2,
                   onTap: () => onSelect(2),
                 ),
                 _NavItem(
-                  icon: Icons.settings_outlined,
+                  icon: AppIcons.settings,
                   label: l.settings,
                   active: false,
                   onTap: () => openItem(context, OpenItem.settings()),
@@ -471,20 +472,20 @@ class _Sidebar extends StatelessWidget {
                   ),
                 ),
                 _TierRow(
-                  icon: Icons.shield_outlined,
+                  icon: AppIcons.privacy,
                   title: 'Cloak',
                   subtitle: l.deviceOnly,
                   badge: l.soon.toUpperCase(),
                   dim: true,
                 ),
                 _TierRow(
-                  icon: Icons.cloud_outlined,
+                  icon: AppIcons.tierCloud,
                   title: l.myCloud,
                   subtitle: l.privateToYou,
                   count: mine,
                 ),
                 _TierRow(
-                  icon: Icons.groups_outlined,
+                  icon: AppIcons.tierShared,
                   title: l.sharedVisionName,
                   subtitle: projects.isEmpty
                       ? l.projectsNone
@@ -494,7 +495,7 @@ class _Sidebar extends StatelessWidget {
                 const Spacer(),
                 const Divider(),
                 _NavItem(
-                  icon: Icons.logout,
+                  icon: AppIcons.signOut,
                   label: l.signOut,
                   active: false,
                   onTap: () => client.auth.signOutDevice(),

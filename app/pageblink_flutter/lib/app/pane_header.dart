@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'l10n.dart';
 import 'theme.dart';
+import 'app_icons.dart';
 
 /// Top bar of an opened note or PDF. Embedded in the center pane it reads
 /// "← Notes / Title" with a close button; as a full page (phones) it is a
@@ -42,7 +43,7 @@ class PaneHeader extends StatelessWidget {
           if (embedded) ...[
             TextButton.icon(
               onPressed: onBack,
-              icon: const Icon(Icons.arrow_back, size: 18),
+              icon: const Icon(AppIcons.back, size: 18),
               label: Text(backLabel ?? l.tabNotes),
               style: TextButton.styleFrom(foregroundColor: pb.inkMuted),
             ),
@@ -51,7 +52,7 @@ class PaneHeader extends StatelessWidget {
           ] else
             IconButton(
               tooltip: l.back,
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(AppIcons.back),
               onPressed: onBack,
             ),
           Expanded(
@@ -66,7 +67,7 @@ class PaneHeader extends StatelessWidget {
           if (embedded && onClose != null)
             IconButton(
               tooltip: l.closeEsc,
-              icon: const Icon(Icons.close),
+              icon: const Icon(AppIcons.close),
               onPressed: onClose,
             ),
         ],

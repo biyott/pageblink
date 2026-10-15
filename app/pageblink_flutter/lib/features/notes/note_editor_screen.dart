@@ -7,6 +7,7 @@ import '../../app/open_item_controller.dart';
 import '../../app/pane_header.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
+import '../../app/app_icons.dart';
 
 /// Body column width cap (018): keeps lines readable on wide windows.
 const noteColumnWidth = 680.0;
@@ -210,15 +211,13 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                   ButtonSegment(
                     value: true,
                     label: width < 400 ? null : Text(l.preview),
-                    icon: width < 400
-                        ? const Icon(Icons.visibility_outlined)
-                        : null,
+                    icon: width < 400 ? const Icon(AppIcons.preview) : null,
                     tooltip: l.preview,
                   ),
                   ButtonSegment(
                     value: false,
                     label: width < 400 ? null : Text(l.edit),
-                    icon: width < 400 ? const Icon(Icons.edit_outlined) : null,
+                    icon: width < 400 ? const Icon(AppIcons.edit) : null,
                     tooltip: l.edit,
                   ),
                 ],
@@ -236,7 +235,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
               else
                 IconButton(
                   tooltip: l.save,
-                  icon: const Icon(Icons.check),
+                  icon: const Icon(AppIcons.check),
                   onPressed: _saveAndClose,
                 ),
             ],
@@ -345,37 +344,37 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                     children: [
                       IconButton(
                         tooltip: context.l.fmtHeading,
-                        icon: const Icon(Icons.title),
+                        icon: const Icon(AppIcons.heading),
                         onPressed: () => _linePrefix('## '),
                       ),
                       IconButton(
                         tooltip: context.l.fmtBold,
-                        icon: const Icon(Icons.format_bold),
+                        icon: const Icon(AppIcons.bold),
                         onPressed: () => _wrap('**', '**'),
                       ),
                       IconButton(
                         tooltip: context.l.fmtItalic,
-                        icon: const Icon(Icons.format_italic),
+                        icon: const Icon(AppIcons.italic),
                         onPressed: () => _wrap('_', '_'),
                       ),
                       IconButton(
                         tooltip: context.l.fmtList,
-                        icon: const Icon(Icons.format_list_bulleted),
+                        icon: const Icon(AppIcons.bulletList),
                         onPressed: () => _linePrefix('- '),
                       ),
                       IconButton(
                         tooltip: context.l.fmtCheckbox,
-                        icon: const Icon(Icons.check_box_outlined),
+                        icon: const Icon(AppIcons.checklist),
                         onPressed: () => _linePrefix('- [ ] '),
                       ),
                       IconButton(
                         tooltip: context.l.fmtQuote,
-                        icon: const Icon(Icons.format_quote),
+                        icon: const Icon(AppIcons.quote),
                         onPressed: () => _linePrefix('> '),
                       ),
                       IconButton(
                         tooltip: context.l.fmtCode,
-                        icon: const Icon(Icons.code),
+                        icon: const Icon(AppIcons.code),
                         onPressed: () => _wrap('`', '`'),
                       ),
                     ],

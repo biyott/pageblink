@@ -11,6 +11,7 @@ import '../../client.dart';
 import '../viewer/citation_sheet.dart';
 import '../../app/open_item_controller.dart';
 import '../open_item/open_item_view.dart';
+import '../../app/app_icons.dart';
 
 /// Ask a question; the answer streams in with ⚡ citations you can blink to.
 class AskScreen extends StatefulWidget {
@@ -199,7 +200,7 @@ class _AskScreenState extends State<AskScreen> {
             padding: const EdgeInsets.fromLTRB(20, 18, 12, 4),
             child: Row(
               children: [
-                Icon(Icons.bolt, size: 26, color: pb.accent),
+                Icon(AppIcons.ask, size: 26, color: pb.accent),
                 const SizedBox(width: 6),
                 Text(
                   context.l.tabAsk,
@@ -217,7 +218,7 @@ class _AskScreenState extends State<AskScreen> {
                           _subscription = null;
                           setState(_turns.clear);
                         },
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: const Icon(AppIcons.newQuestion),
                 ),
               ],
             ),
@@ -298,7 +299,7 @@ class _AskScreenState extends State<AskScreen> {
                             return IconButton.filled(
                               onPressed: canSend ? _ask : null,
                               tooltip: context.l.askTooltip,
-                              icon: const Icon(Icons.arrow_upward),
+                              icon: const Icon(AppIcons.send),
                               style: IconButton.styleFrom(
                                 fixedSize: const Size(40, 40),
                                 backgroundColor: pb.accent,
@@ -359,7 +360,7 @@ class _ModelPill extends StatelessWidget {
     final muted = TextStyle(fontSize: 11, color: pb.inkMuted);
     Widget check(bool on) => SizedBox(
       width: 20,
-      child: on ? Icon(Icons.check, size: 18, color: pb.accent) : null,
+      child: on ? Icon(AppIcons.check, size: 18, color: pb.accent) : null,
     );
     return PopupMenuButton<String>(
       tooltip: l.answerModel,
@@ -444,7 +445,7 @@ class _ModelPill extends StatelessWidget {
               const SizedBox(width: 6),
               _FreeBadge(free: current.free),
             ],
-            const Icon(Icons.keyboard_arrow_down, size: 18),
+            const Icon(AppIcons.expand, size: 18),
           ],
         ),
       ),
@@ -515,7 +516,7 @@ class _ScopeButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  empty ? Icons.warning_amber_rounded : Icons.manage_search,
+                  empty ? AppIcons.warning : AppIcons.scope,
                   size: 16,
                   color: color,
                 ),
@@ -532,7 +533,7 @@ class _ScopeButton extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(Icons.keyboard_arrow_down, size: 18, color: color),
+                Icon(AppIcons.expand, size: 18, color: color),
               ],
             ),
           ),
@@ -629,7 +630,7 @@ class _ScopeChecklistState extends State<_ScopeChecklist> {
             controlAffinity: ListTileControlAffinity.leading,
             title: Text(l.myDocs),
             subtitle: Text(l.onlyYou),
-            secondary: const Icon(Icons.cloud_outlined),
+            secondary: const Icon(AppIcons.tierCloud),
           ),
           for (final p in widget.projects)
             CheckboxListTile(
@@ -641,7 +642,7 @@ class _ScopeChecklistState extends State<_ScopeChecklist> {
               ),
               controlAffinity: ListTileControlAffinity.leading,
               title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-              secondary: const Icon(Icons.groups_outlined),
+              secondary: const Icon(AppIcons.tierShared),
             ),
           if (!_personal && _selected.intersection(ids).isEmpty)
             Padding(
@@ -764,7 +765,7 @@ class _TurnView extends StatelessWidget {
                             ActionChip(
                               visualDensity: VisualDensity.compact,
                               avatar: Icon(
-                                Icons.bolt,
+                                AppIcons.citation,
                                 size: 16,
                                 color: pb.accent,
                               ),
@@ -792,7 +793,7 @@ class _TurnView extends StatelessWidget {
                           iconSize: 20,
                           color: pb.inkMuted,
                           tooltip: l.copy,
-                          icon: const Icon(Icons.copy_outlined),
+                          icon: const Icon(AppIcons.copy),
                           onPressed: () async {
                             await Clipboard.setData(
                               ClipboardData(text: turn.answer.toString()),
@@ -840,7 +841,7 @@ class _EmptyHint extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.bolt, size: 44, color: theme.colorScheme.primary),
+            Icon(AppIcons.ask, size: 44, color: theme.colorScheme.primary),
             const SizedBox(height: 12),
             Text(
               context.l.askEmptyTitle,

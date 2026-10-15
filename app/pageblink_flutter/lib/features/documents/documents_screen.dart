@@ -11,6 +11,7 @@ import '../../client.dart';
 import '../../app/open_item_controller.dart';
 import '../open_item/open_item_view.dart';
 import 'pdf_text.dart';
+import '../../app/app_icons.dart';
 
 /// Keep-style board of notes and PDFs (personal and project).
 class DocumentsScreen extends StatefulWidget {
@@ -223,19 +224,19 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             ListTile(title: Text(l.whereToPut)),
             ListTile(
               enabled: false,
-              leading: const Icon(Icons.visibility_off_outlined),
+              leading: const Icon(AppIcons.tierDevice),
               title: Text(l.cloakTitle),
               subtitle: Text(l.cloakSubtitle),
             ),
             ListTile(
-              leading: const Icon(Icons.cloud_outlined),
+              leading: const Icon(AppIcons.tierCloud),
               title: Text(l.myCloud),
               subtitle: Text(l.onlyYou),
               onTap: () => Navigator.pop(context, 0),
             ),
             for (final p in widget.projects)
               ListTile(
-                leading: const Icon(Icons.groups_outlined),
+                leading: const Icon(AppIcons.tierShared),
                 title: Text(l.sharedVision(p.name)),
                 subtitle: Text(l.shareWithMembers),
                 onTap: () => Navigator.pop(context, p.id),
@@ -286,9 +287,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       return ChoiceChip(
         selected: selected,
         showCheckmark: selected,
-        avatar: warn
-            ? Icon(Icons.error_outline, size: 16, color: pb.warn)
-            : null,
+        avatar: warn ? Icon(AppIcons.error, size: 16, color: pb.warn) : null,
         label: Text(warn ? l.needsAttention(n) : '$label $n'),
         backgroundColor: warn ? pb.warnContainer : null,
         side: warn
@@ -307,7 +306,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       onChanged: (v) => setState(() => _query = v),
       decoration: InputDecoration(
         hintText: l.searchHint,
-        prefixIcon: const Icon(Icons.search),
+        prefixIcon: const Icon(AppIcons.search),
         isDense: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -349,14 +348,14 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 const SizedBox(width: 12),
                 FilledButton.icon(
                   onPressed: () => _openNote(null),
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(AppIcons.add),
                   label: Text(l.newNote),
                   style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
                   onPressed: _busy == null ? _upload : null,
-                  icon: const Icon(Icons.upload_outlined),
+                  icon: const Icon(AppIcons.upload),
                   label: Text(l.uploadPdf),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(0, 44),
@@ -411,13 +410,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                   heroTag: 'pdf',
                   tooltip: l.uploadPdf,
                   onPressed: _busy == null ? _upload : null,
-                  child: const Icon(Icons.picture_as_pdf_outlined),
+                  child: const Icon(AppIcons.pdf),
                 ),
                 const SizedBox(height: 12),
                 FloatingActionButton.extended(
                   heroTag: 'note',
                   onPressed: () => _openNote(null),
-                  icon: const Icon(Icons.edit_note),
+                  icon: const Icon(AppIcons.newNote),
                   label: Text(l.newNote),
                 ),
               ],
@@ -429,7 +428,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               (docs?.any((d) => d.status == 'failed') ?? false))
             MaterialBanner(
               backgroundColor: context.pb.warnContainer,
-              leading: const Icon(Icons.sync_problem),
+              leading: const Icon(AppIcons.syncFailed),
               content: Text(
                 '${l.failedBanner(docs!.where((d) => d.status == 'failed').length)}\n'
                 '${l.indexingError(docs.firstWhere((d) => d.status == 'failed').lastError)}',
@@ -524,8 +523,8 @@ class _DocumentCard extends StatelessWidget {
         .where((p) => p.id == document.projectId)
         .firstOrNull;
     final (tierIcon, tier) = document.projectId == null
-        ? (Icons.cloud_outlined, l.myCloud)
-        : (Icons.groups_outlined, project?.name ?? l.shared);
+        ? (AppIcons.tierCloud, l.myCloud)
+        : (AppIcons.tierShared, project?.name ?? l.shared);
     final status = switch (document.status) {
       'ready' || 'failed' => null,
       'indexing' => l.indexing,
@@ -570,9 +569,7 @@ class _DocumentCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
-                      isNote
-                          ? Icons.sticky_note_2_outlined
-                          : Icons.picture_as_pdf_outlined,
+                      isNote ? AppIcons.note : AppIcons.pdf,
                       size: 18,
                     ),
                   ),
@@ -689,7 +686,7 @@ class _FailedBlock extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.error_outline, size: 16, color: pb.warn),
+              Icon(AppIcons.error, size: 16, color: pb.warn),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -708,7 +705,7 @@ class _FailedBlock extends StatelessWidget {
             message: message,
             child: OutlinedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 16),
+              icon: const Icon(AppIcons.refresh, size: 16),
               label: Text(l.reindex),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(0, 32),

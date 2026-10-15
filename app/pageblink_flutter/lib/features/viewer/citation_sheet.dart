@@ -5,6 +5,7 @@ import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
+import '../../app/app_icons.dart';
 
 /// Mobile "Blink": a bottom sheet previewing the cited passage, with a
 /// button that hands the citation to [onOpen] (note in the Notes tab, PDF in
@@ -101,7 +102,7 @@ class _CitationSheetState extends State<_CitationSheet> {
                     child: Row(
                       children: [
                         _Step(
-                          icon: Icons.chevron_left,
+                          icon: AppIcons.previous,
                           onTap: _i > 0 ? () => setState(() => _i--) : null,
                         ),
                         Text(
@@ -113,7 +114,7 @@ class _CitationSheetState extends State<_CitationSheet> {
                           ),
                         ),
                         _Step(
-                          icon: Icons.chevron_right,
+                          icon: AppIcons.next,
                           onTap: _i < total - 1
                               ? () => setState(() => _i++)
                               : null,
@@ -134,9 +135,7 @@ class _CitationSheetState extends State<_CitationSheet> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      isNote
-                          ? Icons.sticky_note_2_outlined
-                          : Icons.picture_as_pdf_outlined,
+                      isNote ? AppIcons.note : AppIcons.pdf,
                     ),
                   ),
                   const SizedBox(width: 12),
