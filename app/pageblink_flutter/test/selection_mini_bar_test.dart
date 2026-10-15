@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pageblink_flutter/app/app_icons.dart';
 import 'package:pageblink_flutter/app/theme.dart';
+import 'package:pageblink_flutter/features/notes/link_popover.dart';
 import 'package:pageblink_flutter/features/notes/markdown_live.dart';
 import 'package:pageblink_flutter/features/notes/note_editor_screen.dart';
 import 'package:pageblink_flutter/features/notes/selection_mini_bar.dart';
@@ -209,8 +210,12 @@ void mouseTests() {
         t,
         find.descendant(of: _bar, matching: find.byIcon(AppIcons.link)),
       );
-      expect(c.text, 'hello [world]()');
+      // the link button opens the edit popover; the text is not touched yet
+      expect(c.text, 'hello world');
+      expect(find.byType(LinkEditPopover), findsOneWidget);
       await _select(t, c, 'hello world', 0, 5);
+      await t.pump(); // focus returns to the body, then the bar is measured
+      expect(find.byType(LinkEditPopover), findsNothing); // stale: dropped
       await _mouseClick(t, find.byKey(const ValueKey('mini-h2')));
       expect(c.text, '## hello world');
     });

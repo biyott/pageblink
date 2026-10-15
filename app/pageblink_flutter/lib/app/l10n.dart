@@ -138,6 +138,14 @@ class L {
   String get fmtOrderedList => _t('Numbered list', '번호 목록');
   String get openLink => _t('Open', '열기');
   String get linkOpenFailed => _t('Could not open the link.', '링크를 열지 못했어요.');
+  String get linkCopy => _t('Copy link', '링크 복사');
+  String get linkEdit => _t('Edit link', '링크 편집');
+  String get linkRemove => _t('Remove link', '링크 해제');
+  String get linkText => _t('Text', '텍스트');
+  String get linkUrl => _t('URL', '주소');
+  String get linkUnsafe =>
+      _t("This link isn't safe, so it won't open.", '안전하지 않은 링크라 열지 않아요');
+  String get codeCopy => _t('Copy code', '코드 복사');
   String get modeLive => _t('Live', '라이브');
   String get modeSource => _t('Source', '소스');
 
@@ -149,14 +157,8 @@ class L {
     '아직 노트가 없어요.\n메모를 쓰거나 PDF를 올리고 질문해 보세요.',
   );
   String get reindex => _t('Re-index', '다시 색인');
-  String get reindexAll => _t('Re-index all', '모두 다시 색인');
   String get indexing => _t('Indexing', '색인 중');
   String get indexingFailed => _t('Indexing failed', '색인 실패');
-  String failedBanner(int n) => _k(
-    '$n ${n == 1 ? 'document' : 'documents'} failed to index and '
-        '${n == 1 ? 'is' : 'are'} left out of Ask.',
-    '색인 실패 $n개 — 질문 검색에서 빠져 있어요.',
-  );
   String pdfPages(int n) =>
       _t('PDF · $n ${n == 1 ? 'page' : 'pages'}', 'PDF · $n쪽');
   String get shared => _t('Shared', '공유');
@@ -227,9 +229,79 @@ class L {
   String indexed(String title) => _t('Indexed: $title', '색인 완료: $title');
   String get reindexFailed =>
       _k("Couldn't re-index. Try again.", '다시 색인하지 못했어요. 다시 시도해 주세요.');
-  String get reindexingFailedItems =>
-      _t('Re-indexing failed items…', '실패한 항목 다시 색인 중…');
   String reindexedCount(int n) => _t('$n re-indexed', '$n개 색인 완료');
+
+  // Card status line + board retry link (docs/design/upload-dnd-reindex §2.8).
+  String get indexingLong => _k(
+    'Indexing · large files take a while',
+    '색인 중 · 큰 문서는 시간이 걸려요',
+  );
+  String get indexingVeryLong => _k(
+    'Taking longer than usual · re-index from ⋯',
+    '색인이 오래 걸리고 있어요 · ⋯에서 다시 색인',
+  );
+  String get reindexingShort => _t('Re-indexing', '다시 색인 중');
+  String get indexingInterrupted =>
+      _t('Indexing interrupted', '색인이 끊겼어요');
+  String get indexingNoText =>
+      _t("Couldn't read any text", '텍스트를 읽지 못했어요');
+  String get indexingServerSetup =>
+      _t('Indexing failed · Check server setup', '색인 실패 · 서버 설정 확인');
+  String get retry => _t('Retry', '다시 시도');
+  String retryFailed(int n) => _t('Retry $n failed', '실패 $n개 다시 시도');
+  String get retrying => _t('Retrying…', '다시 시도 중…');
+  String retryResult(int ok, int left) => _k(
+    '$ok indexed · $left still failing',
+    '$ok개 색인 완료 · $left개는 계속 실패했어요',
+  );
+
+  // PDF drop zone and upload tray (docs/design/upload-dnd-reindex §3.10).
+  String get dropTitle =>
+      _t('Drop PDFs here to add', 'PDF를 여기에 놓아 추가');
+  String dropSub(String target) => _t(
+    'Drop several at once · Goes to $target',
+    '여러 파일을 한 번에 놓을 수 있어요 · 대상: $target',
+  );
+  String get dropSubChoose => _t(
+    'Drop several at once · You choose where after dropping',
+    '여러 파일을 한 번에 놓을 수 있어요 · 놓은 뒤 위치를 골라요',
+  );
+  String get dropTitleEditor =>
+      _t('Drop PDFs to add as new documents', 'PDF를 놓아 새 문서로 추가');
+  String dropSubEditor(String target) => _t(
+    'Your open note stays as it is · Goes to $target',
+    '지금 쓰는 노트는 그대로예요 · 대상: $target',
+  );
+  String get dropSubEditorChoose => _t(
+    'Your open note stays as it is · You choose where after dropping',
+    '지금 쓰는 노트는 그대로예요 · 놓은 뒤 위치를 골라요',
+  );
+  String a11yDropZone(String target) => _t(
+    'Drop area. Dropped PDFs are added to $target',
+    '파일 놓기 영역. PDF를 놓으면 $target에 추가돼요',
+  );
+  String trayAdding(int n, int i) =>
+      _t('Adding $n ${n == 1 ? 'PDF' : 'PDFs'} · $i/$n', 'PDF $n개 추가 중 · $i/$n');
+  String trayAddingIssues(int n, int bad) =>
+      _t('Adding $n · $bad need attention', '$n개 추가 중 · $bad개 확인 필요');
+  String trayPartial(int ok, int bad) =>
+      _t('$ok added · $bad need attention', '$ok개 추가됨 · $bad개 확인 필요');
+  String trayDone(int n) =>
+      _t('Added $n ${n == 1 ? 'PDF' : 'PDFs'}', 'PDF $n개를 추가했어요');
+  String get stageWaiting => _t('Waiting', '대기 중');
+  String get stageReading => _t('Reading…', '읽는 중…');
+  String stageIndexing(int p) =>
+      _t('Indexing · $p ${p == 1 ? 'page' : 'pages'}', '색인 중 · $p쪽');
+  String get stageStoring => _t('Saving original', '원본 저장 중');
+  String stageDone(int p) =>
+      _t('Added · $p ${p == 1 ? 'page' : 'pages'}', '추가됨 · $p쪽');
+  String get stageDuplicate => _t('Already added', '이미 추가된 문서예요');
+  String onlyPdf(String ext) => ext.isEmpty
+      ? _t('Only PDFs are supported', 'PDF만 올릴 수 있어요')
+      : _t('Only PDFs are supported ($ext)', 'PDF만 올릴 수 있어요 ($ext)');
+  String get dismiss => _t('Dismiss', '닫기');
+  String get collapse => _t('Collapse', '접기');
+  String get expandTray => _t('Expand', '펼치기');
   String get deleteQuestion => _t('Delete?', '삭제할까요?');
   String get deleteFailed =>
       _t("Couldn't delete. Try again.", '삭제하지 못했어요. 다시 시도해 주세요.');
@@ -246,7 +318,7 @@ class L {
       _k('Shared with project members', '프로젝트 멤버와 공유');
 
   /// Maps the server's `Document.lastError` code to friendly text. Unknown
-  /// strings (e.g. an older Korean sentence from the server) pass through.
+  /// strings show the `unknown` text, never the raw value.
   String indexingError(String? code) => switch (code) {
     null => '',
     'quota' => _k(
@@ -285,7 +357,8 @@ class L {
       'Indexing failed for an unknown reason. Try again.',
       '알 수 없는 이유로 색인에 실패했어요. 다시 시도해 주세요.',
     ),
-    _ => code,
+    // Never show a raw server string (e.g. "embedding timeout").
+    _ => indexingError('unknown'),
   };
 
   // ── Ask ───────────────────────────────────────────────────────────────

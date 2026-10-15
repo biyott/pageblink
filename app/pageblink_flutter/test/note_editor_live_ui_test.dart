@@ -5,16 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pageblink_flutter/app/app_icons.dart';
 import 'package:pageblink_flutter/app/theme.dart';
+import 'package:pageblink_flutter/features/notes/link_popover.dart';
 import 'package:pageblink_flutter/features/notes/markdown_live.dart';
 import 'package:pageblink_flutter/features/notes/note_editor_screen.dart';
 import 'package:pageblink_flutter/features/notes/selection_mini_bar.dart';
 
-/// Editor UI for research 023: heading state, mini-bar headings, link chip,
+/// Editor UI for research 023: heading state, mini-bar headings, link popover,
 /// Enter continuation through the real text field.
-final _chip = find.byType(LinkOpenChip);
+final _chip = find.byType(LinkPopover);
 final _bar = find.byType(SelectionMiniBar);
 final _headingButton = find.byKey(const ValueKey('heading-button'));
-final _chipButton = find.descendant(of: _chip, matching: find.byType(InkWell));
+final _chipButton = find.byKey(const ValueKey('link-open'));
 
 Future<(LiveMarkdownController, List<Uri>)> _pump(WidgetTester t) async {
   t.view.physicalSize = const Size(1200, 900);
@@ -184,11 +185,11 @@ void main() {
     });
   });
 
-  group('link open chip', () {
+  group('link popover (view): open', () {
     const link = 'see [docs](https://example.com/a_(b)) now';
     final inside = link.indexOf('docs') + 1;
 
-    testWidgets('caret in a link shows the chip; tap opens the URL', (
+    testWidgets('caret in a link shows the popover; tap opens the URL', (
       t,
     ) async {
       final (c, opened) = await _pump(t);
@@ -250,8 +251,10 @@ void main() {
       expect(_chip, findsOneWidget);
     });
 
-    testWidgets('unsafe and relative targets show no chip', (t) async {
-      final (c, _) = await _pump(t);
+    testWidgets('unsafe and relative targets: shown, open disabled + warning', (
+      t,
+    ) async {
+      final (c, opened) = await _pump(t);
       for (final src in [
         '[x](javascript:alert(1))',
         '[x](JAVASCRIPT:alert(1))',
@@ -263,8 +266,24 @@ void main() {
         '[x]()',
       ]) {
         await _set(t, c, src, 2);
-        expect(_chip, findsNothing, reason: src);
+        expect(_chip, findsOneWidget, reason: src);
+        expect(find.byKey(const ValueKey('link-unsafe')), findsOneWidget);
+        expect(
+          t.widget<IconButton>(_chipButton).onPressed,
+          isNull,
+          reason: src,
+        );
+        // the other three buttons stay usable
+        expect(
+          t
+              .widget<IconButton>(find.byKey(const ValueKey('link-edit')))
+              .onPressed,
+          isNotNull,
+        );
+        await t.tap(_chipButton, warnIfMissed: false);
+        await t.pump();
       }
+      expect(opened, isEmpty);
     });
 
     testWidgets('hidden while composing', (t) async {

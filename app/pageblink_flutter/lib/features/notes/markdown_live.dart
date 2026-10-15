@@ -48,6 +48,7 @@ class LiveStyles {
       fontWeight: FontWeight.w700,
     ),
     this.highlight = const Color(0x55FFCC00),
+    this.fence,
   });
 
   /// `h4` is used for `####` and deeper.
@@ -59,6 +60,13 @@ class LiveStyles {
 
   /// Background of the cited passage (opened from an answer).
   final Color highlight;
+
+  /// Style of the lines of a fenced block when a host paints the block
+  /// background itself (`blocks`): [code] without its `backgroundColor`, so the
+  /// block is not tinted twice. Null: same as [code].
+  final TextStyle? fence;
+
+  TextStyle get fenceStyle => fence ?? code;
 
   List<Object> get _fields => [
     h1,
@@ -78,6 +86,7 @@ class LiveStyles {
     todo,
     done,
     highlight,
+    fenceStyle,
   ];
 
   @override
@@ -103,6 +112,10 @@ bool _listEq(List<Object> a, List<Object> b) {
 /// [LiveKind.checkMarker] run; a layer over the field (`LiveCheckLayer`) draws
 /// the checkbox there and takes the taps. The text is unchanged.
 ///
+/// With [blocks] the lines of a fenced block use [LiveStyles.fenceStyle] (no
+/// per-glyph background): a layer behind the field (`LiveCodeBackLayer`) paints
+/// the block as one rounded rectangle instead (research 024, stage 2).
+///
 /// No `TextSpan.recognizer` is used on purpose: with semantics on (screen
 /// reader) outside macOS, `RenderEditable` asserts on a recognizer in an
 /// editable and, in release, drops the text field's own semantics.
@@ -111,8 +124,10 @@ class LiveMarkdownController extends TextEditingController {
     super.text,
     required this.styleOf,
     bool boxes = false,
+    bool blocks = false,
   }) {
     _boxes = boxes;
+    _blocks = blocks;
   }
 
   /// Resolves styles for the current theme / width. Called from
@@ -121,6 +136,7 @@ class LiveMarkdownController extends TextEditingController {
 
   bool _live = true;
   bool _boxes = false;
+  bool _blocks = false;
   String? _quote;
 
   /// Hide checklist prefixes (see the class doc); set by a host that paints
@@ -129,6 +145,14 @@ class LiveMarkdownController extends TextEditingController {
   set boxes(bool v) {
     if (v == _boxes) return;
     _boxes = v;
+    notifyListeners();
+  }
+
+  /// Fenced blocks are painted by a layer (see the class doc).
+  bool get blocks => _blocks;
+  set blocks(bool v) {
+    if (v == _blocks) return;
+    _blocks = v;
     notifyListeners();
   }
 
@@ -152,10 +176,11 @@ class LiveMarkdownController extends TextEditingController {
   // changes reuse the parsed runs. Upgrade path: per-line cache if >50k chars.
   String? _cText;
   LiveStyles? _cStyles;
-  bool _cBoxes = false;
+  bool _cBoxes = false, _cBlocks = false;
   List<LiveRun> _cRuns = const [];
   String? _kText;
   List<CheckMarker> _kChecks = const [];
+  List<FenceBlock> _kFences = const [];
   String? _hText, _hQuote;
   TextRange? _hRange;
 
@@ -189,17 +214,22 @@ class LiveMarkdownController extends TextEditingController {
     List<LiveRun> runs;
     if (!_live) {
       runs = [LiveRun(0, text.length, const TextStyle())];
-    } else if (_cText == text && _cStyles == styles && _cBoxes == _boxes) {
+    } else if (_cText == text &&
+        _cStyles == styles &&
+        _cBoxes == _boxes &&
+        _cBlocks == _blocks) {
       runs = _cRuns;
     } else {
-      final p = parseLive(text, styles, boxes: _boxes);
+      final p = parseLive(text, styles, boxes: _boxes, blocks: _blocks);
       runs = p.runs;
       _cText = text;
       _cStyles = styles;
       _cBoxes = _boxes;
+      _cBlocks = _blocks;
       _cRuns = runs;
       _kText = text;
       _kChecks = p.checks;
+      _kFences = p.fences;
     }
     return runsToSpan(
       text,
@@ -211,13 +241,24 @@ class LiveMarkdownController extends TextEditingController {
     );
   }
 
+  void _scanIfStale() {
+    if (_kText == text) return;
+    final p = parseLive(text, const LiveStyles());
+    _kChecks = p.checks;
+    _kFences = p.fences;
+    _kText = text;
+  }
+
   /// Checklist items of the current text (cached with the parsed runs).
   List<CheckMarker> get checks {
-    if (_kText != text) {
-      _kChecks = checkMarkers(text);
-      _kText = text;
-    }
+    _scanIfStale();
     return _kChecks;
+  }
+
+  /// Fenced code blocks of the current text (cached with the parsed runs).
+  List<FenceBlock> get fences {
+    _scanIfStale();
+    return _kFences;
   }
 }
 
@@ -228,6 +269,28 @@ enum LiveKind { text, checkMarker }
 /// space after the box, `boxStart` the `[`. A list prefix before `start` is
 /// indentation (and quote markers).
 typedef CheckMarker = ({int start, int boxStart, int end, bool done});
+
+/// A fenced code block: `start` is the start of the opening fence line,
+/// `openEnd` its end (before the `\n`), `closeStart` the start of the closing
+/// fence line (-1: not closed, the block runs to the end of the text), `end`
+/// the end of the last line (the closing fence, or the text). `lang` is the
+/// first word of the info string.
+typedef FenceBlock = ({
+  int start,
+  int openEnd,
+  int closeStart,
+  int end,
+  String lang,
+});
+
+/// The code between the fence lines (what the copy button copies); empty for
+/// an empty block.
+String fenceBody(String text, FenceBlock b) {
+  final from = b.openEnd + 1;
+  final to = b.closeStart < 0 ? text.length : b.closeStart - 1;
+  if (from >= text.length || to < from) return '';
+  return text.substring(from, to).replaceAll('\r', '');
+}
 
 /// One styled run `[start, end)`; [style] is a delta over the base style.
 class LiveRun {
@@ -408,26 +471,39 @@ typedef LiveLink = ({int start, int end, String url});
 typedef _Span = ({String kind, int start, int end, int n});
 
 /// Splits [text] into contiguous runs covering it completely (in order).
-List<LiveRun> parseLiveRuns(String text, LiveStyles st, {bool boxes = false}) =>
-    parseLive(text, st, boxes: boxes).runs;
+List<LiveRun> parseLiveRuns(
+  String text,
+  LiveStyles st, {
+  bool boxes = false,
+  bool blocks = false,
+}) => parseLive(text, st, boxes: boxes, blocks: blocks).runs;
 
 /// [parseLiveRuns] plus the checklist items found. With [boxes] the prefix of
 /// each item (`- [ ] `) is one transparent [LiveKind.checkMarker] run instead
 /// of the muted bullet and box pieces; its width and the text are unchanged.
-({List<LiveRun> runs, List<CheckMarker> checks}) parseLive(
+/// With [blocks] the lines of fenced blocks use [LiveStyles.fenceStyle].
+({List<LiveRun> runs, List<CheckMarker> checks, List<FenceBlock> fences})
+parseLive(
   String text,
   LiveStyles st, {
   bool boxes = false,
+  bool blocks = false,
 }) {
-  final out = _Out(text.length)..boxes = boxes;
+  final out = _Out(text.length)
+    ..boxes = boxes
+    ..blocks = blocks;
   _parse(text, st, out);
-  return (runs: out.runs, checks: out.checks);
+  return (runs: out.runs, checks: out.checks, fences: out.fences);
 }
 
 /// The checklist items of [text], as the live parser reads them (not inside
 /// fenced code).
 List<CheckMarker> checkMarkers(String text) =>
     parseLive(text, const LiveStyles()).checks;
+
+/// The fenced code blocks of [text], as the live parser reads them.
+List<FenceBlock> fenceBlocks(String text) =>
+    parseLive(text, const LiveStyles()).fences;
 
 /// The item whose prefix holds [offset] (both ends included), if any.
 CheckMarker? checkMarkerAt(List<CheckMarker> items, int offset) {
@@ -451,15 +527,31 @@ const _boxMarker = TextStyle(color: Color(0x00000000));
 
 void _parse(String text, LiveStyles st, _Out out) {
   final fence = _Fence();
+  final code = out.blocks ? st.fenceStyle : st.code;
+  var open = -1, openEnd = 0, lang = '';
   var i = 0;
   while (true) {
     final nl = text.indexOf('\n', i);
     final e = nl < 0 ? text.length : nl;
     switch (fence.step(text, i, e)) {
       case 1:
-        out.emit(e, st.marker.merge(st.code));
+        out.emit(e, st.marker.merge(code));
+        if (fence.ch != 0) {
+          open = i;
+          openEnd = e;
+          lang = _fenceLang(text, i, e);
+        } else if (open >= 0) {
+          out.fences.add((
+            start: open,
+            openEnd: openEnd,
+            closeStart: i,
+            end: e,
+            lang: lang,
+          ));
+          open = -1;
+        }
       case 2:
-        out.emit(e, st.code);
+        out.emit(e, code);
       default:
         _block(text, i, e, st, out);
     }
@@ -467,7 +559,35 @@ void _parse(String text, LiveStyles st, _Out out) {
     out.emit(nl + 1, const TextStyle()); // the newline itself stays plain
     i = nl + 1;
   }
+  if (open >= 0) {
+    out.fences.add((
+      start: open,
+      openEnd: openEnd,
+      closeStart: -1,
+      end: text.length,
+      lang: lang,
+    ));
+  }
   out.emit(text.length, const TextStyle());
+}
+
+/// First word of the info string of the opening fence line `[s, e)`.
+String _fenceLang(String t, int s, int e) {
+  var i = s;
+  while (i < e && _ws(t.codeUnitAt(i))) {
+    i++;
+  }
+  while (i < e && (t.codeUnitAt(i) == 0x60 || t.codeUnitAt(i) == 0x7e)) {
+    i++;
+  }
+  while (i < e && _ws(t.codeUnitAt(i))) {
+    i++;
+  }
+  var j = i;
+  while (j < e && !_ws(t.codeUnitAt(j)) && t.codeUnitAt(j) != 0x0d) {
+    j++;
+  }
+  return t.substring(i, j);
 }
 
 /// The link containing the caret [offset] (strictly inside it), if any. Uses
@@ -878,6 +998,11 @@ class _Out {
   /// [parseLive]).
   final checks = <CheckMarker>[];
   bool boxes = false;
+
+  /// Fenced blocks, in text order; [blocks] styles their lines for a host
+  /// that paints the block background.
+  final fences = <FenceBlock>[];
+  bool blocks = false;
 
   void emit(int end, TextStyle style, [LiveKind kind = LiveKind.text]) {
     if (end > length) end = length;
@@ -1451,8 +1576,10 @@ TextEditingValue _edit(String text, TextSelection sel, List<_Edit> edits) {
 /// True if the selection start is in a fenced block or in inline code.
 bool codeState(TextEditingValue v) => formatState(v).code;
 
-/// Code button. Inside a fenced block: unwrap the whole block. One line:
-/// inline `` `x` `` ([toggleInline]). Several lines: the whole lines go into a
+/// Code button. Inside a fenced block: unwrap the whole block. A caret on an
+/// empty line: an empty fenced block with the caret on its middle line. One
+/// line: inline `` `x` `` ([toggleInline]; a caret on a non-empty line gets an
+/// empty pair with the caret between). Several lines: the whole lines go into a
 /// fenced block (the live parser reads inline code per line, so a backtick
 /// pair around a line break would never be styled).
 TextEditingValue toggleCode(TextEditingValue v) {
@@ -1469,6 +1596,16 @@ TextEditingValue toggleCode(TextEditingValue v) {
       block.start,
       block.start + inner.length,
     );
+  }
+  if (sel.isCollapsed) {
+    // A caret on an empty line starts a code block (an inline pair there would
+    // just look like stray backticks): the middle line is where it types.
+    final ls = sel.start > 0 ? text.lastIndexOf('\n', sel.start - 1) + 1 : 0;
+    var le = text.indexOf('\n', sel.start);
+    if (le < 0) le = text.length;
+    if (text.substring(ls, le).trim().isEmpty) {
+      return _value(text.replaceRange(ls, le, '```\n\n```'), ls + 4, ls + 4);
+    }
   }
   var e = sel.end;
   if (e > sel.start && text.codeUnitAt(e - 1) == 0x0a) e--;
@@ -1560,4 +1697,83 @@ TextEditingValue toggleLink(TextEditingValue v) {
   final len = first.$2 - first.$1;
   final caret = first.$1 + 1 + (len == 0 ? 0 : len + 2);
   return _value(out.text, caret, caret);
+}
+
+/// What the link button works on: the link holding the selection (ends
+/// included, as [toggleLink] reads it), or the one line part to turn into a
+/// link (a caret: an empty part at it). Null when there is no single part:
+/// several lines, a rule, or fenced code; [toggleLink] is the fallback then.
+({int start, int end, LiveLink? link})? linkTarget(TextEditingValue v) {
+  final text = v.text;
+  final segs = _segments(text, _sel(v));
+  if (segs.length != 1 || inCode(text, segs.first.$1)) return null;
+  final (a, b) = segs.first;
+  return (start: a, end: b, link: _linkAt(_scan(text).links, a, b));
+}
+
+/// True for `[label](url)`; false for a bare or `<url>` autolink (nothing to
+/// remove but the text itself).
+bool isBracketLink(String text, LiveLink l) =>
+    l.start < text.length && text.codeUnitAt(l.start) == 0x5b;
+
+/// The visible text of [l]: its label, or the URL of an autolink.
+String linkLabel(String text, LiveLink l) {
+  if (!isBracketLink(text, l)) return l.url;
+  final j = text.indexOf(']', l.start + 1);
+  return j < 0 || j >= l.end ? l.url : text.substring(l.start + 1, j);
+}
+
+/// The raw `(...)` content of a bracket link (destination and title as
+/// written), or null.
+String? _rawDest(String text, LiveLink l) {
+  if (!isBracketLink(text, l)) return null;
+  final j = text.indexOf(']', l.start + 1);
+  if (j < 0 || j + 2 > l.end - 1) return null;
+  return text.substring(j + 2, l.end - 1);
+}
+
+String _encodeDest(String url) {
+  var u = url.replaceAll(RegExp(r'\s+'), '%20');
+  final open = '('.allMatches(u).length, close = ')'.allMatches(u).length;
+  if (open != close) u = u.replaceAll('(', '%28').replaceAll(')', '%29');
+  return u;
+}
+
+/// Replaces `[start, end)` with `[label](url)` (one edit, one undo step) and
+/// puts the caret behind it. `[` / `]` and line breaks cannot live in a label
+/// (the live parser reads links per line), so they are dropped; an empty label
+/// becomes the URL. When [link] is the link being edited and the URL did not
+/// change, its destination (with a title) is kept as written. Spaces in the
+/// URL are written as `%20`, unbalanced parentheses as `%28` / `%29`.
+TextEditingValue setLink(
+  TextEditingValue v,
+  int start,
+  int end,
+  String label,
+  String url, {
+  LiveLink? link,
+}) {
+  final raw = link == null ? null : _rawDest(v.text, link);
+  final keep = raw != null && url.trim() == link!.url;
+  String clean(String s) => s
+      .replaceAll(RegExp(r'[\[\]]'), '')
+      .replaceAll(RegExp(r'\s*[\r\n]+\s*'), ' ')
+      .trim();
+  var lab = clean(label);
+  if (lab.isEmpty) lab = clean(url);
+  final md = '[$lab](${keep ? raw : _encodeDest(url.trim())})';
+  final out = v.text.replaceRange(start, end, md);
+  return _value(out, start + md.length, start + md.length);
+}
+
+/// `[label](url)` -> `label`, caret kept at the same spot of the text. Other
+/// links (autolinks) have no marker to remove and are returned unchanged.
+TextEditingValue removeLink(TextEditingValue v, LiveLink l) {
+  if (!isBracketLink(v.text, l)) return v;
+  final label = linkLabel(v.text, l);
+  final out = v.text.replaceRange(l.start, l.end, label);
+  final c = v.selection.isValid ? v.selection.extentOffset : l.end;
+  final into = c <= l.start + 1 ? 0 : c - l.start - 1;
+  final at = l.start + (into > label.length ? label.length : into);
+  return _value(out, at, at);
 }

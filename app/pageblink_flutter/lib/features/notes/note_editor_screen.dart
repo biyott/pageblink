@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderEditable;
-import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, LogicalKeyboardKey;
 import 'package:pageblink_client/pageblink_client.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -13,7 +14,9 @@ import '../../app/open_item_controller.dart';
 import '../../app/pane_header.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
+import 'link_popover.dart';
 import 'live_check_layer.dart';
+import 'live_code_layer.dart';
 import 'markdown_live.dart';
 import 'selection_mini_bar.dart';
 
@@ -52,6 +55,17 @@ LiveStyles liveStylesFor(BuildContext context, TextStyle base) {
     height: height,
     fontWeight: FontWeight.w600,
   );
+  final codeFont = TextStyle(
+    fontFamily: 'Menlo',
+    fontFamilyFallback: [
+      'Consolas',
+      'Roboto Mono',
+      'Noto Sans Mono',
+      'monospace',
+      ...?base.fontFamilyFallback,
+    ],
+    fontSize: 14,
+  );
   return LiveStyles(
     h1: head(sizes.h1, 1.3),
     h2: head(sizes.h2, 1.35),
@@ -65,18 +79,12 @@ LiveStyles liveStylesFor(BuildContext context, TextStyle base) {
       fontFamily: _inter(FontWeight.w700),
       fontWeight: FontWeight.w700,
     ),
-    code: TextStyle(
-      fontFamily: 'Menlo',
-      fontFamilyFallback: [
-        'Consolas',
-        'Roboto Mono',
-        'Noto Sans Mono',
-        'monospace',
-        ...?base.fontFamilyFallback,
-      ],
-      fontSize: 14,
+    // Inline code keeps its tint; fenced blocks are painted as one rounded
+    // block by LiveCodeBackLayer, so their lines carry no background.
+    code: codeFont.copyWith(
       backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.07),
     ),
+    fence: codeFont,
     quote: TextStyle(color: pb.inkMuted),
     link: TextStyle(
       color: theme.colorScheme.primary,
@@ -146,7 +154,8 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   late final _body = LiveMarkdownController(
     text: widget.note?.body ?? '',
     styleOf: liveStylesFor,
-    boxes: true, // a LiveCheckLayer below draws the checkboxes
+    boxes: true, // a LiveCheckLayer over the field draws the checkboxes
+    blocks: true, // a LiveCodeBackLayer behind it draws the code blocks
   );
   final _bodyFocus = FocusNode();
   final _bodyKey = GlobalKey();
@@ -165,6 +174,10 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   final _hover = ValueNotifier<int?>(null);
   EditableTextState? _editableCache;
 
+  // Code blocks: which one the pointer is over (copy button), just copied.
+  final _codeUi = CodeBlockUi();
+  Offset? _hoverPos; // last pointer position over the body (stack coords)
+
   /// Deleting: no second tap. Deleted: the note is gone, so closing must not
   /// save it again (`saveNote` would fail with "Note not found").
   bool _deleting = false;
@@ -178,8 +191,15 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   bool _pointerDown = false;
   bool _barQueued = false;
 
-  // "Open" chip: the link under a collapsed caret, if its scheme is allowed.
-  ({TextSelectionToolbarAnchors anchors, Uri uri})? _link;
+  // Link popover (view): the link under a collapsed caret, or the one the
+  // link button was pressed on ([_linkForced], bound to that selection).
+  // [uri] is null for a target the app will not open (shown, but disabled).
+  _LinkView? _link;
+  ({TextSelection sel})? _linkForced;
+
+  // Link popover (edit): one session, bound to the text it was started on.
+  _LinkEdit? _edit;
+  TextSelectionToolbarAnchors? _editAnchors;
 
   bool get _changed => _title.text != _savedTitle || _body.text != _savedBody;
 
@@ -200,6 +220,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     _title.dispose();
     _body.dispose();
     _hover.dispose();
+    _codeUi.dispose();
     _bodyFocus.dispose();
     _bodyScroll.dispose();
     super.dispose();
@@ -313,6 +334,43 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     _body.value = toggleCheckAt(_body.value, markerStart);
   }
 
+  /// Copy button of a code block: the lines between the fences go to the
+  /// clipboard (the fence lines do not), and the block says "Copied".
+  Future<void> _copyCode(int start) async {
+    FenceBlock? block;
+    for (final f in _body.fences) {
+      if (f.start == start) block = f;
+    }
+    if (block == null) return;
+    try {
+      await Clipboard.setData(
+        ClipboardData(text: fenceBody(_body.text, block)),
+      );
+    } catch (e) {
+      debugPrint('copy code failed: $e');
+      return;
+    }
+    if (mounted) _codeUi.flashCopied(start);
+  }
+
+  /// Pointer moved over the body (or the layout moved under a still pointer):
+  /// checkbox hover, and the code block whose copy button shows.
+  void _updateHover(Offset p) {
+    _hoverPos = p;
+    _hover.value = _checkAt(p)?.item.start;
+    final r = _bodyRender(), st = _stackBox();
+    if (!_body.live || _touchDevice || r == null || st == null) {
+      _codeUi.hover(null);
+      return;
+    }
+    final t = fenceTargetAt(fenceTargets(r, st, _body.fences), p);
+    final b = t == null ? null : copyButtonRect(t);
+    _codeUi.hover(
+      t?.block.start,
+      button: b != null && b.inflate(2).contains(p),
+    );
+  }
+
   Future<void> _confirmDelete() async {
     final id = _id;
     if (id == null || _deleting || _saving) return;
@@ -360,8 +418,130 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     (l.fmtBold, AppIcons.bold, (v) => toggleInline(v, '**'), on.bold),
     (l.fmtItalic, AppIcons.italic, (v) => toggleInline(v, '_'), on.italic),
     (l.fmtCode, AppIcons.code, toggleCode, on.code),
-    (l.fmtLink, AppIcons.link, toggleLink, on.link),
+    (l.fmtLink, AppIcons.link, _linkAction, on.link),
   ];
+
+  /// Link button (toolbar, mini bar, touch menu): opens the popover instead of
+  /// toggling. On a link: its view popover. On text (or a caret): the edit
+  /// popover, the text filled from the selection and the address from a URL on
+  /// the clipboard. Several lines (or a code block) keep the old wrapping.
+  /// Called through `_apply`, which keeps the body focused; the popover then
+  /// takes the focus for its inputs once it is built.
+  TextEditingValue _linkAction(TextEditingValue v) {
+    final t = linkTarget(v);
+    if (t == null) return toggleLink(v);
+    final link = t.link;
+    if (link != null) {
+      _edit = null;
+      _barDismissed = null;
+      setState(() => _linkForced = (sel: v.selection));
+      _syncBar();
+      return v;
+    }
+    _beginEdit(
+      _LinkEdit(
+        start: t.start,
+        end: t.end,
+        text: v.text.substring(t.start, t.end),
+        url: '',
+        prefill: _clipboardUrl(),
+        baseText: v.text,
+        baseSel: v.selection,
+      ),
+    );
+    return v;
+  }
+
+  /// A `http(s)://` address on the clipboard, if any. Reading may be refused
+  /// (the web asks for permission): that is just "nothing to fill".
+  Future<String?> _clipboardUrl() async {
+    try {
+      final s = (await Clipboard.getData(Clipboard.kTextPlain))?.text?.trim();
+      if (s != null &&
+          RegExp(r'^https?://\S+$', caseSensitive: false).hasMatch(s)) {
+        return s;
+      }
+    } catch (e) {
+      debugPrint('clipboard read failed: $e');
+    }
+    return null;
+  }
+
+  void _beginEdit(_LinkEdit e) {
+    setState(() {
+      _edit = e;
+      _linkForced = null;
+      _editAnchors = _measureRange(e.start, e.end);
+    });
+    _syncBar();
+  }
+
+  /// "Edit" of the view popover.
+  void _editLink() {
+    final l = _link;
+    if (l == null) return;
+    final text = _body.text;
+    final link = (start: l.start, end: l.end, url: l.url);
+    _beginEdit(
+      _LinkEdit(
+        start: l.start,
+        end: l.end,
+        text: linkLabel(text, link),
+        url: l.url,
+        link: link,
+        baseText: text,
+        baseSel: _body.selection,
+      ),
+    );
+  }
+
+  /// "Remove" of the view popover: `[text](url)` becomes `text`.
+  void _removeLink() {
+    final l = _link;
+    if (l == null) return;
+    _apply((v) => removeLink(v, (start: l.start, end: l.end, url: l.url)));
+  }
+
+  /// Confirms the edit: one new value for the body (one undo step).
+  void _applyEdit(_LinkEdit e, String text, String url) {
+    if (_edit != e) return;
+    setState(() {
+      _edit = null;
+      _editAnchors = null;
+      _linkForced = null;
+    });
+    _body.value = setLink(_body.value, e.start, e.end, text, url, link: e.link);
+    _bodyFocus.requestFocus();
+    _syncBar();
+  }
+
+  /// Esc / Cancel ([refocus]), or the focus left the popover (no refocus: it
+  /// went somewhere the user chose). Nothing in the text changes. After
+  /// cancelling the edit of a link, the view popover stays hidden until the
+  /// caret moves.
+  void _cancelEdit(_LinkEdit e, {required bool refocus}) {
+    if (_edit != e) return;
+    if (e.link != null) _barDismissed = _body.selection;
+    setState(() {
+      _edit = null;
+      _editAnchors = null;
+    });
+    if (refocus) _bodyFocus.requestFocus();
+    _syncBar();
+  }
+
+  TextSelectionToolbarAnchors? _measureRange(int start, int end) {
+    if (end > _body.text.length) return null;
+    final editable = findEditableText(_bodyKey.currentContext);
+    final stack = _stackKey.currentContext?.findRenderObject();
+    if (editable == null || stack is! RenderBox || !stack.attached) return null;
+    if (!editable.renderEditable.attached) return null;
+    return miniBarAnchors(
+      editable,
+      stack,
+      selection: TextSelection(baseOffset: start, extentOffset: end),
+    );
+  }
 
   void _syncBar() {
     if (_barQueued) return;
@@ -369,18 +549,37 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _barQueued = false;
       if (!mounted) return;
+      final hp = _hoverPos;
+      if (hp != null) _updateHover(hp); // layout / scroll moved under it
+      // An edit belongs to the text it started on; the text (or caret) moving
+      // on means there is nothing to apply it to.
+      var edit = _edit;
+      if (edit != null &&
+          (_body.text != edit.baseText || _body.selection != edit.baseSel)) {
+        edit = _edit = null;
+        _bodyFocus.requestFocus(); // the popover's input held it
+      }
+      final editAnchors = edit == null
+          ? null
+          : _measureRange(edit.start, edit.end);
       final next = _measureBar();
       final cur = _barAnchors;
       final link = _measureLink();
       final curLink = _link;
+      final curEdit = _editAnchors;
       if (next?.primaryAnchor != cur?.primaryAnchor ||
           next?.secondaryAnchor != cur?.secondaryAnchor ||
+          link?.url != curLink?.url ||
           link?.uri != curLink?.uri ||
+          link?.start != curLink?.start ||
           link?.anchors.primaryAnchor != curLink?.anchors.primaryAnchor ||
-          link?.anchors.secondaryAnchor != curLink?.anchors.secondaryAnchor) {
+          link?.anchors.secondaryAnchor != curLink?.anchors.secondaryAnchor ||
+          editAnchors?.primaryAnchor != curEdit?.primaryAnchor ||
+          editAnchors?.secondaryAnchor != curEdit?.secondaryAnchor) {
         setState(() {
           _barAnchors = next;
           _link = link;
+          _editAnchors = editAnchors;
         });
       }
     });
@@ -406,31 +605,38 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     return miniBarAnchors(editable, stack);
   }
 
-  /// The chip is for a caret inside a link. With a selection the mini bar (or
-  /// the system menu on touch) owns that spot, so no chip then.
-  ({TextSelectionToolbarAnchors anchors, Uri uri})? _measureLink() {
+  /// The popover is for a caret inside a link (strictly), or the link the
+  /// button was pressed on while it is still the same selection. With another
+  /// selection the mini bar (or the system menu on touch) owns that spot.
+  _LinkView? _measureLink() {
     final v = _body.value, sel = v.selection;
     final composing = v.composing.isValid && !v.composing.isCollapsed;
-    if (_pointerDown ||
-        composing ||
-        !_bodyFocus.hasFocus ||
-        !sel.isValid ||
-        !sel.isCollapsed ||
-        sel == _barDismissed) {
+    if (_edit != null || _pointerDown || composing || !sel.isValid) {
       return null;
     }
-    final link = linkAt(v.text, sel.baseOffset);
-    final uri = link == null ? null : safeLinkUri(link.url);
-    final editable = findEditableText(_bodyKey.currentContext);
-    final stack = _stackKey.currentContext?.findRenderObject();
-    if (uri == null || editable == null || stack is! RenderBox) return null;
-    if (!stack.attached) return null;
-    final anchors = miniBarAnchors(
-      editable,
-      stack,
-      selection: TextSelection(baseOffset: link!.start, extentOffset: link.end),
+    LiveLink? link;
+    final forced = _linkForced;
+    if (forced != null && sel == forced.sel && sel != _barDismissed) {
+      link = linkTarget(v)?.link;
+    }
+    if (link == null) {
+      _linkForced = null;
+      if (!_bodyFocus.hasFocus || !sel.isCollapsed || sel == _barDismissed) {
+        return null;
+      }
+      link = linkAt(v.text, sel.baseOffset);
+    }
+    if (link == null) return null;
+    final anchors = _measureRange(link.start, link.end);
+    if (anchors == null) return null;
+    return (
+      anchors: anchors,
+      url: link.url,
+      uri: safeLinkUri(link.url),
+      start: link.start,
+      end: link.end,
+      bracket: isBracketLink(v.text, link),
     );
-    return anchors == null ? null : (anchors: anchors, uri: uri);
   }
 
   Future<void> _openLink(Uri uri) async {
@@ -743,21 +949,45 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 // Pointer over a box: outline, and the click cursor (the field's
                 // own cursor is not under the pointer there, the layer is).
-                child: ValueListenableBuilder<int?>(
-                  valueListenable: _hover,
-                  builder: (context, hot, stack) => MouseRegion(
+                child: ListenableBuilder(
+                  listenable: Listenable.merge([_hover, _codeUi]),
+                  builder: (context, stack) => MouseRegion(
                     opaque: false,
-                    cursor: hot == null
+                    cursor: _hover.value == null && !_codeUi.overButton
                         ? MouseCursor.defer
                         : SystemMouseCursors.click,
-                    onHover: (e) =>
-                        _hover.value = _checkAt(e.localPosition)?.item.start,
-                    onExit: (_) => _hover.value = null,
+                    onHover: (e) => _updateHover(e.localPosition),
+                    onExit: (_) {
+                      _hoverPos = null;
+                      _hover.value = null;
+                      _codeUi.hover(null);
+                    },
                     child: stack,
                   ),
                   child: Stack(
                     key: _stackKey,
+                    // Code block backgrounds reach past the text area.
+                    clipBehavior: Clip.none,
                     children: [
+                      // Behind the field: code block backgrounds and labels.
+                      LiveCodeBackLayer(
+                        enabled: _body.live,
+                        controller: _body,
+                        scroll: _bodyScroll,
+                        ui: _codeUi,
+                        render: _bodyRender,
+                        stack: _stackBox,
+                        fill: theme.brightness == Brightness.dark
+                            ? context.pb.ink.withValues(alpha: 0.10)
+                            : context.pb.ink.withValues(alpha: 0.055),
+                        labelStyle:
+                            (theme.textTheme.labelSmall ?? const TextStyle())
+                                .copyWith(
+                                  fontSize: 11,
+                                  color: context.pb.inkMuted,
+                                ),
+                        copyEnabled: !_touchDevice,
+                      ),
                       Listener(
                         onPointerDown: (e) {
                           _pointerDown = true;
@@ -880,13 +1110,46 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                             );
                           },
                         ),
-                      if (_link != null && _barAnchors == null)
-                        LinkOpenChip(
+                      // Copy button of the code block under the mouse.
+                      if (_body.live && !_touchDevice)
+                        LiveCodeCopyLayer(
+                          controller: _body,
+                          scroll: _bodyScroll,
+                          ui: _codeUi,
+                          render: _bodyRender,
+                          stack: _stackBox,
+                          color: context.pb.inkMuted,
+                          hoverFill: context.pb.ink.withValues(alpha: 0.08),
+                          accent: theme.colorScheme.primary,
+                          labelStyle:
+                              (theme.textTheme.labelSmall ?? const TextStyle())
+                                  .copyWith(fontSize: 11),
+                          copyLabel: l.codeCopy,
+                          copiedLabel: l.copied,
+                          onCopy: _copyCode,
+                        ),
+                      if (_edit case final e? when _editAnchors != null)
+                        LinkEditPopover(
+                          key: ValueKey(e),
+                          anchors: _editAnchors!,
+                          initialText: e.text,
+                          initialUrl: e.url,
+                          prefill: e.prefill,
+                          onApply: (text, url) => _applyEdit(e, text, url),
+                          onCancel: () => _cancelEdit(e, refocus: true),
+                          onLeave: () => _cancelEdit(e, refocus: false),
+                        )
+                      else if (_link != null &&
+                          (_barAnchors == null || _linkForced != null))
+                        LinkPopover(
+                          key: const ValueKey('link-popover'),
                           anchors: _link!.anchors,
-                          label: l.openLink,
-                          url: _link!.uri.toString(),
-                          icon: AppIcons.openLink,
-                          onPressed: () => _openLink(_link!.uri),
+                          url: _link!.url,
+                          openEnabled: _link!.uri != null,
+                          canRemove: _link!.bracket,
+                          onOpen: () => _openLink(_link!.uri!),
+                          onEdit: _editLink,
+                          onRemove: _removeLink,
                         ),
                     ],
                   ),
@@ -907,4 +1170,38 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       ),
     );
   }
+}
+
+/// The link popover's target: its range in the text, the address as written,
+/// and the openable URI (null: not allowed, shown but disabled).
+typedef _LinkView = ({
+  TextSelectionToolbarAnchors anchors,
+  String url,
+  Uri? uri,
+  int start,
+  int end,
+  bool bracket,
+});
+
+/// One link edit: the range `[start, end)` it replaces (an existing link, or
+/// the selected text / the caret), the inputs' start values, and the text and
+/// selection it is bound to.
+class _LinkEdit {
+  _LinkEdit({
+    required this.start,
+    required this.end,
+    required this.text,
+    required this.url,
+    required this.baseText,
+    required this.baseSel,
+    this.link,
+    this.prefill,
+  });
+
+  final int start, end;
+  final String text, url;
+  final LiveLink? link;
+  final Future<String?>? prefill;
+  final String baseText;
+  final TextSelection baseSel;
 }

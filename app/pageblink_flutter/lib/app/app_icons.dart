@@ -64,6 +64,12 @@ abstract final class AppIcons {
   static const error = LucideIcons.circleAlert;
   static const warning = LucideIcons.triangleAlert;
   static const syncFailed = LucideIcons.refreshCwOff;
+  static const info = LucideIcons.info;
+  static const done = LucideIcons.circleCheck;
+
+  // PDF drop zone + upload tray
+  static const fileUp = LucideIcons.fileUp;
+  static const fileWarning = LucideIcons.fileWarning;
 
   // Markdown toolbar
   static const heading = LucideIcons.heading;
@@ -77,6 +83,7 @@ abstract final class AppIcons {
   static const strikethrough = LucideIcons.strikethrough;
   static const orderedList = LucideIcons.listOrdered;
   static const openLink = LucideIcons.externalLink;
+  static const unlink = LucideIcons.unlink;
 
   // Live | Source toggle (narrow phones show icons only)
   static const modeLive = LucideIcons.pencilLine;
