@@ -49,6 +49,8 @@ class L {
     'At least 1 uppercase letter or special character',
     '대문자 또는 특수문자 1개 이상',
   );
+  String get resendCode =>
+      _t("Didn't receive? Send a new code", '코드를 못 받으셨나요? 새 코드 보내기');
   String get userAuthenticated => _t('Signed in.', '로그인했어요.');
   String authFailed(Object error) =>
       _t('Authentication failed: $error', '인증에 실패했어요: $error');

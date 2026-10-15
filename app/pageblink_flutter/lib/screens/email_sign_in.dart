@@ -3,14 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../app/app_icons.dart';
+import 'email_register_forms.dart';
 
-/// [EmailSignInWidget] with our own login form; every other screen of the
-/// flow (sign up, verify, reset) still comes from the package.
+/// [EmailSignInWidget] with our own forms for every screen of the flow
+/// (login here, sign-up / verify / password in `email_register_forms.dart`).
 ///
-/// The package's login form has no `textInputAction`/`onSubmitted` (Enter did
+/// The package's forms have no `textInputAction`/`onSubmitted` (Enter did
 /// nothing) and no `autofillHints`/`AutofillGroup` (password managers could
-/// not fill or save), and it exposes neither. The controller is public, so the
-/// login screen is rebuilt on top of it. Needs an external [controller].
+/// not fill or save), and they expose neither. The controller is public, so
+/// the screens are rebuilt on top of it. Needs an external [controller].
+/// Mirrors `EmailSignInWidget._buildScreen`; recheck it on package upgrades.
 class PageBlinkEmailSignIn extends EmailSignInWidget {
   const PageBlinkEmailSignIn({
     super.key,
@@ -25,11 +27,53 @@ class _PageBlinkEmailSignInState extends State<PageBlinkEmailSignIn> {
   @override
   Widget build(BuildContext context) {
     final c = widget.controller!;
+    final texts = context.emailSignInTexts;
+    final code = widget.verificationCodeConfig;
     return ListenableBuilder(
       listenable: c,
-      builder: (context, _) => c.currentScreen == EmailFlowScreen.login
-          ? EmailLoginForm(controller: c)
-          : EmailSignInWidget(controller: c),
+      // The key gives every screen a fresh state (and autofill group).
+      builder: (context, _) => KeyedSubtree(
+        key: ValueKey(c.currentScreen),
+        child: switch (c.currentScreen) {
+          EmailFlowScreen.login => EmailLoginForm(controller: c),
+          EmailFlowScreen.startRegistration => EmailStartRegistrationForm(
+            controller: c,
+          ),
+          EmailFlowScreen.verifyRegistration => EmailVerifyCodeForm(
+            controller: c,
+            title: texts.verifyAccountTitle,
+            onVerify: c.verifyRegistrationCode,
+            config: code,
+          ),
+          EmailFlowScreen.completeRegistration => EmailSetPasswordForm(
+            controller: c,
+            title: texts.setAccountPasswordTitle,
+            passwordLabel: texts.passwordLabel,
+            buttonLabel: texts.signUp,
+            onSubmit: c.finishRegistration,
+            backLabel: texts.backToSignUp,
+            backScreen: EmailFlowScreen.startRegistration,
+          ),
+          EmailFlowScreen.requestPasswordReset => EmailRequestResetForm(
+            controller: c,
+          ),
+          EmailFlowScreen.verifyPasswordReset => EmailVerifyCodeForm(
+            controller: c,
+            title: texts.verifyResetCodeTitle,
+            onVerify: c.verifyPasswordResetCode,
+            config: code,
+          ),
+          EmailFlowScreen.completePasswordReset => EmailSetPasswordForm(
+            controller: c,
+            title: texts.setNewPasswordTitle,
+            passwordLabel: texts.newPasswordLabel,
+            buttonLabel: texts.resetPassword,
+            onSubmit: c.finishPasswordReset,
+            backLabel: texts.backToSignIn,
+            backScreen: EmailFlowScreen.login,
+          ),
+        },
+      ),
     );
   }
 }
