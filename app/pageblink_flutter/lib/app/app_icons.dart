@@ -36,6 +36,8 @@ abstract final class AppIcons {
   static const add = LucideIcons.plus;
   static const upload = LucideIcons.upload;
   static const edit = LucideIcons.pencil;
+  static const delete = LucideIcons.trash2;
+  static const more = LucideIcons.ellipsisVertical;
   static const preview = LucideIcons.bookOpen;
   static const search = LucideIcons.search;
   static const copy = LucideIcons.copy;

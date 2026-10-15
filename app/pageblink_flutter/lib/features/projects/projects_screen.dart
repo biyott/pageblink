@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
+import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
-import '../../app/l10n.dart';
-import '../../client.dart';
 import '../../app/app_icons.dart';
+import '../../app/confirm_dialog.dart';
+import '../../app/l10n.dart';
+import '../../app/open_item_controller.dart';
+import '../../client.dart';
+
+/// Same limit the server enforces (`cleanProjectName`).
+const maxProjectNameLength = 60;
+
+/// The trimmed name when it is 1..60 characters, else null.
+String? validProjectName(String raw) {
+  final name = raw.trim();
+  return name.isEmpty || name.length > maxProjectNameLength ? null : name;
+}
+
+enum _Action { rename, delete }
 
 /// Shared Vision: projects whose documents members can all ask about.
 class ProjectsScreen extends StatelessWidget {
@@ -16,27 +30,59 @@ class ProjectsScreen extends StatelessWidget {
   final List<Project> projects;
   final Future<void> Function() onChanged;
 
-  Future<String?> _prompt(BuildContext context, String title, String hint) {
-    final controller = TextEditingController();
+  /// Only the owner can rename or delete (the server enforces it too).
+  bool _isOwner(Project p) => p.ownerId == client.auth.authInfo?.authUserId;
+
+  /// Text dialog. [projectName] applies the 1..60 rule; otherwise any text.
+  Future<String?> _prompt(
+    BuildContext context,
+    String title,
+    String hint, {
+    String initial = '',
+    bool projectName = false,
+  }) {
+    final controller = TextEditingController(text: initial);
+    String? submitted(String text) =>
+        projectName ? validProjectName(text) : text.trim();
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: InputDecoration(hintText: hint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(context.l.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text(context.l.ok),
-          ),
-        ],
+      builder: (dialog) => ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (_, value, _) {
+          final text = submitted(value.text);
+          return AlertDialog(
+            title: Text(title),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: hint,
+                errorText:
+                    projectName &&
+                        value.text.trim().length > maxProjectNameLength
+                    ? dialog.l.projectNameTooLong
+                    : null,
+              ),
+              onSubmitted: (_) {
+                if (text != null && text.isNotEmpty) {
+                  Navigator.pop(dialog, text);
+                }
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialog),
+                child: Text(dialog.l.cancel),
+              ),
+              FilledButton(
+                onPressed: text == null || text.isEmpty
+                    ? null
+                    : () => Navigator.pop(dialog, text),
+                child: Text(dialog.l.ok),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -46,10 +92,59 @@ class ProjectsScreen extends StatelessWidget {
       context,
       context.l.newProject,
       context.l.newProjectHint,
+      projectName: true,
     );
     if (name == null || name.isEmpty) return;
     await client.project.create(name);
     await onChanged();
+  }
+
+  Future<void> _rename(BuildContext context, Project project) async {
+    final l = context.l;
+    final messenger = ScaffoldMessenger.of(context);
+    final name = await _prompt(
+      context,
+      l.renameProjectTitle,
+      l.newProjectHint,
+      initial: project.name,
+      projectName: true,
+    );
+    if (name == null || name.isEmpty || name == project.name) return;
+    try {
+      await client.project.updateProject(project.id!, name);
+      await onChanged();
+    } catch (e) {
+      debugPrint('rename project failed: $e');
+      messenger.showSnackBar(SnackBar(content: Text(l.projectRenameFailed)));
+    }
+  }
+
+  /// Counts first: the server refuses (without a reason) to delete a project
+  /// that still has documents unless told to take them along.
+  Future<void> _delete(BuildContext context, Project project) async {
+    final l = context.l;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final stats = await client.project.projectStats(project.id!);
+      final notes = stats['notes'] ?? 0;
+      final pdfs = stats['pdfs'] ?? 0;
+      final hasDocuments = notes + pdfs > 0;
+      if (!context.mounted) return;
+      final ok = await confirmDestructive(
+        context,
+        title: l.deleteProjectTitle(project.name),
+        message: hasDocuments
+            ? l.projectDeleteWarning(notes, pdfs)
+            : l.cannotUndo,
+      );
+      if (!ok) return;
+      await client.project.deleteProject(project.id!, hasDocuments);
+      boardRefresh.value++;
+      await onChanged();
+    } catch (e) {
+      debugPrint('delete project failed: $e');
+      messenger.showSnackBar(SnackBar(content: Text(l.projectDeleteFailed)));
+    }
   }
 
   Future<void> _invite(BuildContext context, Project project) async {
@@ -78,20 +173,18 @@ class ProjectsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l;
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _create(context),
         icon: const Icon(AppIcons.newProject),
-        label: Text(context.l.newProject),
+        label: Text(l.newProject),
       ),
       body: projects.isEmpty
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
-                child: Text(
-                  context.l.projectsEmpty,
-                  textAlign: TextAlign.center,
-                ),
+                child: Text(l.projectsEmpty, textAlign: TextAlign.center),
               ),
             )
           : ListView(
@@ -100,10 +193,34 @@ class ProjectsScreen extends StatelessWidget {
                   ListTile(
                     leading: const Icon(AppIcons.projects),
                     title: Text(p.name),
-                    trailing: IconButton(
-                      icon: const Icon(AppIcons.invite),
-                      tooltip: context.l.invite,
-                      onPressed: () => _invite(context, p),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(AppIcons.invite),
+                          tooltip: l.invite,
+                          onPressed: () => _invite(context, p),
+                        ),
+                        if (_isOwner(p))
+                          PopupMenuButton<_Action>(
+                            tooltip: l.moreActions,
+                            icon: const Icon(AppIcons.more),
+                            onSelected: (a) => switch (a) {
+                              _Action.rename => _rename(context, p),
+                              _Action.delete => _delete(context, p),
+                            },
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: _Action.rename,
+                                child: Text(l.renameProject),
+                              ),
+                              PopupMenuItem(
+                                value: _Action.delete,
+                                child: Text(l.delete),
+                              ),
+                            ],
+                          ),
+                      ],
                     ),
                   ),
               ],

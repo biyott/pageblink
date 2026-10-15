@@ -79,11 +79,34 @@ class _HomeShellState extends State<HomeShell> {
     for (var i = 0; i < 3; i++) _TabObserver(_tabStackChanged),
   ];
 
+  bool _sampleEnsured = false;
+
   @override
   void initState() {
     super.initState();
     _open.openInNotesTab = _openInNotesTab;
     _loadProjects();
+  }
+
+  /// Once per signed-in session (this shell only exists while signed in).
+  /// Needs the locale, so it runs here and not in [initState].
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_sampleEnsured) return;
+    _sampleEnsured = true;
+    _ensureSample(context.l.isKorean ? 'ko' : 'en');
+  }
+
+  /// Localizes + indexes the sign-up sample note (idempotent on the server).
+  Future<void> _ensureSample(String locale) async {
+    try {
+      if (await client.document.ensureSample(locale) != null) {
+        boardRefresh.value++;
+      }
+    } catch (e) {
+      debugPrint('ensureSample failed: $e'); // silent for the user
+    }
   }
 
   @override

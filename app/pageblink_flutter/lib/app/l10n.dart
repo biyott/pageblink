@@ -27,6 +27,8 @@ class L {
   String get ok => _t('OK', '확인');
   String get save => _t('Save', '저장');
   String get delete => _t('Delete', '삭제');
+  String get cannotUndo => _t("This can't be undone.", '되돌릴 수 없어요.');
+  String get moreActions => _t('More', '더 보기');
 
   bool get isKorean => _ko;
 
@@ -64,6 +66,28 @@ class L {
   String invited(String email) => _t('Invited $email.', '$email 님을 초대했어요.');
   String inviteFailed(Object error) =>
       _t('Invite failed: $error', '초대 실패: $error');
+  String get renameProject => _t('Rename', '이름 변경');
+  String get renameProjectTitle => _t('Rename project', '프로젝트 이름 변경');
+  String get projectNameTooLong =>
+      _t('Use 60 characters or fewer.', '60자 이하로 입력해 주세요.');
+  String get projectRenameFailed => _t(
+    'Could not rename the project. Please try again.',
+    '프로젝트 이름을 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.',
+  );
+  String get projectDeleteFailed => _t(
+    'Could not delete the project. Please try again.',
+    '프로젝트를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  );
+  String deleteProjectTitle(String project) =>
+      _t('Delete "$project"?', '"$project" 프로젝트를 삭제할까요?');
+
+  /// Shown when the project still holds documents; they are deleted with it.
+  String projectDeleteWarning(int notes, int pdfs) => _t(
+    '$notes ${notes == 1 ? 'note' : 'notes'} and '
+        '$pdfs ${pdfs == 1 ? 'PDF' : 'PDFs'} will be deleted with it. '
+        "This can't be undone.",
+    '노트 $notes개, PDF $pdfs개가 함께 삭제됩니다. 되돌릴 수 없어요.',
+  );
   String get projectsEmpty => _t(
     'Create a project to share notes and documents\n'
         'with your team and ask together. (Shared Vision)',
@@ -83,6 +107,11 @@ class L {
   String get titleHint => _t('Title', '제목');
   String get noteHint =>
       _t('Take a note… (Markdown supported)', '메모하기… (Markdown 지원)');
+  String get deleteNoteTitle => _t('Delete this note?', '이 노트를 삭제할까요?');
+  String get noteDeleteFailed => _t(
+    'Could not delete the note. Please try again.',
+    '노트를 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  );
   String get fmtHeading => _t('Heading', '제목');
   String get fmtBold => _t('Bold', '굵게');
   String get fmtItalic => _t('Italic', '기울임');
@@ -204,6 +233,21 @@ class L {
           'What was decided in the meeting notes?',
           'Summarize the key points of this PDF',
           'What are the budget and the deadline?',
+        ];
+
+  /// Questions the sign-up sample note answers; shown first while it exists.
+  List<String> get sampleSuggestions => _ko
+      ? const [
+          '이번 주에 남은 일은 뭐야?',
+          '이미 끝낸 일은 뭐야?',
+          '오늘 마감인 일은?',
+          '여권 갱신에 뭐가 필요해?',
+        ]
+      : const [
+          'What is left to do this week?',
+          'What have I already finished?',
+          'What is due today?',
+          'What do I need to renew my passport?',
         ];
 
   // ── Landing / sign-in (docs/plan/007) ─────────────────────────────────

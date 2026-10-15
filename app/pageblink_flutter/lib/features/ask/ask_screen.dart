@@ -10,7 +10,9 @@ import '../../app/l10n.dart';
 import '../../client.dart';
 import '../viewer/citation_sheet.dart';
 import '../../app/open_item_controller.dart';
+import '../documents/documents_screen.dart' show documentsNotifier;
 import '../open_item/open_item_view.dart';
+import 'ask_suggestions.dart';
 import '../../app/app_icons.dart';
 
 /// Ask a question; the answer streams in with ⚡ citations you can blink to.
@@ -59,6 +61,14 @@ class _AskScreenState extends State<AskScreen> {
     } catch (_) {
       // Picker stays hidden; the server default model is used.
     }
+  }
+
+  /// A deleted project must not stay in the scope.
+  @override
+  void didUpdateWidget(AskScreen old) {
+    super.didUpdateWidget(old);
+    final ids = {for (final p in widget.projects) p.id};
+    _selectedProjects.retainWhere(ids.contains);
   }
 
   static final _marker = RegExp(r'\[(\d{1,2})\]');
@@ -226,6 +236,7 @@ class _AskScreenState extends State<AskScreen> {
         Expanded(
           child: _turns.isEmpty
               ? _EmptyHint(
+                  includePersonal: _includePersonal,
                   onPick: (q) {
                     _input.text = q;
                     _ask();
@@ -838,9 +849,12 @@ class _TurnView extends StatelessWidget {
 }
 
 class _EmptyHint extends StatelessWidget {
-  const _EmptyHint({required this.onPick});
+  const _EmptyHint({required this.onPick, required this.includePersonal});
 
   final ValueChanged<String> onPick;
+
+  /// The sample is a personal note: unchecked, its questions find nothing.
+  final bool includePersonal;
 
   @override
   Widget build(BuildContext context) {
@@ -867,8 +881,18 @@ class _EmptyHint extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            for (final s in context.l.askSuggestions)
-              _SuggestionCard(text: s, onTap: () => onPick(s)),
+            ValueListenableBuilder<List<Document>>(
+              valueListenable: documentsNotifier,
+              builder: (context, docs, _) => Column(
+                children: [
+                  for (final s in orderedSuggestions(
+                    context.l,
+                    includePersonal ? personalNoteTitles(docs) : const [],
+                  ))
+                    _SuggestionCard(text: s, onTap: () => onPick(s)),
+                ],
+              ),
+            ),
           ],
         ),
       ),

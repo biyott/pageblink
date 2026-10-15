@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/app_icons.dart';
+import '../../app/confirm_dialog.dart';
 import '../../app/l10n.dart';
 import '../../app/open_item_controller.dart';
 import '../../app/pane_header.dart';
@@ -139,6 +140,11 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   late String _savedBody = widget.note?.body ?? '';
   bool _saving = false;
 
+  /// Deleting: no second tap. Deleted: the note is gone, so closing must not
+  /// save it again (`saveNote` would fail with "Note not found").
+  bool _deleting = false;
+  bool _deleted = false;
+
   // Selection mini bar (desktop and web; touch apps extend the system menu).
   // Anchors are measured after layout, never while composing or dragging.
   TextSelectionToolbarAnchors? _barAnchors;
@@ -172,7 +178,8 @@ class _NoteEditorViewState extends State<NoteEditorView> {
 
   /// Saves pending edits. False (with a snackbar) if saving failed.
   Future<bool> _flush() async {
-    if (_saving) return false;
+    if (_deleted) return true;
+    if (_saving || _deleting) return false;
     if (!_changed || _body.text.trim().isEmpty) return true;
     final l = context.l;
     final messenger = ScaffoldMessenger.of(context);
@@ -195,6 +202,33 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       messenger.showSnackBar(SnackBar(content: Text(l.saveFailed(e))));
       return false;
     }
+  }
+
+  Future<void> _confirmDelete() async {
+    final id = _id;
+    if (id == null || _deleting || _saving) return;
+    final l = context.l;
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await confirmDestructive(
+      context,
+      title: l.deleteNoteTitle,
+      message: l.cannotUndo,
+    );
+    if (!ok || !mounted) return;
+    setState(() => _deleting = true);
+    try {
+      await client.document.delete(id);
+    } catch (e) {
+      debugPrint('delete note failed: $e');
+      if (mounted) setState(() => _deleting = false);
+      messenger.showSnackBar(SnackBar(content: Text(l.noteDeleteFailed)));
+      return;
+    }
+    _deleted = true;
+    boardRefresh.value++;
+    if (!mounted) return;
+    setState(() => _deleting = false);
+    widget.onClose();
   }
 
   Future<void> _saveAndClose() async {
@@ -378,6 +412,13 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                 selected: {_body.live},
                 onSelectionChanged: (s) => setState(() => _body.live = s.first),
               ),
+              // Only an existing note can be deleted.
+              if (_id != null)
+                IconButton(
+                  tooltip: l.delete,
+                  icon: const Icon(AppIcons.delete),
+                  onPressed: _saving || _deleting ? null : _confirmDelete,
+                ),
               if (_saving)
                 const Padding(
                   padding: EdgeInsets.all(16),
