@@ -1,5 +1,7 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pageblink_flutter/app/app_icons.dart';
 import 'package:pageblink_flutter/app/pane_header.dart';
@@ -135,16 +137,19 @@ void main() {
     }
   });
 
-  testWidgets('T3 desktop: toolbar -> body 25, title -> toolbar 8', (t) async {
-    await _pump(t, width: 724);
-    final bar = t.getBottomLeft(_heading).dy;
-    expect(t.getTopLeft(_body).dy - bar, closeTo(25, 0.01));
-    // title text -> toolbar 8 (the field's bottom padding), no extra gap
-    expect(
-      t.getTopLeft(_heading).dy - t.getBottomLeft(_title).dy,
-      closeTo(8, 0.01),
-    );
-  });
+  testWidgets(
+    'T3 desktop: toolbar -> rule 0 -> 24 air -> body (25), title -> toolbar 8',
+    (t) async {
+      await _pump(t, width: 724);
+      final bar = t.getBottomLeft(_heading).dy;
+      expect(t.getTopLeft(_body).dy - bar, closeTo(25, 0.01));
+      // title text -> toolbar 8 (the field's bottom padding), no extra gap
+      expect(
+        t.getTopLeft(_heading).dy - t.getBottomLeft(_title).dy,
+        closeTo(8, 0.01),
+      );
+    },
+  );
 
   testWidgets('T3 phone: title -> body 25 (toolbar below the body)', (t) async {
     await _pump(t, width: 390, platform: TargetPlatform.android);
@@ -264,37 +269,126 @@ void main() {
     });
   }
 
-  testWidgets('T10 hairline shows only while scrolled', (t) async {
-    final c = await _pump(t, width: 724);
-    double opacity() => t
-        .widget<AnimatedOpacity>(
-          find.descendant(
-            of: find.byKey(const ValueKey('note-hairline')),
-            matching: find.byType(AnimatedOpacity),
-          ),
-        )
-        .opacity;
-    await _set(t, c, _lines(120));
-    expect(opacity(), 0);
-    final s = _scroll(t);
-    s.jumpTo(0.4); // below the threshold: no flicker
-    await t.pump();
-    expect(opacity(), 0);
-    s.jumpTo(40);
-    await t.pump();
-    expect(opacity(), 1);
-    // the 120ms fade really paints (the widget value is only the target)
-    await t.pumpAndSettle();
-    final fade = t.renderObject<RenderAnimatedOpacity>(
-      find.descendant(
-        of: find.byKey(const ValueKey('note-hairline')),
-        matching: find.byType(AnimatedOpacity),
-      ),
-    );
-    expect(fade.opacity.value, 1);
-    s.jumpTo(0);
-    await t.pump();
-    expect(opacity(), 0);
+  group('T10 rule under the toolbar', () {
+    Finder rule() => find.byKey(const ValueKey('note-hairline'));
+
+    for (final w in [640.0, 724.0, 1100.0]) {
+      testWidgets('desktop $w: full-width 1px rule, 0 gap, always visible', (
+        t,
+      ) async {
+        final c = await _pump(t, width: w);
+        // no fade wrapper: the rule is there at rest and while scrolled
+        expect(
+          find.descendant(of: rule(), matching: find.byType(AnimatedOpacity)),
+          findsNothing,
+        );
+        final r = t.getRect(rule());
+        expect(r.height, 1);
+        expect(r.left, 0); // pane edge to pane edge, not the 680 column
+        expect(r.width, w);
+        // right under the toolbar, nothing in between
+        final bar = t.getRect(find.byType(SingleChildScrollView).first);
+        expect(r.top, closeTo(bar.bottom, 0.01));
+        // painted with the hairline token
+        final fill = t.widget<ColoredBox>(
+          find.descendant(of: rule(), matching: find.byType(ColoredBox)),
+        );
+        expect(
+          fill.color,
+          buildPbTheme(Brightness.light).extension<Pb>()!.hairline,
+        );
+        // still there when scrolled
+        await _set(t, c, _lines(120));
+        _scroll(t).jumpTo(80);
+        await t.pump();
+        expect(t.getRect(rule()), r);
+      });
+    }
+
+    testWidgets('air is the field top padding: rule -> field = 1 + gap, '
+        'first glyph line starts 24 under the rule', (t) async {
+      await _pump(t, width: 724);
+      final r = t.getRect(rule());
+      final box = t.getRect(find.byType(TextField).last);
+      expect(box.top, closeTo(r.bottom, 0.01));
+      expect(t.getTopLeft(_body).dy - box.top, closeTo(24, 0.01));
+      // header / title / toolbar / body stay in this order, no overlap
+      final bar = t.getRect(find.byType(SingleChildScrollView).first);
+      expect(t.getBottomLeft(_title).dy, lessThanOrEqualTo(bar.top + 0.01));
+    });
+
+    testWidgets('scrolled text slides under the rule (field clip is off, '
+        'a ClipRect at the rule takes over)', (t) async {
+      final c = await _pump(t, width: 724);
+      await _set(t, c, _lines(120));
+      final box = t.getRect(find.byType(TextField).last);
+      final clip = find.ancestor(
+        of: find.byType(TextField).last,
+        matching: find.byType(ClipRect),
+      );
+      expect(clip, findsWidgets);
+      expect(t.getRect(clip.first).top, closeTo(box.top, 0.01));
+      expect(t.widget<EditableText>(_body).clipBehavior, Clip.none);
+      final before = t.getTopLeft(_body).dy;
+      _scroll(t).jumpTo(10);
+      await t.pump();
+      // the editable box does not move; its text does (up by the offset)
+      expect(t.getTopLeft(_body).dy, closeTo(before, 0.01));
+      final first = _render(
+        t,
+      ).getLocalRectForCaret(const TextPosition(offset: 0));
+      expect(first.top, closeTo(-10, 0.5));
+    });
+
+    testWidgets('phone: no toolbar under the title, rule shows only scrolled', (
+      t,
+    ) async {
+      final c = await _pump(t, width: 390, platform: TargetPlatform.android);
+      double opacity() => t
+          .widget<AnimatedOpacity>(
+            find.descendant(of: rule(), matching: find.byType(AnimatedOpacity)),
+          )
+          .opacity;
+      await _set(t, c, _lines(120));
+      expect(opacity(), 0);
+      final s = _scroll(t);
+      s.jumpTo(0.4); // below the threshold: no flicker
+      await t.pump();
+      expect(opacity(), 0);
+      s.jumpTo(40);
+      await t.pump();
+      expect(opacity(), 1);
+      // the 120ms fade really paints (the widget value is only the target)
+      await t.pumpAndSettle();
+      final fade = t.renderObject<RenderAnimatedOpacity>(
+        find.descendant(of: rule(), matching: find.byType(AnimatedOpacity)),
+      );
+      expect(fade.opacity.value, 1);
+      s.jumpTo(0);
+      await t.pump();
+      expect(opacity(), 0);
+    });
+
+    testWidgets('phone: the bar has a hairline above it', (t) async {
+      await _pump(t, width: 390, platform: TargetPlatform.android);
+      final top = find.byKey(const ValueKey('note-toolbar-top-rule'));
+      expect(top, findsOneWidget);
+      final deco = t.widget<DecoratedBox>(top).decoration as BoxDecoration;
+      expect(
+        (deco.border! as Border).top.color,
+        buildPbTheme(Brightness.light).extension<Pb>()!.hairline,
+      );
+      // directly above the bar's icons, below the body
+      expect(
+        t.getTopLeft(top).dy,
+        greaterThanOrEqualTo(
+          t.getBottomLeft(find.byType(TextField).last).dy - 0.01,
+        ),
+      );
+      // wide layouts have no such rule
+      await _pump(t, width: 724);
+      expect(find.byKey(const ValueKey('note-toolbar-top-rule')), findsNothing);
+    });
   });
 
   group('layers follow the new geometry', () {
@@ -306,9 +400,9 @@ void main() {
       final targets = checkBoxTargets(_render(t), _stack(t), c.checks);
       expect(targets, hasLength(2));
       final first = targets.first.rect;
-      // contentPadding.top is 0: the first line starts at the field top
-      // (a theme padding of 14 would put this at 19+)
-      expect(first.top, inInclusiveRange(0, 8));
+      // stack = field box: the first line starts [bodyGap] (24) under the
+      // rule (the field's top padding), not at the theme's 14 -> 19+ from it
+      expect(first.top, inInclusiveRange(24, 24 + 8));
       // text line (gutter 32) in stack coordinates (stack = column + 8)
       expect(first.left, closeTo(32 - 8, 0.01));
       // the 18px box is centered on the line: rect.center.dy is the line mid
@@ -326,6 +420,31 @@ void main() {
             .dy,
         closeTo(mid, 0.6),
       );
+    });
+
+    testWidgets('checkbox and fence follow the text when scrolled', (t) async {
+      final c = await _pump(t, width: 724, height: 500);
+      final text = '${_lines(40)}\n- [ ] todo\n```\ncode\n```\n${_lines(40)}';
+      await _set(t, c, text);
+      final s = _scroll(t);
+      final off = text.indexOf('- [ ]');
+      final r = _render(t);
+      s.jumpTo(r.getLocalRectForCaret(TextPosition(offset: off)).top - 100);
+      await t.pump();
+      final box = checkBoxTargets(r, _stack(t), c.checks).single.rect;
+      final line = r.getBoxesForSelection(
+        TextSelection(baseOffset: off, extentOffset: off + 1),
+      );
+      final mid = r.localToGlobal(line.first.toRect().center).dy;
+      expect(
+        t
+            .renderObject<RenderBox>(find.byType(LiveCheckLayer))
+            .localToGlobal(Offset(0, box.center.dy))
+            .dy,
+        closeTo(mid, 0.6),
+      );
+      final fence = fenceTargets(r, _stack(t), c.fences).single.rect;
+      expect(fence.top, greaterThan(box.center.dy)); // the line after the todo
     });
 
     testWidgets('code block bleed stays inside the stack at every class', (
@@ -364,6 +483,154 @@ void main() {
       final rect = t.getRect(pop);
       expect(rect.left, greaterThanOrEqualTo(8 - 0.01));
       expect(rect.right, lessThanOrEqualTo(390 - 8 + 0.01));
+    });
+  });
+
+  // The air above the text is the field's top padding, so text is visible
+  // [air] above the editable's top (the screen's ClipRect cuts it at the rule).
+  // The layers must be cut at the same line, not at the editable's top.
+  group('air band: layers are cut where the text is cut', () {
+    const air = 24.0;
+
+    /// Editable box in stack coordinates.
+    Rect view(WidgetTester t) => MatrixUtils.transformRect(
+      _render(t).getTransformTo(_stack(t)),
+      Offset.zero & _render(t).size,
+    );
+
+    RenderObject paint(WidgetTester t, Type layer) => t.renderObject(
+      find.descendant(
+        of: find.byType(layer),
+        matching: find.byType(CustomPaint),
+      ),
+    );
+
+    /// Scrolls so the line box of `[from, to)` ends 2 px above the editable's
+    /// top: inside the air (a line is 24.4 px, the air 24: its top is cut).
+    Future<double> scrollLineIntoAir(WidgetTester t, int from, int to) async {
+      final box = _render(t)
+          .getBoxesForSelection(
+            TextSelection(baseOffset: from, extentOffset: to),
+          )
+          .first
+          .toRect();
+      _scroll(t).jumpTo(box.bottom + 2); // bottom edge now at -2
+      await t.pump();
+      return box.height;
+    }
+
+    testWidgets('checkbox: drawn and pressable above the editable, cut at '
+        'the rule, gone once its line leaves the air', (t) async {
+      final c = await _pump(t, width: 724);
+      await _set(t, c, '- [ ] one\n${_lines(60)}');
+      await scrollLineIntoAir(t, 0, 1);
+      final r = _render(t), st = _stack(t);
+      // read without the air: the item is "before the viewport" (the bug)
+      expect(checkBoxTargets(r, st, c.checks), isEmpty);
+      final box = checkBoxTargets(r, st, c.checks, topAir: air).single.rect;
+      expect(box.center.dy, inExclusiveRange(0, air)); // under the rule
+      // clip: editable top - air = the rule (stack top), nothing above it
+      final v = view(t);
+      expect(v.top - air, closeTo(0, 0.01));
+      expect(
+        paint(t, LiveCheckLayer),
+        paints
+          ..clipRect(rect: Rect.fromLTRB(v.left, 0, v.right, v.bottom))
+          ..rrect(),
+      );
+      // pressable there
+      await t.tapAt(st.localToGlobal(box.center));
+      await t.pump();
+      expect(c.text, startsWith('- [x] one'));
+      // one line more and it is above the rule: not read, not drawn, no hit
+      _scroll(t).jumpTo(_scroll(t).offset + 60);
+      await t.pump();
+      expect(checkBoxTargets(r, st, c.checks, topAir: air), isEmpty);
+      expect(paint(t, LiveCheckLayer), isNot(paints..rrect()));
+      await t.tapAt(st.localToGlobal(Offset(box.center.dx, 2)));
+      await t.pump();
+      expect(c.text, startsWith('- [x] one'));
+    });
+
+    testWidgets('code block: fill reaches the rule with the text, corners '
+        'of a block that continues are cut there', (t) async {
+      final c = await _pump(t, width: 724);
+      await _set(t, c, '```py\ncode\nmore\n```\n${_lines(60)}');
+      final end = c.text.indexOf('```\n', 5) + 3;
+      await scrollLineIntoAir(t, end - 1, end);
+      final r = _render(t), st = _stack(t);
+      expect(fenceTargets(r, st, c.fences), isEmpty); // the bug
+      final rect = fenceTargets(r, st, c.fences, topAir: air).single.rect;
+      final v = view(t);
+      // continues above the viewport: top is past the clip, not at its edge
+      expect(rect.top, closeTo(v.top - air - 40, 0.01));
+      expect(rect.bottom, inExclusiveRange(0, v.top + air));
+      expect(
+        paint(t, LiveCodeBackLayer),
+        paints
+          ..clipRect(
+            rect: Rect.fromLTRB(
+              v.left - kFenceBleed,
+              0, // the rule, not v.top (24 below it)
+              v.right + kFenceBleed,
+              v.bottom,
+            ),
+          )
+          ..rrect(),
+      );
+      // the line after the block's end has left the air: no block
+      _scroll(t).jumpTo(_scroll(t).offset + 60);
+      await t.pump();
+      expect(fenceTargets(r, st, c.fences, topAir: air), isEmpty);
+    });
+
+    testWidgets('copy button: on a head line in the air it shows, presses '
+        'and copies; one line later it is gone', (t) async {
+      final copied = <String>[];
+      t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied.add((call.arguments as Map)['text'] as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      final c = await _pump(t, width: 724);
+      await _set(t, c, '```py\ncode\n```\n${_lines(60)}');
+      await scrollLineIntoAir(t, 0, 5);
+      final r = _render(t), st = _stack(t);
+      expect(fenceTargets(r, st, c.fences).single.head, isNull); // the bug
+      final tg = fenceTargets(r, st, c.fences, topAir: air).single;
+      final btn = copyButtonRect(tg)!;
+      expect(btn.center.dy, inExclusiveRange(0, air));
+      final g = await t.createGesture(kind: PointerDeviceKind.mouse);
+      await g.addPointer(location: const Offset(1, 1));
+      await g.moveTo(st.localToGlobal(tg.rect.center));
+      await t.pump();
+      await g.moveTo(st.localToGlobal(btn.center));
+      await t.pump();
+      await t.pump();
+      final ui = t.widget<LiveCodeBackLayer>(find.byType(LiveCodeBackLayer)).ui;
+      expect(ui.overButton, isTrue);
+      await g.down(st.localToGlobal(btn.center));
+      await t.pump(const Duration(milliseconds: 40));
+      await g.up();
+      await t.pump();
+      expect(copied, ['code']);
+      await t.pump(const Duration(seconds: 2));
+      // head line above the rule: no button, nothing to press
+      _scroll(t).jumpTo(_scroll(t).offset + 60);
+      await t.pump();
+      final gone = fenceTargets(r, st, c.fences, topAir: air);
+      expect(gone.isEmpty || copyButtonRect(gone.single) == null, isTrue);
+      await g.removePointer();
     });
   });
 }

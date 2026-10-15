@@ -13,11 +13,16 @@ typedef CheckTarget = ({CheckMarker item, Rect rect});
 /// rectangle of its (transparent) `- [ ] ` prefix in the coordinates of
 /// [stack]. Read from [render] when called (paint, hit test), so scroll,
 /// resize, font size and line wraps are already applied (research 024 T2/T10).
+///
+/// [topAir]: how far above [render]'s top text still shows (the field's top
+/// content padding, which the screen's `ClipRect` leaves visible). Items in
+/// that band are read too, so they are not dropped before the text is.
 List<CheckTarget> checkBoxTargets(
   RenderEditable render,
   RenderBox stack,
-  List<CheckMarker> items,
-) {
+  List<CheckMarker> items, {
+  double topAir = 0,
+}) {
   if (items.isEmpty ||
       !render.attached ||
       !stack.attached ||
@@ -28,7 +33,9 @@ List<CheckTarget> checkBoxTargets(
   if (render.plainText.length < items.last.end) return const []; // not laid out
   final xf = render.getTransformTo(stack);
   // Text offsets of the viewport's corners: only items in between are read.
-  final lo = render.getPositionForPoint(render.localToGlobal(Offset.zero));
+  final lo = render.getPositionForPoint(
+    render.localToGlobal(Offset(0, -topAir)),
+  );
   final hi = render.getPositionForPoint(
     render.localToGlobal(render.size.bottomRight(Offset.zero)),
   );
@@ -107,6 +114,7 @@ class LiveCheckLayer extends StatelessWidget {
     required this.todoLabel,
     required this.onToggle,
     this.touch = false,
+    this.topAir = 0,
   });
 
   final LiveMarkdownController controller;
@@ -124,6 +132,11 @@ class LiveCheckLayer extends StatelessWidget {
 
   /// Larger hit area on touch devices.
   final bool touch;
+
+  /// The field's top content padding ([NoteSpacing.bodyGap]): text shows that
+  /// far above the editable's top, so boxes are drawn and hit down to the same
+  /// line the text is cut at, not at the editable's top.
+  final double topAir;
 
   @override
   Widget build(BuildContext context) {
@@ -164,24 +177,37 @@ class _CheckPainter extends CustomPainter {
   List<CheckTarget> _targets() {
     final r = w.render(), s = w.stack();
     if (r == null || s == null) return const [];
-    return checkBoxTargets(r, s, w.controller.checks);
+    return checkBoxTargets(r, s, w.controller.checks, topAir: w.topAir);
   }
 
-  CheckTarget? targetAt(Offset p) =>
-      checkTargetAt(_last ?? _targets(), p, touch: w.touch);
+  /// The editable's box in stack coordinates, extended up by [topAir]: where
+  /// the text is visible, so where boxes are drawn and can be hit.
+  Rect? _clip() {
+    final r = w.render(), s = w.stack();
+    if (r == null || s == null || !r.attached || !s.attached || !r.hasSize) {
+      return null;
+    }
+    final v = MatrixUtils.transformRect(
+      r.getTransformTo(s),
+      Offset.zero & r.size,
+    );
+    return Rect.fromLTRB(v.left, v.top - w.topAir, v.right, v.bottom);
+  }
+
+  CheckTarget? targetAt(Offset p) {
+    // Outside the clip nothing is drawn, so nothing is pressable either.
+    if (!(_clip()?.contains(p) ?? false)) return null;
+    return checkTargetAt(_last ?? _targets(), p, touch: w.touch);
+  }
 
   @override
   bool? hitTest(Offset position) => targetAt(position) != null;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final r = w.render(), s = w.stack();
     final targets = _last = _targets();
-    if (targets.isEmpty || r == null || s == null) return;
-    final view = MatrixUtils.transformRect(
-      r.getTransformTo(s),
-      Offset.zero & r.size,
-    );
+    final view = _clip();
+    if (targets.isEmpty || view == null) return;
     final hot = w.hover.value;
     canvas.save();
     canvas.clipRect(view);

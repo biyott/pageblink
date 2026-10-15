@@ -211,7 +211,11 @@ void main() {
 
       void verify() {
         final r = _render(t), stack = _stack(t);
-        final got = checkBoxTargets(r, stack, c.checks);
+        // as the layer reads: items in the air band above the editable too
+        final air = t
+            .widget<LiveCheckLayer>(find.byType(LiveCheckLayer))
+            .topAir;
+        final got = checkBoxTargets(r, stack, c.checks, topAir: air);
         expect(got, isNotEmpty);
         for (final (:item, :rect) in got) {
           final local = r

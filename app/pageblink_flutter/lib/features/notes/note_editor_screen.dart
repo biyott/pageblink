@@ -84,7 +84,9 @@ class NoteSpacing {
   /// Title text -> toolbar / divider (inside the title field).
   final double titleBottom;
 
-  /// Toolbar (phone: title) -> the hairline above the body.
+  /// Air above the first line of the body (the body field's top
+  /// `contentPadding`; the hairline sits right above it: under the toolbar on
+  /// a desktop, under the title on a phone).
   final double bodyGap;
 
   /// Extra scroll range under the last line of a note that overflows.
@@ -156,8 +158,9 @@ class NoteScrollController extends ScrollController {
   );
 }
 
-/// 1px line under the title block that appears once the body is scrolled: its
-/// top is the body field's top, where the text is clipped.
+/// Phone only: 1px line under the title that appears once the body is scrolled
+/// (a desktop has the always-visible rule under the toolbar). Its bottom is
+/// the body field's top, where the text is clipped.
 class _ScrolledHairline extends StatelessWidget {
   const _ScrolledHairline({
     super.key,
@@ -326,6 +329,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   // Code blocks: which one the pointer is over (copy button), just copied.
   final _codeUi = CodeBlockUi();
   Offset? _hoverPos; // last pointer position over the body (stack coords)
+  double _bodyGap = 0; // NoteSpacing.bodyGap of the last build (air above text)
 
   /// Deleting: no second tap. Deleted: the note is gone, so closing must not
   /// save it again (`saveNote` would fail with "Note not found").
@@ -461,7 +465,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     final r = _bodyRender(), st = _stackBox();
     if (!_body.live || r == null || st == null) return null;
     return checkTargetAt(
-      checkBoxTargets(r, st, _body.checks),
+      checkBoxTargets(r, st, _body.checks, topAir: _bodyGap),
       p,
       touch: _touchDevice,
     );
@@ -512,7 +516,10 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       _codeUi.hover(null);
       return;
     }
-    final t = fenceTargetAt(fenceTargets(r, st, _body.fences), p);
+    final t = fenceTargetAt(
+      fenceTargets(r, st, _body.fences, topAir: _bodyGap),
+      p,
+    );
     final b = t == null ? null : copyButtonRect(t);
     _codeUi.hover(
       t?.block.start,
@@ -957,6 +964,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
             short: NoteSpacing.isShort(context),
           );
           _bodyScroll.air = sp.endAir;
+          _bodyGap = sp.bodyGap;
           return Column(
             children: [
               PaneHeader(
@@ -1124,14 +1132,23 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                     child: _toolbar(context, sp),
                   ),
                 ),
-              // Air, then a hairline that only shows while scrolled (no second
-              // rule under the toolbar at rest); the body field starts below it.
-              SizedBox(height: sp.bodyGap),
-              _ScrolledHairline(
-                key: const ValueKey('note-hairline'),
-                scroll: _bodyScroll,
-                color: context.pb.hairline,
-              ),
+              // Full-width rule right under the toolbar (no gap: the toolbar
+              // reads as a band between header/title and body, as before the
+              // spacing change). Phone: no toolbar here, so the rule only
+              // shows while the body is scrolled under the title.
+              if (wide)
+                SizedBox(
+                  key: const ValueKey('note-hairline'),
+                  height: 1,
+                  width: double.infinity,
+                  child: ColoredBox(color: context.pb.hairline),
+                )
+              else
+                _ScrolledHairline(
+                  key: const ValueKey('note-hairline'),
+                  scroll: _bodyScroll,
+                  color: context.pb.hairline,
+                ),
               Expanded(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: noteColumnWidth),
@@ -1182,6 +1199,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                                       color: context.pb.inkMuted,
                                     ),
                             copyEnabled: !_touchDevice,
+                            topAir: sp.bodyGap,
                           ),
                           Listener(
                             onPointerDown: (e) {
@@ -1216,64 +1234,78 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                                     _syncBar();
                                   },
                               },
-                              child: TextField(
-                                key: _bodyKey,
-                                controller: _body,
-                                focusNode: _bodyFocus,
-                                scrollController: _bodyScroll,
-                                contextMenuBuilder: (context, state) {
-                                  final sel = state.textEditingValue.selection;
-                                  return AdaptiveTextSelectionToolbar.buttonItems(
-                                    anchors: state.contextMenuAnchors,
-                                    buttonItems: [
-                                      ...state.contextMenuButtonItems,
-                                      if (sel.isValid && !sel.isCollapsed)
-                                        for (final (tip, _, toggle, _)
-                                            in _inlineActions(
-                                              context.l,
-                                              formatState(
-                                                state.textEditingValue,
-                                              ),
-                                            ))
-                                          ContextMenuButtonItem(
-                                            label: tip,
-                                            onPressed: () {
-                                              state.hideToolbar(false);
-                                              _apply(toggle);
-                                            },
-                                          ),
-                                    ],
-                                  );
-                                },
-                                style: bodyStyle,
-                                autofocus: widget.note == null,
-                                maxLines: null,
-                                expands: true,
-                                keyboardType: TextInputType.multiline,
-                                inputFormatters: const [
-                                  ListContinuationFormatter(),
-                                ],
-                                textAlignVertical: TextAlignVertical.top,
-                                // Caret stays this far above the bottom while typing
-                                // (the air under the last line is the scroll range).
-                                scrollPadding: EdgeInsets.fromLTRB(
-                                  20,
-                                  20,
-                                  20,
-                                  sp.scrollBottom,
-                                ),
-                                decoration: InputDecoration(
-                                  hintText: context.l.noteHint,
-                                  filled: false,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  // Top/bottom 0: a padding there is a dead band
-                                  // outside the scrolled area (gap above is
-                                  // [NoteSpacing.bodyGap], below is the end air).
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: sp.bodyInset,
+                              // The air above the text is the field's top
+                              // padding, which is outside the scrolled area:
+                              // the field's own clip is off and this one
+                              // (field box = from the rule down) takes over,
+                              // so scrolled text slides up into the air and
+                              // is cut at the rule, not 24px below it.
+                              child: ClipRect(
+                                child: TextField(
+                                  key: _bodyKey,
+                                  controller: _body,
+                                  focusNode: _bodyFocus,
+                                  scrollController: _bodyScroll,
+                                  clipBehavior: Clip.none,
+                                  contextMenuBuilder: (context, state) {
+                                    final sel =
+                                        state.textEditingValue.selection;
+                                    return AdaptiveTextSelectionToolbar.buttonItems(
+                                      anchors: state.contextMenuAnchors,
+                                      buttonItems: [
+                                        ...state.contextMenuButtonItems,
+                                        if (sel.isValid && !sel.isCollapsed)
+                                          for (final (tip, _, toggle, _)
+                                              in _inlineActions(
+                                                context.l,
+                                                formatState(
+                                                  state.textEditingValue,
+                                                ),
+                                              ))
+                                            ContextMenuButtonItem(
+                                              label: tip,
+                                              onPressed: () {
+                                                state.hideToolbar(false);
+                                                _apply(toggle);
+                                              },
+                                            ),
+                                      ],
+                                    );
+                                  },
+                                  style: bodyStyle,
+                                  autofocus: widget.note == null,
+                                  maxLines: null,
+                                  expands: true,
+                                  keyboardType: TextInputType.multiline,
+                                  inputFormatters: const [
+                                    ListContinuationFormatter(),
+                                  ],
+                                  textAlignVertical: TextAlignVertical.top,
+                                  // Caret stays this far above the bottom while typing
+                                  // (the air under the last line is the scroll range).
+                                  scrollPadding: EdgeInsets.fromLTRB(
+                                    20,
+                                    20,
+                                    20,
+                                    sp.scrollBottom,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: context.l.noteHint,
+                                    filled: false,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                    // Top: the air under the rule (text paints
+                                    // into it, see the ClipRect). Bottom 0: a
+                                    // padding there is a dead band outside the
+                                    // scrolled area (below is the end air).
+                                    contentPadding: EdgeInsets.fromLTRB(
+                                      sp.bodyInset,
+                                      sp.bodyGap,
+                                      sp.bodyInset,
+                                      0,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1295,6 +1327,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                               todoLabel: l.checkTodo,
                               onToggle: _toggleCheck,
                               touch: _touchDevice,
+                              topAir: sp.bodyGap,
                             ),
                           if (_barAnchors != null)
                             ListenableBuilder(
@@ -1344,6 +1377,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                               copyLabel: l.codeCopy,
                               copiedLabel: l.copied,
                               onCopy: _copyCode,
+                              topAir: sp.bodyGap,
                             ),
                           if (_edit case final e? when _editAnchors != null)
                             LinkEditPopover(
@@ -1380,7 +1414,17 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                   top: false,
                   child: Material(
                     color: theme.colorScheme.surfaceContainer,
-                    child: _toolbar(context, sp),
+                    // Rule above the bar: it does not float over the body
+                    // (with or without the keyboard).
+                    child: DecoratedBox(
+                      key: const ValueKey('note-toolbar-top-rule'),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: context.pb.hairline),
+                        ),
+                      ),
+                      child: _toolbar(context, sp),
+                    ),
                   ),
                 ),
             ],

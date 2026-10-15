@@ -27,11 +27,16 @@ typedef FenceTarget = ({FenceBlock block, Rect rect, Rect? head});
 ///
 /// Read from [render] when called (paint, hover, hit test), so scroll, resize
 /// and line wraps are already applied (research 024 T2 / T10).
+///
+/// [topAir]: how far above [render]'s top text still shows (the field's top
+/// content padding under the screen's `ClipRect`). The viewport's top is that
+/// much higher, so blocks keep their background (and head) as long as the text.
 List<FenceTarget> fenceTargets(
   RenderEditable render,
   RenderBox stack,
-  List<FenceBlock> blocks,
-) {
+  List<FenceBlock> blocks, {
+  double topAir = 0,
+}) {
   if (blocks.isEmpty ||
       !render.attached ||
       !stack.attached ||
@@ -42,8 +47,11 @@ List<FenceTarget> fenceTargets(
   final plain = render.plainText;
   if (plain.length < blocks.last.end) return const []; // not laid out
   final xf = render.getTransformTo(stack);
-  final view = MatrixUtils.transformRect(xf, Offset.zero & render.size);
-  final lo = render.getPositionForPoint(render.localToGlobal(Offset.zero));
+  final box = MatrixUtils.transformRect(xf, Offset.zero & render.size);
+  final view = Rect.fromLTRB(box.left, box.top - topAir, box.right, box.bottom);
+  final lo = render.getPositionForPoint(
+    render.localToGlobal(Offset(0, -topAir)),
+  );
   final hi = render.getPositionForPoint(
     render.localToGlobal(render.size.bottomRight(Offset.zero)),
   );
@@ -201,6 +209,7 @@ class LiveCodeBackLayer extends StatelessWidget {
     required this.fill,
     required this.labelStyle,
     this.copyEnabled = true,
+    this.topAir = 0,
   });
 
   /// False (source mode): nothing is painted.
@@ -217,6 +226,10 @@ class LiveCodeBackLayer extends StatelessWidget {
 
   /// The copy button can show, so the label makes room for it.
   final bool copyEnabled;
+
+  /// The field's top content padding ([NoteSpacing.bodyGap]): the fill is cut
+  /// that far above the editable's top, where the text is cut.
+  final double topAir;
 
   @override
   Widget build(BuildContext context) {
@@ -241,7 +254,12 @@ class _BackPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final r = w.render(), s = w.stack();
     if (r == null || s == null) return;
-    final targets = fenceTargets(r, s, w.controller.fences);
+    final targets = fenceTargets(
+      r,
+      s,
+      w.controller.fences,
+      topAir: w.topAir,
+    );
     if (targets.isEmpty) return;
     final view = MatrixUtils.transformRect(
       r.getTransformTo(s),
@@ -251,7 +269,7 @@ class _BackPainter extends CustomPainter {
     canvas.clipRect(
       Rect.fromLTRB(
         view.left - kFenceBleed,
-        view.top,
+        view.top - w.topAir,
         view.right + kFenceBleed,
         view.bottom,
       ),
@@ -303,6 +321,7 @@ class LiveCodeCopyLayer extends StatelessWidget {
     required this.copyLabel,
     required this.copiedLabel,
     required this.onCopy,
+    this.topAir = 0,
   });
 
   final LiveMarkdownController controller;
@@ -316,6 +335,10 @@ class LiveCodeCopyLayer extends StatelessWidget {
 
   /// Start offset of the block to copy.
   final ValueChanged<int> onCopy;
+
+  /// See [LiveCodeBackLayer.topAir]: the button is cut and pressable down to
+  /// the same line the text is cut at.
+  final double topAir;
 
   @override
   Widget build(BuildContext context) {
@@ -351,11 +374,31 @@ class _CopyPainter extends CustomPainter {
   List<FenceTarget> _targets() {
     final r = w.render(), s = w.stack();
     if (r == null || s == null) return const [];
-    return fenceTargets(r, s, w.controller.fences);
+    return fenceTargets(r, s, w.controller.fences, topAir: w.topAir);
+  }
+
+  /// The editable's box in stack coordinates, extended up by [topAir].
+  Rect? _clip() {
+    final r = w.render(), s = w.stack();
+    if (r == null || s == null || !r.attached || !s.attached || !r.hasSize) {
+      return null;
+    }
+    final v = MatrixUtils.transformRect(
+      r.getTransformTo(s),
+      Offset.zero & r.size,
+    );
+    return Rect.fromLTRB(
+      v.left - kFenceBleed,
+      v.top - w.topAir,
+      v.right + kFenceBleed,
+      v.bottom,
+    );
   }
 
   /// The block whose button is shown and under [p].
   FenceTarget? buttonAt(Offset p) {
+    // Outside the clip the button is not drawn, so it cannot be pressed.
+    if (!(_clip()?.contains(p) ?? false)) return null;
     for (final t in _last ?? _targets()) {
       if (!w.ui.shows(t.block.start)) continue;
       final b = copyButtonRect(t);
@@ -370,6 +413,10 @@ class _CopyPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final targets = _last = _targets();
+    final clip = _clip();
+    if (clip == null) return;
+    canvas.save();
+    canvas.clipRect(clip);
     for (final t in targets) {
       if (!w.ui.shows(t.block.start)) continue;
       final b = copyButtonRect(t);
@@ -392,6 +439,7 @@ class _CopyPainter extends CustomPainter {
         _paintIcon(canvas, AppIcons.copy, b.center, w.color);
       }
     }
+    canvas.restore();
   }
 
   @override

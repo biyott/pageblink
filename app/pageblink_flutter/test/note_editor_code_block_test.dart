@@ -65,8 +65,17 @@ RenderObject _back(WidgetTester t) => t.renderObject(
   ),
 );
 
+/// Read the way the layer reads: with the field's top air (the band above
+/// the editable where text still shows).
 List<FenceTarget> _targets(WidgetTester t, LiveMarkdownController c) =>
-    fenceTargets(_render(t), _stack(t), c.fences);
+    fenceTargets(
+      _render(t),
+      _stack(t),
+      c.fences,
+      topAir: t
+          .widget<LiveCodeBackLayer>(find.byType(LiveCodeBackLayer))
+          .topAir,
+    );
 
 Color _fill(WidgetTester t) => t
     .widget<LiveCodeBackLayer>(
