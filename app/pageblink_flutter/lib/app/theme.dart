@@ -134,12 +134,13 @@ extension PbContext on BuildContext {
   Pb get pb => Theme.of(this).extension<Pb>()!;
 }
 
-/// Bundled Hangul fallback family (assets/fonts/NotoSansKR-*-subset.ttf,
-/// KS X 1001 2,350 syllables + compat jamo + punctuation; weights 400/600).
-const pbHangulFamily = 'NotoSansKRSubset';
+/// Bundled body family for Latin and Hangul (assets/fonts/Pretendard-*-subset.otf,
+/// Pretendard 1.3.9: KS X 1001 2,350 syllables + compat jamo + Latin/punctuation;
+/// weights 400/500/600, so w700/bold resolves to the 600 face).
+const pbSansFamily = 'PretendardSubset';
 
 /// Bundled Hangul serif family for titles (assets/fonts/NotoSerifKR-600-subset.ttf,
-/// same character set, weight 600 only: every serif style is w600).
+/// KS X 1001 subset, weight 600 only: every serif style is w600).
 const pbHangulSerifFamily = 'NotoSerifKRSubset';
 
 ThemeData buildPbTheme(Brightness brightness) {
@@ -168,34 +169,34 @@ ThemeData buildPbTheme(Brightness brightness) {
         surfaceTint: Colors.transparent,
       );
 
-  // Latin: Inter / Fraunces (google_fonts). Hangul: bundled Noto Sans KR
-  // subset for body, Noto Serif KR subset for titles (pubspec `fonts:`), loaded
-  // before the first frame, so no widget falls back to the engine's CDN fonts.
-  // Serif titles fall back Serif KR -> Sans KR (glyphs missing from the serif).
-  const hangul = [pbHangulFamily];
-  const hangulSerif = [pbHangulSerifFamily, pbHangulFamily];
-  // The Sans fallback is applied here, before the serif styles are added:
-  // TextStyle.apply replaces fontFamilyFallback, so a final apply() on the whole
-  // theme would overwrite the serif fallback and lose the Myeongjo titles.
-  final inter = GoogleFonts.interTextTheme(
-    ThemeData(brightness: brightness).textTheme,
-  ).apply(bodyColor: pb.ink, displayColor: pb.ink, fontFamilyFallback: hangul);
+  // Body: bundled Pretendard (Latin + Hangul, one family) declared in pubspec
+  // `fonts:`, so it is loaded before the first frame and nothing falls back to
+  // the engine's CDN fonts. Titles: Fraunces w600 (bundled under
+  // assets/google_fonts/, no runtime fetch) -> Noto Serif KR subset -> Pretendard.
+  // The serif fallback is set per style below: TextStyle.apply replaces
+  // fontFamilyFallback, so a final apply() on the whole theme would lose it.
+  const serifFallback = [pbHangulSerifFamily, pbSansFamily];
+  final sans = ThemeData(brightness: brightness).textTheme.apply(
+    fontFamily: pbSansFamily,
+    bodyColor: pb.ink,
+    displayColor: pb.ink,
+  );
   TextStyle serif(double size, {FontWeight weight = FontWeight.w600}) =>
       GoogleFonts.fraunces(
         fontSize: size,
         fontWeight: weight,
         height: 1.2,
         color: pb.ink,
-      ).copyWith(fontFamilyFallback: hangulSerif);
+      ).copyWith(fontFamilyFallback: serifFallback);
 
-  final text = inter.copyWith(
+  final text = sans.copyWith(
     headlineMedium: serif(30),
     headlineSmall: serif(26),
     titleLarge: serif(22),
     titleMedium: serif(18),
-    bodyLarge: inter.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
-    bodyMedium: inter.bodyMedium?.copyWith(fontSize: 14, height: 1.45),
-    labelLarge: inter.labelLarge?.copyWith(
+    bodyLarge: sans.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
+    bodyMedium: sans.bodyMedium?.copyWith(fontSize: 14, height: 1.45),
+    labelLarge: sans.labelLarge?.copyWith(
       fontSize: 14,
       fontWeight: FontWeight.w600,
     ),

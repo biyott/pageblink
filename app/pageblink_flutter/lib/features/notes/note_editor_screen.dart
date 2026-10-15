@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
-import 'package:google_fonts/google_fonts.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -33,11 +32,9 @@ const noteColumnWidth = 680.0;
   return (title: 28, bodyHeight: 1.7, h1: 24, h2: 20, h3: 18);
 }
 
-/// True family names of a Google Font weight (google_fonts encodes the weight
-/// in the family name, so `fontWeight` alone would be synthesized).
-final _interFamilies = <FontWeight, String>{};
-String _inter(FontWeight w) =>
-    _interFamilies[w] ??= GoogleFonts.inter(fontWeight: w).fontFamily!;
+/// Body family for a weight. Pretendard is one family with declared weights, so
+/// Flutter picks the face from `fontWeight` (w700 -> the bundled 600 face).
+String _inter(FontWeight w) => pbSansFamily;
 
 /// Live Markdown styles from the app theme and the 018 size table.
 LiveStyles liveStylesFor(BuildContext context, TextStyle base) {

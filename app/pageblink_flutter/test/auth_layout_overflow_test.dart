@@ -26,10 +26,10 @@ Widget _app(Widget home, {required double scale, required String lang}) {
   return MaterialApp(
     debugShowCheckedModeBanner: false,
     locale: Locale(lang),
-    // flutter_test has no Inter/Fraunces; the bundled Hangul subset also
-    // covers Latin, so use it for every style (close to real widths).
+    // flutter_test has no Fraunces; the bundled Pretendard subset covers Latin
+    // and Hangul, so use it for every style (close to real widths).
     theme: base.copyWith(
-      textTheme: base.textTheme.apply(fontFamily: pbHangulFamily),
+      textTheme: base.textTheme.apply(fontFamily: pbSansFamily),
     ),
     supportedLocales: supportedLocales,
     localizationsDelegates: const [
@@ -73,8 +73,8 @@ void main() {
     GoogleFonts.config.allowRuntimeFetching = false;
     app.client = Client('http://localhost:8080/')
       ..authSessionManager = FlutterAuthSessionManager();
-    await (FontLoader(pbHangulFamily)
-          ..addFont(rootBundle.load('assets/fonts/NotoSansKR-400-subset.ttf')))
+    await (FontLoader(pbSansFamily)
+          ..addFont(rootBundle.load('assets/fonts/Pretendard-400-subset.otf')))
         .load();
   });
 
