@@ -63,6 +63,13 @@ void main() {
     expect(friendlyIndexingError(StateError('boom')), 'unknown');
   });
 
+  test('text-less PDFs fail with no_text, empty notes stay ready', () {
+    expect(isNoTextFailure('pdf', 0), isTrue);
+    expect(isNoTextFailure('pdf', 3), isFalse);
+    expect(isNoTextFailure('note', 0), isFalse);
+    expect(friendlyIndexingError(NoTextException()), 'no_text');
+  });
+
   test('a stalled embedding request becomes a timeout EmbeddingException', () {
     final client = MockClient((_) => Completer<http.Response>().future);
     expect(

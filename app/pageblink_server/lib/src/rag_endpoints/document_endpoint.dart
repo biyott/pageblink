@@ -27,9 +27,22 @@ bool isUnchangedReadyNote(Document existing, String body, String title) =>
     existing.body == body &&
     existing.title == title;
 
+/// A PDF whose extracted text yielded no chunks (a scan, or text-less pages)
+/// can never be cited. Notes are exempt: an empty note is simply empty.
+bool isNoTextFailure(String kind, int chunkCount) =>
+    kind != 'note' && chunkCount == 0;
+
+/// Thrown by `_index` when [isNoTextFailure]; becomes `lastError: 'no_text'`.
+class NoTextException implements Exception {
+  @override
+  String toString() => 'NoTextException: no text to index';
+}
+
 /// Failure code the app localizes (`indexingError` in l10n.dart):
-/// quota | auth | rate | outage | timeout | unknown (+ interrupted, no_source).
+/// quota | auth | rate | outage | timeout | no_text | unknown
+/// (+ interrupted, no_source).
 String friendlyIndexingError(Object e) {
+  if (e is NoTextException) return 'no_text';
   final m = '$e';
   if (m.contains(' 402')) return 'quota';
   if (m.contains(' 401') || m.contains(' 403')) return 'auth';
@@ -394,6 +407,9 @@ class DocumentEndpoint extends Endpoint {
           transaction: tx,
         );
       });
+      if (isNoTextFailure(document.kind, chunks.length)) {
+        throw NoTextException();
+      }
       document = document.copyWith(
         status: 'ready',
         embeddingModel: embedder.modelId,
@@ -403,7 +419,7 @@ class DocumentEndpoint extends Endpoint {
     } catch (e, st) {
       session.log(
         'Indexing failed for document ${document.id}',
-        level: LogLevel.error,
+        level: e is NoTextException ? LogLevel.warning : LogLevel.error,
         exception: e,
         stackTrace: st,
       );
