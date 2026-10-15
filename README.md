@@ -4,28 +4,28 @@
 
 **Ask your notes. Blink to the source.**
 
-Every answer shows its source: tap ⚡ to open the exact PDF page or note it came from.
+Every answer comes with its source. Tap ⚡ to jump to the exact PDF page or note.
 
 [![PageBlink demo video — click to watch](https://img.youtube.com/vi/ENYl1pd7_eQ/maxresdefault.jpg)](https://youtu.be/ENYl1pd7_eQ)
 
 [Live app](https://pageblink.serverpod.space) · [Demo video](https://youtu.be/ENYl1pd7_eQ) · [Source](https://github.com/biyott/pageblink)
 
-**PageBlink** is a Google Keep–style Markdown notes app that also takes PDFs. Ask one question across **both your notes and your PDFs**; the answer streams in token by token with `[n]` citations. Tap a ⚡ chip and the app opens the cited PDF page, or the cited note with the quoted passage shown.
+**PageBlink** is a Google Keep–style Markdown notes app that also takes PDFs. Ask one question and it searches **both your notes and your PDFs**. The answer streams in token by token, with `[n]` citations. Tap a ⚡ chip to open the cited PDF page, or the cited note with the quoted passage shown.
 
-Built for **Build Something Real: The Serverpod Hackathon** with Flutter + Serverpod 4.0.4. English UI by default, Korean when the locale is `ko`.
+Built with Flutter and Serverpod 4.0.4 for **Build Something Real: The Serverpod Hackathon**. The UI is in English by default and switches to Korean when the locale is `ko`.
 
 ## How it works
 
-1. **Write or upload.** A quick Markdown note or a PDF; both land on one board and are indexed together.
-2. **Ask.** One plain-language question searches notes and PDFs together.
-3. **Get a streamed answer with ⚡ citations.** `[n]` markers become ⚡ chips; sources are listed as SOURCES chips below.
+1. **Write or upload.** Jot down a quick Markdown note or drop in a PDF. Both land on one board and are indexed together.
+2. **Just ask.** One plain-language question searches your notes and PDFs at once.
+3. **Read the answer as it streams.** Each `[n]` marker becomes a ⚡ chip, and the sources are listed below as SOURCES chips.
 4. **Tap ⚡ to blink to the source.** The exact PDF page, or the cited note, opens with the quote shown.
 
-Also: projects with invites (access control inside the vector query), 7-model catalog with automatic rotation, original PDFs in Serverpod cloud storage. Full list: [features & limits](docs/reference/001-features-and-limits.md).
+Also included: projects you can invite people to (access control runs inside the vector query), a 7-model catalog that rotates automatically, and original PDFs kept in Serverpod cloud storage. Full list: [features & limits](docs/reference/001-features-and-limits.md).
 
 ## Judging criteria map
 
-The criteria come from participant-reported material, not the official rules ([plan 001 §2](docs/plan/001-hackathon-topic-report.md), marked unverified there).
+These criteria come from material reported by participants, not from the official rules. They are marked unverified in [plan 001 §2](docs/plan/001-hackathon-topic-report.md).
 
 | Criterion (weight) | Where to look |
 |---|---|
@@ -47,7 +47,7 @@ The criteria come from participant-reported material, not the official rules ([p
 | Web server serves the Flutter app | `FlutterRoute` in [`server.dart`](app/pageblink_server/lib/server.dart) |
 | Cloud storage / file upload | Original PDFs in private storage; `pdfUrl` returns a short-lived signed URL after an ACL check |
 
-All ✅ in use. Not used: Future Calls (background indexing; needs the Growth plan, project is on Starter).
+All of these are ✅ in use. Not used: Future Calls (background indexing), which needs the Growth plan; the project is on Starter.
 
 ## Architecture
 
@@ -78,19 +78,19 @@ flowchart LR
   EP -- "prompt with numbered sources" --> LLM
 ```
 
-One question: embed the query → ACL-filtered pgvector search (top 8) → numbered sources into the prompt → stream tokens → `citation` event on the first `[n]` of each source → ⚡ chips. Notes (`kind: 'note'`, one page) and PDFs (`kind: 'pdf'`, one chunk set per page) share one vector index. All LLM and embedding calls go through the server; API keys never reach the app.
+One question takes this path: embed the query → ACL-filtered pgvector search (top 8) → put numbered sources into the prompt → stream tokens → emit a `citation` event at the first `[n]` of each source → ⚡ chips. Notes (`kind: 'note'`, one page) and PDFs (`kind: 'pdf'`, one chunk set per page) share one vector index. Every LLM and embedding call goes through the server, so API keys never reach the app.
 
 ## Known limits
 
-- **Embeddings need a funded DeepInfra account.** On HTTP 402, new uploads and note saves fail to index and Ask falls back to keyword search over already-indexed chunks, and says so. Per-document **Re-index** recovers once the balance is topped up. The fallback has no recorded end-to-end run on the cloud deployment.
-- **Default answer models are OpenRouter free models, which may log prompts** ([ADR 014](docs/adr/014-model-catalog-and-rotation.md)); the free quota is per account. Use public documents for the demo.
-- **Verification status.** Both live URLs returned HTTP 200 after the redeploy in [devlog 007](docs/devlog/007-cloud-deploy-and-model-rotation.md). The latest deploy has no recorded end-to-end run on the cloud deployment yet (sign-up → note/PDF → ask → citation).
+- **Embeddings need a funded DeepInfra account.** On HTTP 402, new uploads and note saves fail to index. Ask then falls back to keyword search over chunks that are already indexed, and says so. Once the balance is topped up, **Re-index** recovers each document. This fallback has no recorded end-to-end run on the cloud deployment.
+- **The default answer models are OpenRouter free models, which may log prompts** ([ADR 014](docs/adr/014-model-catalog-and-rotation.md)). The free quota is per account. Use public documents for the demo.
+- **Verification status.** Both live URLs returned HTTP 200 after the redeploy recorded in [devlog 007](docs/devlog/007-cloud-deploy-and-model-rotation.md). The latest deploy has no recorded end-to-end run on the cloud deployment yet (sign-up → note/PDF → ask → citation).
 
-More (single-user note editing, Cloak tier not implemented, no mobile store builds, …): [all known limits](docs/reference/001-features-and-limits.md#known-limits).
+Other limits include single-user note editing, no Cloak tier yet, and no mobile store builds. See [all known limits](docs/reference/001-features-and-limits.md#known-limits).
 
 ## Run locally
 
-Flutter **3.47.7** ([fvm](https://fvm.app)), Serverpod CLI 4.0.4. No Docker; `serverpod start` uses an embedded Postgres with pgvector.
+You need Flutter **3.47.7** ([fvm](https://fvm.app)) and Serverpod CLI 4.0.4. Docker is not needed: `serverpod start` uses an embedded Postgres with pgvector.
 
 ```bash
 fvm use 3.47.7 && dart install serverpod_cli
@@ -98,10 +98,10 @@ export OPENROUTER_API_KEY=... DEEPINFRA_API_KEY=...   # or config/passwords.yaml
 cd app && serverpod start
 ```
 
-Key settings and tests: [run locally](docs/reference/002-run-locally.md).
+Key settings and tests are in [run locally](docs/reference/002-run-locally.md).
 
 ## More
 
 - [Features & limits](docs/reference/001-features-and-limits.md) · [Run locally](docs/reference/002-run-locally.md) · [Docs registry](docs/README.md) (plans, research, ADRs, devlog; written in Korean)
-- Built with [Claude Code](https://claude.com/claude-code) agents. The decision trail is in the repo: 16 research notes with sources, 15 ADRs, 9 plan documents, a timestamped devlog (9 entries, KST).
+- Built with [Claude Code](https://claude.com/claude-code) agents. The decision trail is in the repo: 16 research notes with sources, 15 ADRs, 9 plan documents, and a timestamped devlog (9 entries, KST).
 - [Hackathon page](https://builderbase.com/event/build-something-real-the-serverpod-hackathon) · [Serverpod docs](https://docs.serverpod.dev/overview)
