@@ -17,8 +17,8 @@ import '../../app/theme.dart';
 ///   dip    420ms  1.0 -> 0.35 (breathe)                 easeInOutSine
 ///   rise2  262ms  0.35 -> 0.85                          easeInOutSine
 ///   bloom  473ms  a light spreads from the centre; the inside goes back to
-///                 the row's kind colour; the glow turns into the rainbow
-///                 halo that stays
+///                 the neutral row colour; the glow turns into the cool
+///                 (violet-blue) halo that stays
 const sourceFlashLead = Duration(milliseconds: 140);
 const sourceFlashDuration = Duration(milliseconds: 1540);
 
@@ -39,14 +39,14 @@ class SourceFx {
     this.bloomAlpha = 0,
   });
 
-  /// Share of the inside that has moved from the row's kind colour to the
-  /// pulse colour (0 = the kind colour, see [sourceKindColor]).
+  /// Share of the inside that has moved from the neutral row colour
+  /// (`chipBg`) to the pulse colour (`accentContainer`); 0 = at rest.
   final double fill;
 
   /// Strength of the outer glow; 0 = no shadows at all.
   final double halo;
 
-  /// 0 = one purple glow, 1 = the mixed-colour halo.
+  /// 0 = one purple glow, 1 = the resting cool-spectrum halo.
   final double rainbow;
 
   /// Radius progress and brightness of the centre-out light.
@@ -123,8 +123,8 @@ final citeAckCurve = TweenSequence<double>([
 const sourcesCollapseFrom = 5;
 const sourcesCollapsedShow = 3;
 
-/// Secondary text: dark `inkMuted` misses AA on the bubble and on the dark note
-/// colours, so dark uses ink 75%.
+/// Secondary text: dark `inkMuted` misses AA on the bubble, so dark uses ink
+/// 75%.
 Color subInkFor(Pb pb, {required bool dark}) =>
     dark ? pb.ink.withValues(alpha: 0.75) : pb.inkMuted;
 
@@ -139,45 +139,20 @@ double contrastRatio(Color a, Color b) {
   return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
 }
 
-/// The paper of a source row, the same language as the document cards
-/// (`_DocumentCard`): a note takes `pb.noteColor(documentId)`, so one note is
-/// one colour everywhere; a PDF takes `pdfPaper` with an ink tint (plain
-/// `pdfPaper` is white in light and vanishes on the answer bubble).
-Color sourceKindColor(
-  Pb pb, {
-  required bool isNote,
-  required int documentId,
-  required bool dark,
-}) => isNote
-    ? pb.noteColor(documentId)
-    : Color.alphaBlend(
-        pb.ink.withValues(alpha: dark ? 0.10 : 0.06),
-        pb.pdfPaper,
-      );
+/// The `⚡n` pill: a neutral grey, the same for every number (no source or
+/// kind tint), with a yellow bolt and an `ink` digit. Opaque so the pill reads
+/// the same on any bubble colour.
+Color citeMarkerFill({required bool dark}) =>
+    dark ? const Color(0xFF4A4850) : const Color(0xFFE9E8E6);
 
-/// One step past [paper]: the number badge and the `⚡n` pill of a source that
-/// has arrived (darker in light, lighter in dark).
-Color sourceKindStrong(Pb pb, Color paper) =>
-    Color.alphaBlend(pb.ink.withValues(alpha: 0.12), paper);
+/// The bolt only is yellow. Light uses a deepened amber: a lighter yellow is
+/// under 1.7:1 on the light grey (this amber: 2.0, 1.8 picked) (3:1 would need a brown, so it is not met).
+Color citeMarkerBolt({required bool dark}) =>
+    dark ? const Color(0xFFFFD54A) : const Color(0xFFD99A00);
 
-/// [sourceKindColor] / [sourceKindStrong] of a citation.
-Color sourcePaper(Pb pb, Citation c, {required bool dark}) => sourceKindColor(
-  pb,
-  isNote: c.kind == 'note',
-  documentId: c.documentId,
-  dark: dark,
-);
-
-/// What the inside of a row turns into while it is selected: `accentContainer`,
-/// unless the paper is already that colour (the lavender note, light), then a
-/// brighter paper: the fill still moves, and the dark text keeps AA.
-Color sourcePulseColor(Pb pb, Color paper) {
-  final d =
-      (paper.r - pb.accentContainer.r).abs() +
-      (paper.g - pb.accentContainer.g).abs() +
-      (paper.b - pb.accentContainer.b).abs();
-  return d < 0.06 ? Color.lerp(paper, Colors.white, 0.6)! : pb.accentContainer;
-}
+/// The picked number's pill: `ink` 5% over [fill], barely deeper.
+Color citeMarkerPicked(Pb pb, Color fill) =>
+    Color.alphaBlend(pb.ink.withValues(alpha: 0.05), fill);
 
 /// The inline `⚡n` pill. The tap itself comes from the markdown package's
 /// `asWidgetSpan` wrapper; this widget adds the look and hover/press/focus.
@@ -190,7 +165,6 @@ class CiteMarker extends StatefulWidget {
     required this.ackValue,
     required this.reduced,
     required this.selected,
-    this.source,
     this.onTap,
   });
 
@@ -206,10 +180,6 @@ class CiteMarker extends StatefulWidget {
 
   /// This number's source is the one currently picked: a slightly deeper fill.
   final bool Function() selected;
-
-  /// This number's source once it has arrived (null before): the pill then
-  /// takes the strong tone of that source's kind colour, like its row's badge.
-  final Citation? Function()? source;
   final VoidCallback? onTap;
 
   @override
@@ -257,17 +227,9 @@ class _CiteMarkerState extends State<CiteMarker> {
                 animation: widget.ack,
                 builder: (context, _) {
                   final a = widget.ackValue();
-                  final src = widget.source?.call();
-                  final kind = src == null
-                      ? null
-                      : sourceKindStrong(
-                          pb,
-                          sourcePaper(pb, src, dark: dark),
-                        );
-                  var fill = kind ?? pb.accentContainer;
-                  final tint = _down
-                      ? 0.24
-                      : (_hover ? 0.12 : (widget.selected() ? 0.16 : 0.0));
+                  var fill = citeMarkerFill(dark: dark);
+                  if (widget.selected()) fill = citeMarkerPicked(pb, fill);
+                  final tint = _down ? 0.24 : (_hover ? 0.12 : 0.0);
                   if (tint > 0) {
                     fill = Color.alphaBlend(
                       pb.accent.withValues(alpha: tint),
@@ -296,7 +258,11 @@ class _CiteMarkerState extends State<CiteMarker> {
                               Icon(
                                 AppIcons.citationMarker,
                                 size: 10,
-                                color: Color.lerp(pb.accent, onPrimary, a),
+                                color: Color.lerp(
+                                  citeMarkerBolt(dark: dark),
+                                  onPrimary,
+                                  a,
+                                ),
                               ),
                               const SizedBox(width: 2),
                               Text(
@@ -311,13 +277,7 @@ class _CiteMarkerState extends State<CiteMarker> {
                                   fontFeatures: const [
                                     FontFeature.tabularFigures(),
                                   ],
-                                  color: Color.lerp(
-                                    kind == null
-                                        ? pb.onAccentContainer
-                                        : pb.ink,
-                                    onPrimary,
-                                    a,
-                                  ),
+                                  color: Color.lerp(pb.ink, onPrimary, a),
                                 ),
                               ),
                             ],
@@ -340,7 +300,7 @@ class _CiteMarkerState extends State<CiteMarker> {
 /// [fx] is the selection look; the keyed [DecoratedBox] carries the glow as
 /// `ShapeDecoration.shadows` (null when the row is not selected). The glow is
 /// clipped away from the row's inside so the resting inside is exactly the
-/// row's kind colour ([sourceKindColor]: the note's pastel, or PDF grey).
+/// neutral `chipBg`; the kind shows only in the icon and the second line.
 class SourceRow extends StatefulWidget {
   const SourceRow({
     super.key,
@@ -371,7 +331,6 @@ class _SourceRowState extends State<SourceRow> {
     final isNote = c.kind == 'note';
     final dark = Theme.of(context).brightness == Brightness.dark;
     final sub = subInkFor(pb, dark: dark);
-    final paper = sourcePaper(pb, c, dark: dark);
     final radius = BorderRadius.circular(14);
     final shape = RoundedRectangleBorder(
       borderRadius: radius,
@@ -415,7 +374,7 @@ class _SourceRowState extends State<SourceRow> {
           excludeSemantics: true,
           onTap: widget.onTap,
           child: Material(
-            color: Color.lerp(paper, sourcePulseColor(pb, paper), fx.fill),
+            color: Color.lerp(pb.chipBg, pb.accentContainer, fx.fill),
             shape: shape,
             child: InkWell(
               customBorder: shape,
@@ -454,7 +413,7 @@ class _SourceRowState extends State<SourceRow> {
                       ),
                       child: Row(
                         children: [
-                          _Badge(c.index, sourceKindStrong(pb, paper)),
+                          _Badge(c.index),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -516,18 +475,17 @@ class _SourceRowState extends State<SourceRow> {
   }
 }
 
-/// Mixed-colour halo. [SourceFx.rainbow] 0 is one purple glow (offset down 2,
-/// as the old flash); 1 is four glows whose hues turn away from the accent
-/// (teal, blue, pink, lavender) and sit on different sides of the row.
+/// Cool-spectrum halo. [SourceFx.rainbow] 0 is one purple glow (offset down
+/// 2, as the old flash); 1 is four glows that stay within violet to sky blue
+/// (hue -50..+12 from the accent, no pink, orange or yellow) and sit on
+/// different sides of the row.
 List<BoxShadow>? _halo(Pb pb, bool dark, SourceFx fx) {
   if (fx.halo <= 0) return null;
   final hsl = HSLColor.fromColor(pb.accent);
-  const turn = [-70.0, -35.0, 65.0, 20.0]; // teal, blue, pink, lavender
+  const turn = [-50.0, -30.0, -10.0, 12.0]; // sky, blue, indigo, violet
   const at = [Offset(-7, 0), Offset(0, 6), Offset(7, 0), Offset(0, -5)];
   final r = fx.rainbow;
-  // Four equal purple glows sum to about the old single 30%; in the resting
-  // halo each is its own colour, so they stay fainter than one glow would be.
-  final alpha = (dark ? 0.38 : 0.36) * fx.halo;
+  final alpha = (dark ? 0.34 : 0.30) * fx.halo;
   return [
     for (var i = 0; i < 4; i++)
       BoxShadow(
@@ -549,8 +507,9 @@ List<BoxShadow>? _halo(Pb pb, bool dark, SourceFx fx) {
 /// The light that spreads from the middle of the row (an ellipse, so it
 /// reaches the long edges at the same time as the short ones).
 RadialGradient _bloom(Pb pb, bool dark, SourceFx fx) {
-  final c = dark ? Color.lerp(pb.accent, Colors.white, 0.4)! : Colors.white;
-  final a = (dark ? 0.5 : 0.8) * fx.bloomAlpha;
+  // Neutral white in both modes; only its strength differs.
+  const c = Colors.white;
+  final a = (dark ? 0.3 : 0.8) * fx.bloomAlpha;
   return RadialGradient(
     radius: 0.08 + 0.7 * fx.bloom,
     colors: [
@@ -594,10 +553,9 @@ class _OutsideClip extends CustomClipper<Path> {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge(this.n, this.color);
+  const _Badge(this.n);
 
   final int n;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -607,7 +565,7 @@ class _Badge extends StatelessWidget {
       height: 22,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: color,
+        color: pb.accentContainer,
         shape: BoxShape.circle,
       ),
       child: FittedBox(
@@ -617,7 +575,7 @@ class _Badge extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: pb.ink,
+            color: pb.onAccentContainer,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),

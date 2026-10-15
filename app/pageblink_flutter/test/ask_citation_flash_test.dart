@@ -54,17 +54,9 @@ Color _inner(WidgetTester tester, int n) {
       .color!;
 }
 
-/// The row's resting colour: the kind colour of the citation the test helpers
-/// build (documentId = n; even numbers are notes, odd ones PDFs).
-Color _paper(WidgetTester tester, int n) {
-  final context = tester.element(find.byKey(ValueKey('source-chip-$n')));
-  return sourceKindColor(
-    context.pb,
-    isNote: n.isEven,
-    documentId: n,
-    dark: Theme.of(context).brightness == Brightness.dark,
-  );
-}
+/// The row's resting colour: the neutral `chipBg`, for every kind.
+Color _paper(WidgetTester tester, int n) =>
+    tester.element(find.byKey(ValueKey('source-chip-$n'))).pb.chipBg;
 
 List<BoxShadow> _halo(WidgetTester tester, int n) {
   final box = tester.widget<DecoratedBox>(
@@ -156,7 +148,7 @@ void main() {
       expect(_glow(t, 1), isNotNull);
       await t.pump(const Duration(milliseconds: 473)); // bloom done
       await t.pumpAndSettle();
-      // No end: the halo is still there, the inside is back to its kind colour.
+      // No end: the halo is still there, the inside is back to chipBg.
       expect(_glow(t, 1), isNotNull);
       expect(_inner(t, 1), _paper(t, 1));
       expect(_glow(t, 2), isNull);
@@ -164,9 +156,7 @@ void main() {
       expect(_glow(t, 1), isNotNull);
     });
 
-    testWidgets('resting halo: four mixed hues, faint, light and dark', (
-      t,
-    ) async {
+    testWidgets('resting halo: four cool hues (violet..sky), faint', (t) async {
       for (final b in Brightness.values) {
         await pump(t, answer: '[1]', brightness: b);
         await _tapMarker(t, 1);
@@ -178,6 +168,9 @@ void main() {
         for (final s in h) {
           expect(s.color.a, inInclusiveRange(0.08, 0.40), reason: '$b');
           expect(s.blurRadius, 20);
+          // No pink, orange or yellow: hue 195..275 (sky to violet).
+          final hue = HSLColor.fromColor(s.color).hue;
+          expect(hue, inInclusiveRange(195, 275), reason: '$b $hue');
         }
         expect(_inner(t, 1), _paper(t, 1));
       }
@@ -364,6 +357,7 @@ void main() {
       await t.pumpAndSettle();
       // The ack is over; what stays is the picked tint, nowhere near accent.
       expect(fill(1), isNot(t.element(find.byType(Scaffold)).pb.accent));
+      expect(fill(1), isNot(rest)); // picked: deeper, but still grey
       expect(fill(2), rest2);
     });
 
@@ -643,7 +637,7 @@ void main() {
     });
   });
 
-  group('source kind colours', () {
+  group('source colours (neutral rows, grey pill with a yellow bolt)', () {
     Future<AskTurn> pumpKinds(
       WidgetTester t,
       List<Citation> cs, {
@@ -696,36 +690,52 @@ void main() {
       return (box.decoration as ShapeDecoration).color!;
     }
 
-    testWidgets('a note row is its document card colour, a PDF row grey', (
+    Icon bolt(WidgetTester t, int n) => t.widget<Icon>(
+      find
+          .descendant(
+            of: find.byKey(ValueKey('cite-marker-$n')).first,
+            matching: find.byType(Icon),
+          )
+          .first,
+    );
+
+    testWidgets('notes and PDFs share one neutral row colour: chipBg', (
       t,
     ) async {
       for (final b in Brightness.values) {
-        // ids 5 and 8 land on different pastels; the PDF is document 5 too.
+        // Documents 5 and 8 used to land on different pastels.
         await pumpKinds(t, [
           cite(1, 5, 'note'),
           cite(2, 8, 'note'),
           cite(3, 5, 'pdf'),
         ], brightness: b);
         final pb = buildPbTheme(b).extension<Pb>()!;
-        expect(_inner(t, 1), pb.noteColor(5), reason: '$b');
-        expect(_inner(t, 2), pb.noteColor(8), reason: '$b');
-        expect(_inner(t, 1), isNot(_inner(t, 2)), reason: '$b');
-        final pdf = _inner(t, 3);
-        expect(pdf, isNot(pb.pdfPaper), reason: '$b');
-        expect(pdf, isNot(pb.noteColor(5)), reason: '$b');
-        // Neutral: the paper plus an ink tint, no hue of its own.
-        expect((pdf.r - pdf.b).abs(), lessThan(0.06), reason: '$b');
+        for (final n in [1, 2, 3]) {
+          expect(_inner(t, n), pb.chipBg, reason: '$b row $n');
+        }
       }
     });
 
-    testWidgets('the same note is the same colour in two answers', (t) async {
-      await pumpKinds(t, [cite(1, 7, 'note')]);
-      final first = _inner(t, 1);
-      await pumpKinds(t, [cite(1, 7, 'note')], answer: 'other [1]');
-      expect(_inner(t, 1), first);
+    testWidgets('the kind shows in the icon and the second line only', (
+      t,
+    ) async {
+      await pumpKinds(t, [cite(1, 5, 'note'), cite(2, 8, 'pdf')]);
+      Finder icons(int n) => find.descendant(
+        of: find.ancestor(
+          of: find.byKey(ValueKey('source-chip-$n')),
+          matching: find.byType(Stack),
+        ),
+        matching: find.byType(Icon),
+      );
+      IconData kindIcon(int n) => t.widget<Icon>(icons(n).at(0)).icon!;
+      expect(kindIcon(1), isNot(kindIcon(2)));
+      expect(t.widget<Icon>(icons(1).at(0)).size, 14);
+      expect(find.text('노트'), findsNothing); // default locale is English
+      expect(find.text('Note'), findsOneWidget);
+      expect(find.text('PDF · Page 1'), findsOneWidget);
     });
 
-    testWidgets('a picked row settles back to its kind colour', (t) async {
+    testWidgets('a picked row settles back to chipBg', (t) async {
       for (final n in [1, 2]) {
         await pumpKinds(t, [cite(1, 5, 'note'), cite(2, 3, 'pdf')]);
         final rest = _inner(t, n);
@@ -740,79 +750,121 @@ void main() {
       }
     });
 
-    testWidgets('the pill takes its source tone once the source arrived', (
+    testWidgets('the pulse only rises towards accentContainer', (t) async {
+      await pumpKinds(t, [cite(1, 5, 'note')], answer: '[1]');
+      final pb = t.element(find.byType(Scaffold)).pb;
+      await _tapMarker(t, 1);
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 140 + 245)); // peak, fill 1.0
+      // The Material animates colour changes: let it catch up (still inside
+      // the 420ms dip, where the fill is between 1.0 and 0.35).
+      await t.pump(const Duration(milliseconds: 100));
+      final c = _inner(t, 1);
+      // Between chipBg and accentContainer on every channel (no detour).
+      for (final ch in [
+        (pb.chipBg.r, pb.accentContainer.r, c.r),
+        (pb.chipBg.g, pb.accentContainer.g, c.g),
+        (pb.chipBg.b, pb.accentContainer.b, c.b),
+      ]) {
+        final lo = ch.$1 < ch.$2 ? ch.$1 : ch.$2;
+        final hi = ch.$1 < ch.$2 ? ch.$2 : ch.$1;
+        expect(ch.$3, inInclusiveRange(lo - 0.01, hi + 0.01));
+      }
+      await t.pumpAndSettle();
+    });
+
+    testWidgets('every pill is the same grey with a yellow bolt', (t) async {
+      for (final b in Brightness.values) {
+        final dark = b == Brightness.dark;
+        // 1 and 2 arrived (note, PDF); 3 has no source yet.
+        await pumpKinds(t, [
+          cite(1, 5, 'note'),
+          cite(2, 3, 'pdf'),
+        ], brightness: b);
+        final pb = buildPbTheme(b).extension<Pb>()!;
+        for (final n in [1, 2, 3]) {
+          expect(markerFill(t, n), citeMarkerFill(dark: dark), reason: '$b $n');
+          expect(bolt(t, n).color, citeMarkerBolt(dark: dark), reason: '$b $n');
+        }
+        // Grey: no hue of its own beyond a hair.
+        final f = markerFill(t, 1);
+        expect((f.r - f.b).abs(), lessThan(0.08), reason: '$b');
+        // The bolt is yellow/amber (hue 35..55), not orange or red.
+        final hue = HSLColor.fromColor(citeMarkerBolt(dark: dark)).hue;
+        expect(hue, inInclusiveRange(35, 55), reason: '$b $hue');
+        // Digit is ink.
+        final digit = t.widget<Text>(
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('cite-marker-1')).first,
+                matching: find.text('1'),
+              )
+              .first,
+        );
+        expect(digit.style!.color, pb.ink, reason: '$b');
+      }
+    });
+
+    testWidgets('a source arriving later does not recolour its pill', (
       t,
     ) async {
       final turn = await pumpKinds(t, [cite(1, 5, 'note')], answer: '[1] [2]');
-      final pb = t.element(find.byType(Scaffold)).pb;
-      expect(markerFill(t, 2), pb.accentContainer); // not arrived
-      expect(markerFill(t, 1), sourceKindStrong(pb, pb.noteColor(5)));
+      final before = markerFill(t, 2);
       turn.citations[2] = cite(2, 3, 'pdf');
       await pumpKinds(t, const [], same: turn);
       await t.pump();
-      expect(
-        markerFill(t, 2),
-        sourceKindStrong(
-          pb,
-          sourceKindColor(pb, isNote: false, documentId: 3, dark: false),
-        ),
-      );
+      expect(markerFill(t, 2), before);
+      expect(markerFill(t, 1), before);
     });
 
-    test('contrast: text on every row, pulse and badge is AA (4.5:1)', () {
+    test('contrast: row text, pill digit and bolt (pure functions)', () {
       expect(
         contrastRatio(const Color(0xFF000000), const Color(0xFFFFFFFF)),
         closeTo(21, 0.01),
       );
       for (final dark in [false, true]) {
         final pb = dark ? Pb.dark : Pb.light;
-        final papers = [
-          for (var i = 0; i < pb.notes.length; i++)
-            sourceKindColor(pb, isNote: true, documentId: i, dark: dark),
-          sourceKindColor(pb, isNote: false, documentId: 1, dark: dark),
-        ];
-        final sub = subInkFor(pb, dark: dark);
-        for (final p in papers) {
-          // Row text over its paper, and over the pulse colour it turns into.
-          for (final bg in [p, sourcePulseColor(pb, p)]) {
-            final under = Color.alphaBlend(sub, bg);
+        // The answer bubble is glassStrong over the page gradient; test every
+        // stop (rows add chipBg on top).
+        for (final page in [pb.bgStart, pb.bgMid, pb.bgEnd]) {
+          final bubble = Color.alphaBlend(pb.glassStrong, page);
+          final row = Color.alphaBlend(pb.chipBg, bubble);
+          final pulse = pb.accentContainer;
+          final sub = subInkFor(pb, dark: dark);
+          for (final bg in [row, pulse]) {
+            expect(contrastRatio(pb.ink, bg), greaterThanOrEqualTo(4.5));
             expect(
-              contrastRatio(pb.ink, bg),
-              greaterThanOrEqualTo(4.5),
-              reason: 'title $dark $bg',
-            );
-            expect(
-              contrastRatio(under, bg),
+              contrastRatio(Color.alphaBlend(sub, bg), bg),
               greaterThanOrEqualTo(4.5),
               reason: 'sub $dark $bg',
             );
           }
-          final strong = sourceKindStrong(pb, p);
           expect(
-            contrastRatio(pb.ink, strong),
+            contrastRatio(pb.onAccentContainer, pb.accentContainer),
             greaterThanOrEqualTo(4.5),
-            reason: 'badge number $dark $p',
+            reason: 'badge $dark',
           );
-          // The bolt is a graphic: 3:1.
+        }
+        final fill = citeMarkerFill(dark: dark);
+        final picked = citeMarkerPicked(pb, fill);
+        for (final f in [fill, picked]) {
           expect(
-            contrastRatio(pb.accent, strong),
-            greaterThanOrEqualTo(3),
-            reason: 'bolt $dark $p',
+            contrastRatio(pb.ink, f),
+            greaterThanOrEqualTo(4.5),
+            reason: 'digit $dark',
+          );
+          // Graphic object: 3:1 where a yellow can reach it (dark). On the
+          // light grey a yellow tops out near 2:1 (3:1 needs a brown), so the
+          // light bolt is held at its measured 1.8:1 (picked) and the digit carries it.
+          expect(
+            contrastRatio(citeMarkerBolt(dark: dark), f),
+            greaterThanOrEqualTo(dark ? 3 : 1.8),
+            reason: 'bolt $dark',
           );
         }
-      }
-    });
-
-    test('the pulse colour is never (nearly) the paper, lavender note too', () {
-      for (final pb in [Pb.light, Pb.dark]) {
-        for (final n in pb.notes) {
-          final pulse = sourcePulseColor(pb, n);
-          final d =
-              (pulse.r - n.r).abs() +
-              (pulse.g - n.g).abs() +
-              (pulse.b - n.b).abs();
-          expect(d, greaterThan(0.1));
-        }
+        // The pill is told apart from the bubble by 1.1:1 at least.
+        final bubble = Color.alphaBlend(pb.glassStrong, pb.bgMid);
+        expect(contrastRatio(fill, bubble), greaterThanOrEqualTo(1.1));
       }
     });
   });
