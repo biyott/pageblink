@@ -229,6 +229,14 @@ class L {
   String indexed(String title) => _t('Indexed: $title', '색인 완료: $title');
   String get reindexFailed =>
       _k("Couldn't re-index. Try again.", '다시 색인하지 못했어요. 다시 시도해 주세요.');
+  String get reindexAll => _t('Re-index all', '모두 다시 색인');
+  String get reindexingFailedItems =>
+      _t('Re-indexing failed items…', '실패한 항목 다시 색인 중…');
+  String failedBanner(int n) => _k(
+    '$n ${n == 1 ? 'document' : 'documents'} failed to index and '
+        '${n == 1 ? 'is' : 'are'} left out of Ask.',
+    '색인 실패 $n개 — 질문 검색에서 빠져 있어요.',
+  );
   String reindexedCount(int n) => _t('$n re-indexed', '$n개 색인 완료');
 
   // Card status line + board retry link (docs/design/upload-dnd-reindex §2.8).
@@ -241,10 +249,8 @@ class L {
     '색인이 오래 걸리고 있어요 · ⋯에서 다시 색인',
   );
   String get reindexingShort => _t('Re-indexing', '다시 색인 중');
-  String get indexingInterrupted =>
-      _t('Indexing interrupted', '색인이 끊겼어요');
-  String get indexingNoText =>
-      _t("Couldn't read any text", '텍스트를 읽지 못했어요');
+  String get indexingInterrupted => _t('Indexing interrupted', '색인이 끊겼어요');
+  String get indexingNoText => _t("Couldn't read any text", '텍스트를 읽지 못했어요');
   String get indexingServerSetup =>
       _t('Indexing failed · Check server setup', '색인 실패 · 서버 설정 확인');
   String get retry => _t('Retry', '다시 시도');
@@ -256,8 +262,7 @@ class L {
   );
 
   // PDF drop zone and upload tray (docs/design/upload-dnd-reindex §3.10).
-  String get dropTitle =>
-      _t('Drop PDFs here to add', 'PDF를 여기에 놓아 추가');
+  String get dropTitle => _t('Drop PDFs here to add', 'PDF를 여기에 놓아 추가');
   String dropSub(String target) => _t(
     'Drop several at once · Goes to $target',
     '여러 파일을 한 번에 놓을 수 있어요 · 대상: $target',
@@ -280,8 +285,10 @@ class L {
     'Drop area. Dropped PDFs are added to $target',
     '파일 놓기 영역. PDF를 놓으면 $target에 추가돼요',
   );
-  String trayAdding(int n, int i) =>
-      _t('Adding $n ${n == 1 ? 'PDF' : 'PDFs'} · $i/$n', 'PDF $n개 추가 중 · $i/$n');
+  String trayAdding(int n, int i) => _t(
+    'Adding $n ${n == 1 ? 'PDF' : 'PDFs'} · $i/$n',
+    'PDF $n개 추가 중 · $i/$n',
+  );
   String trayAddingIssues(int n, int bad) =>
       _t('Adding $n · $bad need attention', '$n개 추가 중 · $bad개 확인 필요');
   String trayPartial(int ok, int bad) =>
