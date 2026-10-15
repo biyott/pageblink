@@ -8,12 +8,16 @@ abstract final class AppIcons {
   static const pdf = LucideIcons.fileText; // Lucide has no PDF glyph
   static const projects = LucideIcons.users;
 
-  // Brand / Ask tab (existing bolt) and the citation chip. Violet is applied by callers.
-  static const ask = LucideIcons.zap;
+  // Wordmark glyph: the 4-point star of the V1b app icon (ADR 016).
+  static const brand = LucideIcons.sparkle;
+
+  // Ask tab, and the citation chip (the only place the bolt is used, ADR 016).
+  // Violet is applied by callers.
+  static const ask = LucideIcons.messageCircleQuestion;
   static const citation = LucideIcons.zap;
 
   // Selected variants for NavigationBar/Rail (Lucide has no fill; heavier stroke instead)
-  static const askSelected = LucideIcons.zap600;
+  static const askSelected = LucideIcons.messageCircleQuestion600;
   static const noteSelected = LucideIcons.stickyNote600;
   static const projectsSelected = LucideIcons.users600;
 

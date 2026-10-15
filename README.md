@@ -86,7 +86,7 @@ One question takes this path: embed the query → ACL-filtered pgvector search (
 - **The default answer models are OpenRouter free models, which may log prompts** ([ADR 014](docs/adr/014-model-catalog-and-rotation.md)). The free quota is per account. Use public documents for the demo.
 - **Verification status.** Both live URLs returned HTTP 200 after the redeploy recorded in [devlog 007](docs/devlog/007-cloud-deploy-and-model-rotation.md). The latest deploy has no recorded end-to-end run on the cloud deployment yet (sign-up → note/PDF → ask → citation).
 
-Other limits include single-user note editing, no Cloak tier yet, and no mobile store builds. See [all known limits](docs/reference/001-features-and-limits.md#known-limits).
+Other limits include no real-time or collaborative note editing (notes save when you go back), no Cloak tier yet, and no mobile store builds. See [all known limits](docs/reference/001-features-and-limits.md#known-limits).
 
 ## Run locally
 

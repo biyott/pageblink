@@ -425,7 +425,7 @@ class _Sidebar extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
                   child: Row(
                     children: [
-                      Icon(AppIcons.ask, size: 24, color: pb.accent),
+                      Icon(AppIcons.brand, size: 24, color: pb.accent),
                       const SizedBox(width: 6),
                       Text('PageBlink', style: text.titleLarge),
                     ],

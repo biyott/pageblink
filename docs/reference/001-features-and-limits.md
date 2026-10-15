@@ -2,7 +2,7 @@
 
 [← Back to the project README](../../README.md)
 
-**Last updated (KST):** 2026-10-15 08:58
+**Last updated (KST):** 2026-10-15 10:40
 
 ## Implemented features
 
@@ -31,7 +31,7 @@ Each note or document can live in a different privacy tier: **Cloak** (device-on
 - **Default answer models are OpenRouter free models, which may log prompts** ([ADR 014](../adr/014-model-catalog-and-rotation.md)). Use public documents for the demo.
 - **Verification status.** Both live URLs returned HTTP 200 after the redeploy recorded in [devlog 007](../devlog/007-cloud-deploy-and-model-rotation.md). The latest deploy (notes, landing page, Glass Paper design, i18n, indexing-failure handling) has no recorded end-to-end run on the cloud deployment yet (sign-up → note/PDF upload → ask → citation). The notes UI and the sign-up password rule (12–50 chars, lowercase + number, uppercase or special; client-side only) are not covered by automated tests.
 - **Original PDFs and web upload.** PDFs are stored server-side in private cloud storage (`document.pdfUploadDescription` / `confirmPdfUpload` / `pdfUrl`). CORS for the web upload is not verified yet. If the server copy is unavailable (for example a failed upload), the viewer shows the cited quote instead of the page. Citation highlight inside the page body is not implemented yet.
-- **Notes are single-user editing with save-on-back.** There is no realtime sync or collaborative editing, no images, no labels/colors/pin/archive, no version history, and checkboxes cannot be toggled in the preview. These are planned ([plan 005](../plan/005-follow-up-spec.md), [ADR 015](../adr/015-product-scope-notes-and-pdfs.md)).
+- **Notes have no real-time or collaborative editing; they save when you go back.** Project owners and editors can both edit notes, but there is no realtime sync or concurrent-edit conflict handling, no images, no labels/colors/pin/archive, no version history, and checkboxes cannot be toggled in the preview. These are planned ([plan 005](../plan/005-follow-up-spec.md), [ADR 015](../adr/015-product-scope-notes-and-pdfs.md)).
 - **The Cloak tier** (device-only, offline) appears in the tier picker as "coming soon" (disabled); it is not implemented.
 - **No mobile store builds.** The demo is the Flutter web app on Serverpod Cloud.
 

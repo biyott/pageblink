@@ -86,7 +86,7 @@ flowchart LR
 - **기본 답변 모델은 OpenRouter 무료 모델이며, 프롬프트를 기록할 수 있습니다** ([ADR 014](docs/adr/014-model-catalog-and-rotation.md)). 무료 쿼터는 계정 단위입니다. 데모에는 공개 문서를 사용하세요.
 - **검증 현황.** [devlog 007](docs/devlog/007-cloud-deploy-and-model-rotation.md)에 기록한 재배포 뒤에 두 라이브 URL 모두 HTTP 200을 반환했습니다. 최신 배포본은 Cloud 배포에서 end-to-end(가입 → 노트/PDF → 질문 → 인용)로 실행한 기록이 아직 없습니다.
 
-그 밖의 한계로는 단일 사용자 노트 편집, Cloak 단계 미구현, 모바일 스토어 빌드 없음 등이 있습니다. 전체 목록: [전체 알려진 한계](docs/reference/001-features-and-limits.md#known-limits) (영문).
+그 밖의 한계로는 실시간 공동 편집 없음(노트는 뒤로 가면 저장됩니다), Cloak 단계 미구현, 모바일 스토어 빌드 없음 등이 있습니다. 전체 목록: [전체 알려진 한계](docs/reference/001-features-and-limits.md#known-limits) (영문).
 
 ## 로컬 실행
 
