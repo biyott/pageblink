@@ -138,6 +138,10 @@ extension PbContext on BuildContext {
 /// KS X 1001 2,350 syllables + compat jamo + punctuation; weights 400/600).
 const pbHangulFamily = 'NotoSansKRSubset';
 
+/// Bundled Hangul serif family for titles (assets/fonts/NotoSerifKR-600-subset.ttf,
+/// same character set, weight 600 only: every serif style is w600).
+const pbHangulSerifFamily = 'NotoSerifKRSubset';
+
 ThemeData buildPbTheme(Brightness brightness) {
   final pb = brightness == Brightness.light ? Pb.light : Pb.dark;
   final accent = brightness == Brightness.light
@@ -165,34 +169,37 @@ ThemeData buildPbTheme(Brightness brightness) {
       );
 
   // Latin: Inter / Fraunces (google_fonts). Hangul: bundled Noto Sans KR
-  // subset (pubspec `fonts:`), loaded before the first frame. Applied to every
-  // TextTheme style below so no widget falls back to the engine's CDN fonts.
+  // subset for body, Noto Serif KR subset for titles (pubspec `fonts:`), loaded
+  // before the first frame, so no widget falls back to the engine's CDN fonts.
+  // Serif titles fall back Serif KR -> Sans KR (glyphs missing from the serif).
   const hangul = [pbHangulFamily];
+  const hangulSerif = [pbHangulSerifFamily, pbHangulFamily];
+  // The Sans fallback is applied here, before the serif styles are added:
+  // TextStyle.apply replaces fontFamilyFallback, so a final apply() on the whole
+  // theme would overwrite the serif fallback and lose the Myeongjo titles.
   final inter = GoogleFonts.interTextTheme(
     ThemeData(brightness: brightness).textTheme,
-  ).apply(bodyColor: pb.ink, displayColor: pb.ink);
+  ).apply(bodyColor: pb.ink, displayColor: pb.ink, fontFamilyFallback: hangul);
   TextStyle serif(double size, {FontWeight weight = FontWeight.w600}) =>
       GoogleFonts.fraunces(
         fontSize: size,
         fontWeight: weight,
         height: 1.2,
         color: pb.ink,
-      ).copyWith(fontFamilyFallback: hangul);
+      ).copyWith(fontFamilyFallback: hangulSerif);
 
-  final text = inter
-      .copyWith(
-        headlineMedium: serif(30),
-        headlineSmall: serif(26),
-        titleLarge: serif(22),
-        titleMedium: serif(18),
-        bodyLarge: inter.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
-        bodyMedium: inter.bodyMedium?.copyWith(fontSize: 14, height: 1.45),
-        labelLarge: inter.labelLarge?.copyWith(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-      )
-      .apply(fontFamilyFallback: hangul);
+  final text = inter.copyWith(
+    headlineMedium: serif(30),
+    headlineSmall: serif(26),
+    titleLarge: serif(22),
+    titleMedium: serif(18),
+    bodyLarge: inter.bodyLarge?.copyWith(fontSize: 16, height: 1.5),
+    bodyMedium: inter.bodyMedium?.copyWith(fontSize: 14, height: 1.45),
+    labelLarge: inter.labelLarge?.copyWith(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+    ),
+  );
 
   return ThemeData(
     useMaterial3: true,

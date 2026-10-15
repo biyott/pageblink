@@ -44,6 +44,7 @@ dependencies:
   serverpod_auth_idp_flutter: 4.0.4
   serverpod_flutter: 4.0.4
   shared_preferences: ^2.5.6
+  url_launcher: ^6.3.3
 
 dev_dependencies:
   # Used for agents to drive the app through the Dart MCP
@@ -89,4 +90,10 @@ flutter:
         - asset: assets/fonts/NotoSansKR-400-subset.ttf
           weight: 400
         - asset: assets/fonts/NotoSansKR-600-subset.ttf
+          weight: 600
+    # Hangul serif for titles (Noto Serif KR subset, same character set;
+    # SIL OFL: assets/fonts/OFL-NotoSerifKR.txt). Only w600 is used.
+    - family: NotoSerifKRSubset
+      fonts:
+        - asset: assets/fonts/NotoSerifKR-600-subset.ttf
           weight: 600
