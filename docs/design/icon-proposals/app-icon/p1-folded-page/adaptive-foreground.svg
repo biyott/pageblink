@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs>
+<linearGradient id="gV" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6C4CF5"/><stop offset="1" stop-color="#8F6BFF"/></linearGradient>
+<linearGradient id="gVd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7A5CFF"/><stop offset="1" stop-color="#B7A6FF"/></linearGradient>
+<linearGradient id="gPastel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDE6FA"/><stop offset=".5" stop-color="#F7E8EE"/><stop offset="1" stop-color="#FFE9DC"/></linearGradient>
+<linearGradient id="gDark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2A1F3F"/><stop offset="1" stop-color="#1E1830"/></linearGradient>
+<linearGradient id="gDark2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1E1830"/><stop offset=".6" stop-color="#251C27"/><stop offset="1" stop-color="#2A1F1C"/></linearGradient>
+<linearGradient id="gInk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B2620"/><stop offset="1" stop-color="#1F1B16"/></linearGradient>
+<linearGradient id="gInkD" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#241A3D"/><stop offset="1" stop-color="#17122A"/></linearGradient>
+<radialGradient id="glowL" cx=".15" cy=".1" r=".6"><stop offset="0" stop-color="#CDBBFA" stop-opacity=".9"/><stop offset="1" stop-color="#CDBBFA" stop-opacity="0"/></radialGradient>
+<radialGradient id="glowP" cx=".9" cy=".95" r=".6"><stop offset="0" stop-color="#FFC9A8" stop-opacity=".9"/><stop offset="1" stop-color="#FFC9A8" stop-opacity="0"/></radialGradient>
+<radialGradient id="glowD" cx=".15" cy=".1" r=".6"><stop offset="0" stop-color="#6C4CF5" stop-opacity=".45"/><stop offset="1" stop-color="#6C4CF5" stop-opacity="0"/></radialGradient>
+</defs><g transform="translate(512,512)"><path d="M-144,-230 H80 L180,-130 V194 Q180,230 144,230 H-144 Q-180,230 -180,194 V-194 Q-180,-230 -144,-230 Z" fill="#FFFFFF"/>
+<path d="M80,-230 V-166 Q80,-130 116,-130 H180 Z" fill="#DCD2FB"/>
+<g transform="translate(0,28)"><path d="M34,-110 L-62,30 L-6,30 L-34,120 L64,-22 L8,-22 Z" fill="#6C4CF5" stroke="#6C4CF5" stroke-width="16" stroke-linejoin="round"/></g></g></svg>

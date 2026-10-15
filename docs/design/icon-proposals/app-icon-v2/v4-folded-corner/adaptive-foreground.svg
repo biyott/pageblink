@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><defs>
+<linearGradient id="gV" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6C4CF5"/><stop offset="1" stop-color="#8F6BFF"/></linearGradient>
+<linearGradient id="gVd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7A5CFF"/><stop offset="1" stop-color="#B7A6FF"/></linearGradient>
+<linearGradient id="gFold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5236E0"/><stop offset="1" stop-color="#3B22B0"/></linearGradient>
+<linearGradient id="gDark" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2A1F3F"/><stop offset="1" stop-color="#1E1830"/></linearGradient>
+<linearGradient id="gPastel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDE6FA"/><stop offset=".5" stop-color="#F7E8EE"/><stop offset="1" stop-color="#FFE9DC"/></linearGradient>
+<radialGradient id="glowD" cx=".15" cy=".1" r=".6"><stop offset="0" stop-color="#6C4CF5" stop-opacity=".45"/><stop offset="1" stop-color="#6C4CF5" stop-opacity="0"/></radialGradient>
+</defs><g transform="translate(512,512) scale(1.0)"><g transform="translate(0,0)"><path d="M-144,-230 H-10 L180,-40 V194 Q180,230 144,230 H-144 Q-180,230 -180,194 V-194 Q-180,-230 -144,-230 Z" fill="#FFFFFF"/><path d="M-10,-230 V-76 Q-10,-40 26,-40 H180 Z" fill="url(#gFold)" stroke="#3B22B0" stroke-width="4" stroke-linejoin="round"/><circle cx="52" cy="-106" r="27" fill="#FFFFFF"/></g></g></svg>

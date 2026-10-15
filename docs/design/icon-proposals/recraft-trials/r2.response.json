@@ -1,0 +1,34 @@
+{
+ "created": 1792026072,
+ "usage": {
+  "prompt_tokens": 90,
+  "completion_tokens": 4175,
+  "total_tokens": 4265,
+  "cost": 0.08,
+  "is_byok": false,
+  "prompt_tokens_details": {
+   "cached_tokens": 0
+  },
+  "cost_details": {
+   "upstream_inference_cost": 0.08,
+   "upstream_inference_prompt_cost": 0,
+   "upstream_inference_completions_cost": 0.08
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 4175
+  }
+ },
+ "data_keys": {
+  "b64_json": "<24488 chars>",
+  "media_type": "image/svg+xml"
+ },
+ "request": {
+  "model": "recraft/recraft-v4.1-vector",
+  "prompt": "A white page containing one thick vertical text-cursor bar (caret) in purple. App icon, flat vector style, solid purple #7C5CFF and white only, square 1024x1024 composition, simple geometric shapes, no text, no letters, no gradients, no shadows, no lightning bolt, large bold forms that stay readable at 16px, centered, full-bleed purple #7C5CFF background.",
+  "aspect_ratio": "1:1",
+  "output_format": "svg",
+  "n": 1
+ },
+ "response_headers": {}
+}
