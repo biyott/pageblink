@@ -13,6 +13,7 @@ class PaneHeader extends StatelessWidget {
     required this.embedded,
     required this.onBack,
     this.onClose,
+    this.backLabel,
     this.actions = const [],
   });
 
@@ -20,6 +21,9 @@ class PaneHeader extends StatelessWidget {
   final bool embedded;
   final VoidCallback onBack;
   final VoidCallback? onClose;
+
+  /// Embedded back button text; defaults to "Notes".
+  final String? backLabel;
   final List<Widget> actions;
 
   @override
@@ -39,7 +43,7 @@ class PaneHeader extends StatelessWidget {
             TextButton.icon(
               onPressed: onBack,
               icon: const Icon(Icons.arrow_back, size: 18),
-              label: Text(l.tabNotes),
+              label: Text(backLabel ?? l.tabNotes),
               style: TextButton.styleFrom(foregroundColor: pb.inkMuted),
             ),
             Text('/', style: style?.copyWith(color: pb.inkMuted)),

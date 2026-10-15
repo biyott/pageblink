@@ -614,7 +614,10 @@ class _DocumentCard extends StatelessWidget {
                     : Text(
                         preview,
                         overflow: TextOverflow.fade,
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
                       ),
               ),
               Row(

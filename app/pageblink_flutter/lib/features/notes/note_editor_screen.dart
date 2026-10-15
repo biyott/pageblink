@@ -5,7 +5,25 @@ import 'package:pageblink_client/pageblink_client.dart';
 import '../../app/l10n.dart';
 import '../../app/open_item_controller.dart';
 import '../../app/pane_header.dart';
+import '../../app/theme.dart';
 import '../../client.dart';
+
+/// Body column width cap (018): keeps lines readable on wide windows.
+const noteColumnWidth = 680.0;
+
+/// Note text sizes by window width (018): phone < 600, tablet < 1024, desktop.
+/// Body is 16 everywhere; titles and h1-h3 shrink on smaller windows.
+({double title, double bodyHeight, double h1, double h2, double h3}) noteSizes(
+  double width,
+) {
+  if (width < 600) {
+    return (title: 24, bodyHeight: 1.65, h1: 22, h2: 19, h3: 17);
+  }
+  if (width < 1024) {
+    return (title: 26, bodyHeight: 1.7, h1: 24, h2: 20, h3: 18);
+  }
+  return (title: 28, bodyHeight: 1.7, h1: 24, h2: 20, h3: 18);
+}
 
 /// Keep-style note editor: title + Markdown body, a small formatting toolbar
 /// and a preview toggle. Saves (and re-indexes for questions) on close.
@@ -131,6 +149,35 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   @override
   Widget build(BuildContext context) {
     final l = context.l;
+    final theme = Theme.of(context);
+    final width = MediaQuery.sizeOf(context).width;
+    final sizes = noteSizes(width);
+    final titleStyle = theme.textTheme.titleLarge?.copyWith(
+      fontSize: sizes.title,
+      height: 1.25,
+      fontWeight: FontWeight.w600,
+    );
+    final bodyStyle = theme.textTheme.bodyLarge?.copyWith(
+      fontSize: 16,
+      height: sizes.bodyHeight,
+    );
+    TextStyle? serif(double size, double height) => theme.textTheme.titleLarge
+        ?.copyWith(fontSize: size, height: height, fontWeight: FontWeight.w600);
+    TextStyle? sans(double height, {Color? color}) => bodyStyle?.copyWith(
+      height: height,
+      fontWeight: FontWeight.w600,
+      color: color,
+    );
+    // Same body for edit and preview; headings follow the 018 scale.
+    final markdownTheme = GptMarkdownTheme.of(context).copyWith(
+      h1: serif(sizes.h1, 1.3),
+      h2: serif(sizes.h2, 1.35),
+      h3: serif(sizes.h3, 1.4),
+      h4: sans(1.5),
+      h5: sans(1.5),
+      h6: sans(1.5, color: context.pb.inkMuted),
+      autoAddDividerLineAfterH1: false,
+    );
     return PopScope(
       // Embedded: back is handled by the shell. Full page: save first.
       canPop: widget.embedded,
@@ -152,12 +199,31 @@ class _NoteEditorViewState extends State<NoteEditorView> {
               ),
             ),
             actions: [
-              IconButton(
-                tooltip: _preview ? l.edit : l.preview,
-                icon: Icon(
-                  _preview ? Icons.edit_outlined : Icons.visibility_outlined,
+              // Labeled read | edit toggle; icons only on narrow phones.
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                style: const ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed: () => setState(() => _preview = !_preview),
+                segments: [
+                  ButtonSegment(
+                    value: true,
+                    label: width < 400 ? null : Text(l.preview),
+                    icon: width < 400
+                        ? const Icon(Icons.visibility_outlined)
+                        : null,
+                    tooltip: l.preview,
+                  ),
+                  ButtonSegment(
+                    value: false,
+                    label: width < 400 ? null : Text(l.edit),
+                    icon: width < 400 ? const Icon(Icons.edit_outlined) : null,
+                    tooltip: l.edit,
+                  ),
+                ],
+                selected: {_preview},
+                onSelectionChanged: (s) => setState(() => _preview = s.first),
               ),
               if (_saving)
                 const Padding(
@@ -175,57 +241,95 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                 ),
             ],
           ),
+          // Title, quote banner and body share one column (Column centers it).
           if (widget.highlight != null)
-            Container(
-              width: double.infinity,
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                '⚡ “${widget.highlight}”',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: noteColumnWidth),
+              child: Container(
+                width: double.infinity,
+                color: theme.colorScheme.secondaryContainer,
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  '⚡ “${widget.highlight}”',
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: TextField(
-              controller: _title,
-              style: Theme.of(context).textTheme.titleLarge,
-              decoration: InputDecoration(
-                hintText: context.l.titleHint,
-                filled: false,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: noteColumnWidth),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: TextField(
+                controller: _title,
+                style: titleStyle,
+                decoration: InputDecoration(
+                  hintText: context.l.titleHint,
+                  filled: false,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  disabledBorder: InputBorder.none,
+                ),
               ),
             ),
           ),
           Expanded(
             child: _preview
+                // Full-width scroll view keeps the scrollbar at the pane edge.
                 ? SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: GptMarkdown(_body.text),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: noteColumnWidth,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: GptMarkdownTheme(
+                              gptThemeData: markdownTheme,
+                              child: GptMarkdown(
+                                _body.text,
+                                style: bodyStyle,
+                                // 14 = 0.875 x 16 for inline and block code.
+                                inlineCodeStyle: const InlineCodeStyle(
+                                  fontSizeFactor: 0.875,
+                                ),
+                                styleSheet: const GptMarkdownStyleSheet(
+                                  codeBlock: CodeBlockStyle(fontSize: 14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   )
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: TextField(
-                      controller: _body,
-                      autofocus: widget.note == null,
-                      maxLines: null,
-                      expands: true,
-                      keyboardType: TextInputType.multiline,
-                      textAlignVertical: TextAlignVertical.top,
-                      decoration: InputDecoration(
-                        hintText: context.l.noteHint,
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
+                : ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: noteColumnWidth,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        controller: _body,
+                        style: bodyStyle,
+                        autofocus: widget.note == null,
+                        maxLines: null,
+                        expands: true,
+                        keyboardType: TextInputType.multiline,
+                        textAlignVertical: TextAlignVertical.top,
+                        decoration: InputDecoration(
+                          hintText: context.l.noteHint,
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                        ),
                       ),
                     ),
                   ),

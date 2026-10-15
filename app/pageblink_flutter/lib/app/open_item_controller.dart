@@ -4,24 +4,37 @@ import 'package:pageblink_client/pageblink_client.dart';
 /// Bumped whenever a note was saved, so the board refreshes itself.
 final boardRefresh = ValueNotifier<int>(0);
 
-/// Something opened in the layout: a note (new, existing, or cited) or a PDF
-/// page. Each instance is its own widget key, so re-opening starts fresh.
+/// Something opened in the layout: a note (new, existing, or cited), a PDF
+/// page, or the settings. Each instance is its own widget key, so re-opening starts fresh.
 class OpenItem {
   /// A note to edit ([note] null = a new note in [projectId]'s tier).
-  OpenItem.note({this.note, this.projectId, this.highlight}) : citation = null;
+  OpenItem.note({this.note, this.projectId, this.highlight})
+    : citation = null,
+      isSettings = false;
+
+  /// The settings, opened like any other item.
+  OpenItem.settings()
+    : note = null,
+      projectId = null,
+      highlight = null,
+      citation = null,
+      isSettings = true;
 
   /// An Ask citation: a cited note (with quote banner) or a PDF page.
   OpenItem.citation(Citation this.citation)
     : note = null,
       projectId = null,
-      highlight = null;
+      highlight = null,
+      isSettings = false;
 
   final Document? note;
   final int? projectId;
   final String? highlight;
   final Citation? citation;
+  final bool isSettings;
 
-  bool get isNote => citation == null || citation!.kind == 'note';
+  bool get isNote =>
+      !isSettings && (citation == null || citation!.kind == 'note');
 }
 
 /// Holds the item open in the center pane (wide layouts) and the hook that

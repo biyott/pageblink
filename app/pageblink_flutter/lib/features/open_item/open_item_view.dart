@@ -7,6 +7,7 @@ import '../../app/pane_header.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
 import '../notes/note_editor_screen.dart';
+import '../settings/settings_screen.dart';
 import '../viewer/page_viewer_screen.dart';
 
 /// Opens [item] in the layout. Tablet/desktop: in the center pane, with the
@@ -28,7 +29,7 @@ Future<void> openItem(
   ).push(MaterialPageRoute<void>(builder: (_) => OpenItemPage(item: item)));
 }
 
-/// The content of an opened item: note editor, cited note, or PDF page.
+/// The content of an opened item: note editor, cited note, PDF page, or settings.
 class OpenItemView extends StatelessWidget {
   const OpenItemView({
     super.key,
@@ -45,6 +46,9 @@ class OpenItemView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.isSettings) {
+      return SettingsScreen(embedded: embedded, onClose: onClose);
+    }
     final c = item.citation;
     if (c == null) {
       return NoteEditorView(

@@ -12,7 +12,6 @@ import 'features/ask/ask_screen.dart';
 import 'features/documents/documents_screen.dart';
 import 'features/open_item/open_item_view.dart';
 import 'features/projects/projects_screen.dart';
-import 'features/settings/settings_screen.dart';
 import 'screens/sign_in_screen.dart';
 
 void main() async {
@@ -122,6 +121,19 @@ class _HomeShellState extends State<HomeShell> {
     );
   }
 
+  /// Settings open like a note: center pane (tablet/desktop), or pushed on the
+  /// current tab's navigator on phones so the bottom bar stays.
+  void _openSettings() {
+    final item = OpenItem.settings();
+    if (_open.wide) {
+      _open.open(item);
+      return;
+    }
+    _navKeys[_tab].currentState?.push(
+      MaterialPageRoute<void>(builder: (_) => OpenItemPage(item: item)),
+    );
+  }
+
   /// Sidebar / rail: save and close an open pane, then switch.
   Future<void> _select(int i) async {
     await _open.close();
@@ -202,10 +214,7 @@ class _HomeShellState extends State<HomeShell> {
         IconButton(
           icon: const Icon(Icons.settings_outlined),
           tooltip: l.settings,
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const SettingsScreen()),
-          ),
+          onPressed: _openSettings,
         ),
         IconButton(
           icon: const Icon(Icons.logout),
@@ -446,10 +455,7 @@ class _Sidebar extends StatelessWidget {
                   icon: Icons.settings_outlined,
                   label: l.settings,
                   active: false,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                  ),
+                  onTap: () => openItem(context, OpenItem.settings()),
                 ),
                 const SizedBox(height: 24),
                 Padding(
