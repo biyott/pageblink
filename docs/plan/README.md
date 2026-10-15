@@ -24,3 +24,6 @@
 | [007](007-landing-sign-in.md) | 첫 화면(랜딩 + 로그인) 기획 | 5초 안에 전달할 것, 영/한 카피, 데스크톱 분할·모바일 스택 레이아웃(AB Glass Paper 토큰), Flutter 위젯 트리·L getter 목록, 수용 기준 |
 | [008](008-submission-kit.md) | 해커톤 제출 키트 | BuilderBase 제출용 영문 텍스트(이름·태그라인·짧은/전체 설명·기술 스택), LinkedIn·X·Bluesky 포스트(보너스), 제출 체크리스트, 영문 주장↔근거 표 |
 | [009](009-demo-video-plan.md) | 데모 영상 제작 계획 (자동 녹화·편집) | 영어 전용 2:00 스토리보드, 실제 녹화(Playwright) vs Higgsfield(인트로·아웃트로만), 시드 데이터, TTS·자막·ffmpeg 파이프라인, 사용자 수동 작업, 위험, cli-hub 판단 |
+| [010](010-pdf-search-column.md) | PDF·노트 검색용 컬럼(`searchText`) 수정 계획 | PDF 본문 검색 불가 원인(NFD/NFC 포함), 제목+주요 텍스트만 담은 검색 컬럼, 서버 `searchDocuments`(ILIKE·ACL), 마이그레이션·백필, 작업 분해·수용 기준·테스트·위험·롤아웃 |
+| [011](011-pdf-form-field-fallback.md) | 폼 입력란 전용 PDF 텍스트 추출 폴백(pdf.js) 계획 | PDFium 0자 vs PyMuPDF 537자 재현, 후보 비교(pdf.js·pdf-lib·PDFium 직접·서버 비추), JS interop 구현·수용 기준·위험 (P3) |
+| [012](012-session-handoff.md) | 세션 인수인계: 작업 방식·하네스·현재 상태 | 역할·규칙, 워크트리 검증·무접촉 커밋·scloud 배포 절차, 현재 git·배포 상태, 이어서 할 일 체크리스트, 알려진 주의사항 |
