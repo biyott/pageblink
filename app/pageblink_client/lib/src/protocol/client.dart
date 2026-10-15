@@ -346,6 +346,16 @@ class EndpointDocument extends _isc.EndpointRef {
     },
   );
 
+  /// Localizes and indexes the sign-up sample note once (research 021 §A).
+  /// Returns its id, or null when there is nothing to do (already handled,
+  /// edited, deleted). Safe to call on every app start and from two tabs.
+  _ida.Future<int?> ensureSample(String locale) =>
+      caller.callServerEndpoint<int?>(
+        'document',
+        'ensureSample',
+        {'locale': locale},
+      );
+
   /// One document the user can read (notes are opened in the editor).
   _ida.Future<_ix72owx0.Document?> get(int documentId) =>
       caller.callServerEndpoint<_ix72owx0.Document?>(
@@ -474,6 +484,44 @@ class EndpointProject extends _isc.EndpointRef {
         'members',
         {'projectId': projectId},
       );
+
+  /// Renames a project. Only the owner can.
+  _ida.Future<_id2xbn90.Project> updateProject(
+    int projectId,
+    String name,
+  ) => caller.callServerEndpoint<_id2xbn90.Project>(
+    'project',
+    'updateProject',
+    {
+      'projectId': projectId,
+      'name': name,
+    },
+  );
+
+  /// What deleting [projectId] would take with it: `notes`, `pdfs`, `members`.
+  /// Any member can ask; the app shows it in the delete confirmation.
+  _ida.Future<Map<String, int>> projectStats(int projectId) =>
+      caller.callServerEndpoint<Map<String, int>>(
+        'project',
+        'projectStats',
+        {'projectId': projectId},
+      );
+
+  /// Deletes a project. Only the owner can. When it still has documents this
+  /// throws (`not_empty:<count>`) unless [deleteDocuments] is true, which also
+  /// deletes every document, chunk, page, stored PDF and membership.
+  /// Returns how many documents were deleted.
+  _ida.Future<int> deleteProject(
+    int projectId,
+    bool deleteDocuments,
+  ) => caller.callServerEndpoint<int>(
+    'project',
+    'deleteProject',
+    {
+      'projectId': projectId,
+      'deleteDocuments': deleteDocuments,
+    },
+  );
 }
 
 class Modules {

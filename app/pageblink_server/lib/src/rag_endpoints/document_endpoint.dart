@@ -3,7 +3,9 @@ import 'package:serverpod/serverpod.dart';
 import '../generated/protocol.dart';
 import '../rag/chunker.dart';
 import '../rag/embedding_spec.dart';
+import '../sample/sample_note.dart';
 import '../services/acl.dart';
+import '../services/document_cleanup.dart';
 import '../services/rag_services.dart';
 
 /// Upload and list documents. Text is extracted on the client (ADR 003).
@@ -123,6 +125,41 @@ class DocumentEndpoint extends Endpoint {
     return _index(session, document, [PageText(page: 1, text: body)]);
   }
 
+  /// Localizes and indexes the sign-up sample note once (research 021 §A).
+  /// Returns its id, or null when there is nothing to do (already handled,
+  /// edited, deleted). Safe to call on every app start and from two tabs.
+  Future<int?> ensureSample(Session session, String locale) async {
+    final userId = Acl.requireUser(session);
+    final sample = SampleNote.forLocale(locale);
+    final localize = sample.body != SampleNote.en.body;
+    // Claim atomically: bumping version 1 -> 2 is what makes this idempotent.
+    final claimed = await Document.db.updateWhere(
+      session,
+      columnValues: (t) => [
+        t.version(2),
+        t.updatedAt(DateTime.now().toUtc()),
+        if (localize) ...[
+          t.title(sample.title),
+          t.body(sample.body),
+          t.contentHash(sha256Hex(sample.body)),
+        ],
+      ],
+      where: (t) =>
+          t.ownerId.equals(userId) &
+          t.projectId.equals(null) &
+          t.kind.equals('note') &
+          t.version.equals(1) &
+          t.status.equals('indexing') &
+          t.contentHash.equals(SampleNote.seedHash),
+    );
+    if (claimed.isEmpty) return null;
+    final document = claimed.first;
+    await _index(session, document, [
+      PageText(page: 1, text: document.body ?? ''),
+    ]);
+    return document.id;
+  }
+
   /// One document the user can read (notes are opened in the editor).
   Future<Document?> get(Session session, int documentId) async {
     final userId = Acl.requireUser(session);
@@ -135,7 +172,7 @@ class DocumentEndpoint extends Endpoint {
     return projects.contains(document.projectId) ? document : null;
   }
 
-  static const _storageId = 'private';
+  static const _storageId = DocumentCleanup.storageId;
   static String _pdfPath(int documentId) => 'pdfs/$documentId.pdf';
 
   /// Upload description for the original PDF of [documentId] (direct upload
@@ -370,26 +407,13 @@ class DocumentEndpoint extends Endpoint {
     final document = await Document.db.findById(session, documentId);
     if (document == null) return;
     await _requireWrite(session, userId, document);
-    final path = document.storagePath;
-    if (path != null) {
-      try {
-        await session.storage.deleteFile(storageId: _storageId, path: path);
-      } catch (e) {
-        session.log('Could not delete $path: $e', level: LogLevel.warning);
-      }
-    }
-    await session.db.transaction((tx) async {
-      await DocChunk.db.deleteWhere(
+    await DocumentCleanup.deleteFiles(session, [document.storagePath]);
+    await session.db.transaction(
+      (tx) => DocumentCleanup.deleteRows(
         session,
-        where: (t) => t.documentId.equals(documentId),
+        {documentId},
         transaction: tx,
-      );
-      await DocPage.db.deleteWhere(
-        session,
-        where: (t) => t.documentId.equals(documentId),
-        transaction: tx,
-      );
-      await Document.db.deleteRow(session, document, transaction: tx);
-    });
+      ),
+    );
   }
 }

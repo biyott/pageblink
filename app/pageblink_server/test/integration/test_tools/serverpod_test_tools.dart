@@ -714,6 +714,37 @@ class _DocumentEndpoint {
     });
   }
 
+  _ida.Future<int?> ensureSample(
+    _ist.TestSessionBuilder sessionBuilder,
+    String locale,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'document',
+            method: 'ensureSample',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'document',
+          methodName: 'ensureSample',
+          parameters: _ist.testObjectToJson({'locale': locale}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<int?>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _ida.Future<_iloq337r.Document?> get(
     _ist.TestSessionBuilder sessionBuilder,
     int documentId,
@@ -1162,6 +1193,107 @@ class _ProjectEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<List<_i6s9o0ma.ProjectMember>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ik18e4tv.Project> updateProject(
+    _ist.TestSessionBuilder sessionBuilder,
+    int projectId,
+    String name,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'project',
+            method: 'updateProject',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'project',
+          methodName: 'updateProject',
+          parameters: _ist.testObjectToJson({
+            'projectId': projectId,
+            'name': name,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ik18e4tv.Project>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<Map<String, int>> projectStats(
+    _ist.TestSessionBuilder sessionBuilder,
+    int projectId,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'project',
+            method: 'projectStats',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'project',
+          methodName: 'projectStats',
+          parameters: _ist.testObjectToJson({'projectId': projectId}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<Map<String, int>>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<int> deleteProject(
+    _ist.TestSessionBuilder sessionBuilder,
+    int projectId,
+    bool deleteDocuments,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'project',
+            method: 'deleteProject',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'project',
+          methodName: 'deleteProject',
+          parameters: _ist.testObjectToJson({
+            'projectId': projectId,
+            'deleteDocuments': deleteDocuments,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<int>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

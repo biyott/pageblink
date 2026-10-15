@@ -431,6 +431,25 @@ class Endpoints extends _is.EndpointDispatch {
                     params['projectId'],
                   ),
         ),
+        'ensureSample': _is.MethodConnector(
+          name: 'ensureSample',
+          params: {
+            'locale': _is.ParameterDescription(
+              name: 'locale',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['document'] as _iw2avhc4.DocumentEndpoint)
+                  .ensureSample(
+                    session,
+                    params['locale'],
+                  ),
+        ),
         'get': _is.MethodConnector(
           name: 'get',
           params: {
@@ -674,6 +693,75 @@ class Endpoints extends _is.EndpointDispatch {
                   (endpoints['project'] as _ik8zva9b.ProjectEndpoint).members(
                     session,
                     params['projectId'],
+                  ),
+        ),
+        'updateProject': _is.MethodConnector(
+          name: 'updateProject',
+          params: {
+            'projectId': _is.ParameterDescription(
+              name: 'projectId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'name': _is.ParameterDescription(
+              name: 'name',
+              type: _is.getType<String>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['project'] as _ik8zva9b.ProjectEndpoint)
+                  .updateProject(
+                    session,
+                    params['projectId'],
+                    params['name'],
+                  ),
+        ),
+        'projectStats': _is.MethodConnector(
+          name: 'projectStats',
+          params: {
+            'projectId': _is.ParameterDescription(
+              name: 'projectId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['project'] as _ik8zva9b.ProjectEndpoint)
+                  .projectStats(
+                    session,
+                    params['projectId'],
+                  ),
+        ),
+        'deleteProject': _is.MethodConnector(
+          name: 'deleteProject',
+          params: {
+            'projectId': _is.ParameterDescription(
+              name: 'projectId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'deleteDocuments': _is.ParameterDescription(
+              name: 'deleteDocuments',
+              type: _is.getType<bool>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['project'] as _ik8zva9b.ProjectEndpoint)
+                  .deleteProject(
+                    session,
+                    params['projectId'],
+                    params['deleteDocuments'],
                   ),
         ),
       },

@@ -16,6 +16,7 @@ ask:
 document:
   - upload:
   - saveNote:
+  - ensureSample:
   - get:
   - pdfUploadDescription:
   - confirmPdfUpload:
@@ -32,3 +33,6 @@ project:
   - list:
   - addMember:
   - members:
+  - updateProject:
+  - projectStats:
+  - deleteProject:
