@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../app/app_icons.dart';
+import 'auth_spacing.dart';
 import 'email_register_forms.dart';
 
 /// [EmailSignInWidget] with our own forms for every screen of the flow
@@ -123,9 +124,6 @@ class _EmailLoginFormState extends State<EmailLoginForm> {
   @override
   Widget build(BuildContext context) {
     final texts = context.emailSignInTexts;
-    final scheme = Theme.of(context).colorScheme;
-    final field = OutlineInputBorder(borderRadius: BorderRadius.circular(8));
-    const padding = EdgeInsets.fromLTRB(12, 14, 12, 14);
 
     return ListenableBuilder(
       listenable: Listenable.merge([
@@ -133,114 +131,89 @@ class _EmailLoginFormState extends State<EmailLoginForm> {
         _c.emailController,
         _c.passwordController,
       ]),
-      builder: (context, _) => AutofillGroup(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+      // Same frame (title, button, spacing) as every other step of the flow.
+      // Commit on dispose: a successful sign-in saves the credentials.
+      builder: (context, _) => AuthFormFrame(
+        title: texts.title,
+        isLoading: _c.isLoading,
+        buttonLabel: texts.signIn,
+        onPressed: _canSubmit ? _submit : null,
+        commitOnDispose: true,
+        bottom: Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              texts.title,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _c.emailController,
-              readOnly: _c.isLoading,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [
-                AutofillHints.username,
-                AutofillHints.email,
-              ],
-              inputFormatters: [
-                FilteringTextInputFormatter.deny(RegExp(r'[\s()<>[\]\\,;:]')),
-                TextInputFormatter.withFunction(
-                  (_, v) => v.copyWith(text: v.text.toLowerCase()),
-                ),
-              ],
-              // Autofill often fills both: Enter then submits right away.
-              onEditingComplete: () => _c.passwordController.text.isEmpty
-                  ? _passwordFocus.requestFocus()
-                  : _submit(),
-              decoration: InputDecoration(
-                labelText: texts.emailLabel,
-                contentPadding: padding,
-                border: field,
-                errorText: _c.error is InvalidEmailException
-                    ? _c.errorMessage
-                    : null,
+            Text(texts.dontHaveAnAccount),
+            TextButton(
+              onPressed: () => _goTo(EmailFlowScreen.startRegistration),
+              child: Text(
+                texts.signUp,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _c.passwordController,
-              focusNode: _passwordFocus,
-              readOnly: _c.isLoading,
-              obscureText: _obscure,
-              keyboardType: TextInputType.visiblePassword,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.password],
-              // Overriding this (instead of onSubmitted) also keeps the focus
-              // in the field after a failed attempt.
-              onEditingComplete: _submit,
-              decoration: InputDecoration(
-                labelText: texts.passwordLabel,
-                contentPadding: padding,
-                border: field,
-                suffixIcon: IconButton(
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                  icon: Icon(
-                    _obscure ? AppIcons.showPassword : AppIcons.hidePassword,
-                    color: Colors.grey[400],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => _goTo(EmailFlowScreen.requestPasswordReset),
-                child: Text(
-                  texts.forgotPassword,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                foregroundColor: scheme.onPrimary,
-                backgroundColor: scheme.primary,
-                shape: const StadiumBorder(),
-                fixedSize: const Size(double.infinity, 48),
-              ),
-              onPressed: _c.isLoading || !_canSubmit ? null : _submit,
-              child: _c.isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(texts.signIn),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              alignment: WrapAlignment.center,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                Text(texts.dontHaveAnAccount),
-                TextButton(
-                  onPressed: () => _goTo(EmailFlowScreen.startRegistration),
-                  child: Text(
-                    texts.signUp,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
+        children: [
+          TextField(
+            controller: _c.emailController,
+            readOnly: _c.isLoading,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.username, AutofillHints.email],
+            inputFormatters: [
+              FilteringTextInputFormatter.deny(RegExp(r'[\s()<>[\]\\,;:]')),
+              TextInputFormatter.withFunction(
+                (_, v) => v.copyWith(text: v.text.toLowerCase()),
+              ),
+            ],
+            // Autofill often fills both: Enter then submits right away.
+            onEditingComplete: () => _c.passwordController.text.isEmpty
+                ? _passwordFocus.requestFocus()
+                : _submit(),
+            scrollPadding: AuthSpacing.scrollPadding,
+            decoration: authDecoration(
+              texts.emailLabel,
+              errorText: _c.error is InvalidEmailException
+                  ? _c.errorMessage
+                  : null,
+            ),
+          ),
+          const SizedBox(height: AuthSpacing.field),
+          TextField(
+            controller: _c.passwordController,
+            focusNode: _passwordFocus,
+            readOnly: _c.isLoading,
+            obscureText: _obscure,
+            keyboardType: TextInputType.visiblePassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.password],
+            // Overriding this (instead of onSubmitted) also keeps the focus
+            // in the field after a failed attempt.
+            onEditingComplete: _submit,
+            scrollPadding: AuthSpacing.scrollPadding,
+            decoration: authDecoration(
+              texts.passwordLabel,
+              suffixIcon: IconButton(
+                onPressed: () => setState(() => _obscure = !_obscure),
+                icon: Icon(
+                  _obscure ? AppIcons.showPassword : AppIcons.hidePassword,
+                  color: Colors.grey[400],
+                ),
+              ),
+            ),
+          ),
+          // Offset 0: the TextButton's own padding already separates it.
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => _goTo(EmailFlowScreen.requestPasswordReset),
+              child: Text(
+                texts.forgotPassword,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

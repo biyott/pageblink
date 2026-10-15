@@ -276,6 +276,11 @@ ThemeData buildPbTheme(Brightness brightness) {
         borderRadius: BorderRadius.circular(999),
         borderSide: BorderSide(color: pb.hairline),
       ),
+      // Without this a focused field fell back to a form's own `border`.
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(999),
+        borderSide: BorderSide(color: accent, width: 2),
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
     ),
     dividerTheme: DividerThemeData(color: pb.hairline, space: 1),

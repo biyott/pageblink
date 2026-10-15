@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
@@ -5,6 +7,7 @@ import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../client.dart';
 import '../app/app_icons.dart';
+import 'auth_spacing.dart';
 import 'email_sign_in.dart';
 
 /// ≥12 chars, a lowercase letter and a number, plus an uppercase letter or
@@ -96,38 +99,31 @@ class _SignInScreenState extends State<SignInScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isSignedIn) return widget.child;
-    final colors = Theme.of(context).colorScheme;
     final l = context.l;
+    // Fold-line decisions use the window height over the text scale, NOT the
+    // LayoutBuilder height: the keyboard shrinks that one and the hero would
+    // flicker while it opens (spec R6). sizeOf/textScalerOf: no rebuild per
+    // keyboard inset frame.
+    final eff =
+        MediaQuery.sizeOf(context).height /
+        math.max(1.0, MediaQuery.textScalerOf(context).scale(16) / 16);
 
-    final signIn = _localized(
+    // Only the email provider exists, so the package's SignInWidget (which
+    // adds a 24px SafeArea, width 400 and the social-lock coordinator) is not
+    // used. ponytail: when a social provider is added, bring SignInWidget (or
+    // its SignInFlowCoordinator) back around this.
+    final signIn = pageBlinkLocalized(
       l,
-      SignInWidget(
-        client: client,
-        emailSignInWidget: PageBlinkEmailSignIn(
-          // Returning users are the common case: open on sign-in; the form
-          // shows "Don't have an account? Sign up" below the button.
-          controller: _email ??= EmailAuthController(
-            client: client,
-            startScreen: EmailFlowScreen.login,
-            passwordRequirements: pageBlinkPasswordRequirements(l),
-            onAuthenticated: _onEmailAuthenticated,
-            onError: _onEmailError,
-          ),
+      PageBlinkEmailSignIn(
+        // Returning users are the common case: open on sign-in; the form
+        // shows "Don't have an account? Sign up" below the button.
+        controller: _email ??= EmailAuthController(
+          client: client,
+          startScreen: EmailFlowScreen.login,
+          passwordRequirements: pageBlinkPasswordRequirements(l),
+          onAuthenticated: _onEmailAuthenticated,
+          onError: _onEmailError,
         ),
-        onAuthenticated: () {
-          context.showSnackBar(
-            message: l.userAuthenticated,
-            backgroundColor: colors.primaryContainer,
-            foregroundColor: colors.onPrimaryContainer,
-          );
-        },
-        onError: (error) {
-          context.showSnackBar(
-            message: l.authFailed(error),
-            backgroundColor: colors.errorContainer,
-            foregroundColor: colors.onErrorContainer,
-          );
-        },
       ),
     );
 
@@ -140,19 +136,19 @@ class _SignInScreenState extends State<SignInScreen> {
             final h = constraints.maxHeight;
             final desktop = w >= 1024;
             final mobile = w < 600;
+            final row = w >= 840 && eff >= 560;
             final pad = mobile ? 16.0 : (desktop ? 32.0 : 24.0);
-            final card = _SignInCard(
+            final card = SignInCard(
               key: _cardKey,
               compact: mobile,
               signIn: signIn,
             );
-            final hero = _Hero(
-              size: mobile
-                  ? _HeroSize.mobile
-                  : (desktop ? _HeroSize.desktop : _HeroSize.tablet),
-              showPreview: desktop,
-            );
+            // Priority: form > headline > pitch > preview (spec R4).
+            final size = mobile
+                ? _HeroSize.mobile
+                : (desktop ? _HeroSize.desktop : _HeroSize.tablet);
             return SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: h),
                 child: Center(
@@ -166,24 +162,56 @@ class _SignInScreenState extends State<SignInScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (mobile) ...[
-                            hero,
-                            const SizedBox(height: 24),
-                            card,
-                          ] else
+                          if (row)
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Expanded(child: hero),
+                                Expanded(
+                                  child: _Hero(
+                                    size: size,
+                                    part: _HeroPart.all,
+                                    showPreview: desktop && eff >= 880,
+                                  ),
+                                ),
                                 SizedBox(width: desktop ? 48 : 32),
                                 SizedBox(
-                                  width: desktop ? 420 : 380,
+                                  width: desktop ? 420 : 400,
                                   child: card,
                                 ),
                               ],
+                            )
+                          else
+                            // Card first (returning users), pitch below.
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 440),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (eff >= 560) ...[
+                                    _Hero(
+                                      size: size,
+                                      part: _HeroPart.head,
+                                      showPreview: false,
+                                    ),
+                                    const SizedBox(height: AuthSpacing.section),
+                                  ],
+                                  card,
+                                  if (eff >= 760) ...[
+                                    const SizedBox(height: AuthSpacing.section),
+                                    _Hero(
+                                      size: size,
+                                      part: _HeroPart.pitch,
+                                      showPreview: false,
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
-                          const SizedBox(height: 24),
-                          const _Footer(),
+                          if (eff >= 560) ...[
+                            const SizedBox(height: AuthSpacing.section),
+                            const _Footer(),
+                          ],
                         ],
                       ),
                     ),
@@ -196,17 +224,18 @@ class _SignInScreenState extends State<SignInScreen> {
       ),
     );
   }
-
-  /// The sign-in widget ships English texts; give it Korean ones when needed.
-  Widget _localized(L l, Widget child) => l.isKorean
-      ? SignInLocalizationProvider(
-          basic: _koBasic,
-          email: _koEmail,
-          passwordRequirementTexts: _koPassword,
-          child: child,
-        )
-      : child;
 }
+
+/// The sign-in widget ships English texts; give it Korean ones when needed.
+@visibleForTesting
+Widget pageBlinkLocalized(L l, Widget child) => l.isKorean
+    ? SignInLocalizationProvider(
+        basic: _koBasic,
+        email: _koEmail,
+        passwordRequirementTexts: _koPassword,
+        child: child,
+      )
+    : child;
 
 const _koBasic = BasicSignInTexts(
   noAuthenticationProvidersConfigured: '서버에 로그인 방법이 설정되어 있지 않아요.',
@@ -270,10 +299,18 @@ extension on BuildContext {
 
 enum _HeroSize { desktop, tablet, mobile }
 
+/// `head`: brand + headline. `pitch`: intro + bullets. `all`: both (+ preview).
+enum _HeroPart { all, head, pitch }
+
 class _Hero extends StatelessWidget {
-  const _Hero({required this.size, required this.showPreview});
+  const _Hero({
+    required this.size,
+    required this.part,
+    required this.showPreview,
+  });
 
   final _HeroSize size;
+  final _HeroPart part;
   final bool showPreview;
 
   @override
@@ -287,8 +324,10 @@ class _Hero extends StatelessWidget {
     final headlineSize = switch (size) {
       _HeroSize.desktop => ko ? 44.0 : 52.0,
       _HeroSize.tablet => ko ? 36.0 : 40.0,
-      _HeroSize.mobile => ko ? 30.0 : 32.0,
+      _HeroSize.mobile => ko ? 26.0 : 28.0,
     };
+    final head = part != _HeroPart.pitch;
+    final pitch = part != _HeroPart.head;
     final bullets = [
       (
         AppIcons.note,
@@ -324,47 +363,52 @@ class _Hero extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              '⚡ PageBlink',
-              style: theme.headlineMedium?.copyWith(
-                fontSize: mobile ? 24 : 28,
-              ),
-            ),
-            SizedBox(height: mobile ? 16 : 28),
-            Semantics(
-              header: true,
-              child: Text(
-                l.landingHeadline,
+            if (head) ...[
+              Text(
+                '⚡ PageBlink',
                 style: theme.headlineMedium?.copyWith(
-                  fontSize: headlineSize,
-                  height: 1.15,
+                  fontSize: mobile ? 24 : 28,
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Text(
-                l.landingSub,
-                style: theme.bodyLarge?.copyWith(
-                  fontSize: desktop ? 18 : (mobile ? 15 : 16),
-                  height: 1.5,
-                  color: pb.inkMuted,
+              SizedBox(height: mobile ? 16 : 28),
+              Semantics(
+                header: true,
+                child: Text(
+                  // Words must not break mid-syllable run (spec §3.5).
+                  ko ? keepAll(l.landingHeadline) : l.landingHeadline,
+                  style: theme.headlineMedium?.copyWith(
+                    fontSize: headlineSize,
+                    height: mobile ? 1.25 : 1.15,
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: mobile ? 16 : 28),
-            for (final (icon, title, body, accent) in bullets)
-              Padding(
-                padding: EdgeInsets.only(bottom: mobile ? 4 : 16),
-                child: _Bullet(
-                  icon: icon,
-                  title: title,
-                  body: body,
-                  accent: accent,
-                  compact: mobile,
+            ],
+            if (pitch) ...[
+              if (head) const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Text(
+                  l.landingSub,
+                  style: theme.bodyLarge?.copyWith(
+                    fontSize: desktop ? 18 : (mobile ? 15 : 16),
+                    height: 1.5,
+                    color: pb.inkMuted,
+                  ),
                 ),
               ),
+              SizedBox(height: mobile ? 16 : 28),
+              for (final (icon, title, body, accent) in bullets)
+                Padding(
+                  padding: EdgeInsets.only(bottom: mobile ? 4 : 16),
+                  child: _Bullet(
+                    icon: icon,
+                    title: title,
+                    body: body,
+                    accent: accent,
+                    compact: mobile,
+                  ),
+                ),
+            ],
             if (showPreview) ...[
               const SizedBox(height: 12),
               const _PreviewCard(),
@@ -395,8 +439,9 @@ class _Bullet extends StatelessWidget {
     final text = Theme.of(context).textTheme.bodyMedium;
     final iconColor = accent ? pb.accent : pb.ink;
     if (compact) {
-      return SizedBox(
-        height: 36,
+      // minHeight, not height: the row grows with the text scale (R2).
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
         child: Row(
           children: [
             Icon(icon, size: 20, color: iconColor),
@@ -404,8 +449,6 @@ class _Bullet extends StatelessWidget {
             Expanded(
               child: Text(
                 title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: text?.copyWith(fontWeight: FontWeight.w600),
               ),
             ),
@@ -593,8 +636,11 @@ class _PreviewCard extends StatelessWidget {
   }
 }
 
-class _SignInCard extends StatelessWidget {
-  const _SignInCard({super.key, required this.compact, required this.signIn});
+/// The glass card around the email flow. Public only so the layout test can
+/// put every step of the flow into the real card.
+@visibleForTesting
+class SignInCard extends StatelessWidget {
+  const SignInCard({super.key, required this.compact, required this.signIn});
 
   final bool compact;
   final Widget signIn;
@@ -607,30 +653,39 @@ class _SignInCard extends StatelessWidget {
     return GlassPanel(
       strong: true,
       child: Padding(
-        padding: EdgeInsets.all(compact ? 20 : 32),
+        padding: EdgeInsets.all(
+          compact ? AuthSpacing.cardPadCompact : AuthSpacing.cardPad,
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // The sign-in widget renders its own title ("Sign Up / Sign in with
-            // email"), so the card only adds the privacy note.
-            Text(
-              l.signInSubtitle,
-              textAlign: TextAlign.center,
-              style: theme.bodyMedium?.copyWith(color: pb.inkMuted),
-            ),
-            const SizedBox(height: 8),
+            // The form renders its own title, so the card only adds the
+            // privacy note, below the form (the title is the first element).
             Material(
               type: MaterialType.transparency,
-              child: SizedBox(width: double.infinity, child: signIn),
+              child: signIn,
             ),
-            const SizedBox(height: 16),
-            Text(
-              l.signInHelper,
-              style: theme.bodySmall?.copyWith(
-                color: pb.inkMuted,
-                height: 1.45,
-              ),
+            const SizedBox(height: AuthSpacing.section),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Icon(AppIcons.privacy, size: 16, color: pb.inkMuted),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l.signInSubtitle,
+                    style: theme.bodySmall?.copyWith(
+                      fontSize: 13,
+                      height: 1.5,
+                      color: pb.inkMuted,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

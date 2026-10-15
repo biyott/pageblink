@@ -6,6 +6,8 @@ import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../app/app_icons.dart';
 import '../app/l10n.dart';
+import '../app/theme.dart';
+import 'auth_spacing.dart';
 
 // The sign-up and password-reset screens of the package flow, rebuilt on the
 // public [EmailAuthController] for the same reasons as `EmailLoginForm`
@@ -13,19 +15,25 @@ import '../app/l10n.dart';
 // Flow, enable rules and texts follow the package's `email/forms/*.dart`; see
 // docs/research/020-login-enter-key-and-password-manager.md.
 
-const _fieldPadding = EdgeInsets.fromLTRB(12, 14, 12, 14);
+// No `border:` here: the pill border and the focus ring come from the theme's
+// `inputDecorationTheme`, so a field keeps its shape when focused.
+const _fieldPadding = EdgeInsets.symmetric(horizontal: 20, vertical: 16);
 
-InputDecoration _decoration(
+/// Decoration shared by every field of the sign-in flow.
+InputDecoration authDecoration(
   String label, {
   String? errorText,
   Widget? suffixIcon,
 }) => InputDecoration(
   labelText: label,
   contentPadding: _fieldPadding,
-  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
   errorText: errorText,
   suffixIcon: suffixIcon,
 );
+
+/// Helper text above the fields (14 / 1.55: Korean wants 1.5+).
+TextStyle? _helperStyle(BuildContext context) =>
+    Theme.of(context).textTheme.bodyMedium?.copyWith(height: 1.55);
 
 /// Leaving the form unsubmitted: drop the autofill context first, otherwise
 /// the group's dispose would "commit" it and Chrome could offer to save a
@@ -40,8 +48,9 @@ void _goTo(EmailAuthController c, EmailFlowScreen screen) {
 /// [commitOnDispose] is true only for the screens whose success signs the
 /// user in (the group's dispose then lets the browser save the new password);
 /// the intermediate screens cancel, so moving on never triggers a save.
-class _FormFrame extends StatelessWidget {
-  const _FormFrame({
+class AuthFormFrame extends StatelessWidget {
+  const AuthFormFrame({
+    super.key,
     required this.title,
     required this.children,
     required this.buttonLabel,
@@ -61,7 +70,8 @@ class _FormFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return AutofillGroup(
       onDisposeAction: commitOnDispose
           ? AutofillContextAction.commit
@@ -70,16 +80,24 @@ class _FormFrame extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 24),
+          Text(
+            context.l.isKorean ? keepAll(title) : title,
+            style: theme.textTheme.headlineSmall?.copyWith(height: 1.3),
+          ),
+          const SizedBox(height: AuthSpacing.title),
           ...children,
-          const SizedBox(height: 16),
+          const SizedBox(height: AuthSpacing.action),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               foregroundColor: scheme.onPrimary,
               backgroundColor: scheme.primary,
               shape: const StadiumBorder(),
-              fixedSize: const Size(double.infinity, 48),
+              // minimum, not fixed: the button grows with the text scale.
+              minimumSize: const Size.fromHeight(AuthSpacing.buttonHeight),
+              textStyle: theme.textTheme.labelLarge?.copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             onPressed: isLoading ? null : onPressed,
             child: isLoading
@@ -90,7 +108,10 @@ class _FormFrame extends StatelessWidget {
                   )
                 : Text(buttonLabel),
           ),
-          if (bottom != null) ...[const SizedBox(height: 8), bottom!],
+          if (bottom != null) ...[
+            const SizedBox(height: AuthSpacing.secondary),
+            bottom!,
+          ],
         ],
       ),
     );
@@ -130,7 +151,8 @@ class _EmailField extends StatelessWidget {
       ],
       // Overriding this (instead of onSubmitted) keeps the focus in the field.
       onEditingComplete: onSubmit,
-      decoration: _decoration(
+      scrollPadding: AuthSpacing.scrollPadding,
+      decoration: authDecoration(
         context.emailSignInTexts.emailLabel,
         errorText: isInvalid ? c.errorMessage : null,
       ),
@@ -167,7 +189,7 @@ class EmailStartRegistrationForm extends StatelessWidget {
     final texts = context.emailSignInTexts;
     return ListenableBuilder(
       listenable: Listenable.merge([_c, _c.emailController]),
-      builder: (context, _) => _FormFrame(
+      builder: (context, _) => AuthFormFrame(
         title: texts.signUpTitle,
         isLoading: _c.isLoading,
         buttonLabel: texts.continueAction,
@@ -206,7 +228,7 @@ class EmailRequestResetForm extends StatelessWidget {
     final texts = context.emailSignInTexts;
     return ListenableBuilder(
       listenable: Listenable.merge([_c, _c.emailController]),
-      builder: (context, _) => _FormFrame(
+      builder: (context, _) => AuthFormFrame(
         title: texts.resetPasswordTitle,
         isLoading: _c.isLoading,
         buttonLabel: texts.requestPasswordReset,
@@ -223,13 +245,9 @@ class EmailRequestResetForm extends StatelessWidget {
           ],
         ),
         children: [
-          Text(
-            texts.resetPasswordDescription,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
+          Text(texts.resetPasswordDescription, style: _helperStyle(context)),
+          const SizedBox(height: AuthSpacing.field),
           _EmailField(controller: _c, onSubmit: _submit),
-          const SizedBox(height: 8),
           _backTo(
             texts.backToSignIn,
             () => _goTo(_c, EmailFlowScreen.login),
@@ -274,7 +292,7 @@ class EmailVerifyCodeForm extends StatelessWidget {
     final allowed = config.allowedCharactersPattern ?? RegExp(r'[1-9]');
     return ListenableBuilder(
       listenable: Listenable.merge([_c, _c.verificationCodeController]),
-      builder: (context, _) => _FormFrame(
+      builder: (context, _) => AuthFormFrame(
         title: title,
         isLoading: _c.isLoading,
         buttonLabel: texts.verify,
@@ -284,11 +302,8 @@ class EmailVerifyCodeForm extends StatelessWidget {
           () => _goTo(_c, EmailFlowScreen.login),
         ),
         children: [
-          Text(
-            texts.verificationMessage,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
+          Text(texts.verificationMessage, style: _helperStyle(context)),
+          const SizedBox(height: AuthSpacing.field),
           TextField(
             controller: _c.verificationCodeController,
             readOnly: _c.isLoading,
@@ -318,11 +333,9 @@ class EmailVerifyCodeForm extends StatelessWidget {
               if (v.length == config.length) _submit();
             },
             onEditingComplete: _submit,
-            decoration: InputDecoration(
+            scrollPadding: AuthSpacing.scrollPadding,
+            decoration: const InputDecoration(
               contentPadding: _fieldPadding,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
               counterText: '',
             ),
           ),
@@ -392,12 +405,11 @@ class _ResendButtonState extends State<_ResendButton> {
     final time = _left >= 60
         ? '${_left ~/ 60}:${(_left % 60).toString().padLeft(2, '0')}'
         : '$_left';
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: TextButton(
-        onPressed: _left == 0 && !_busy ? _resend : null,
-        child: Text(_left > 0 ? '$label ($time)' : label),
-      ),
+    // Right under the code field (offset 0): a TextButton already has
+    // ~14px of its own padding above the label.
+    return TextButton(
+      onPressed: _left == 0 && !_busy ? _resend : null,
+      child: Text(_left > 0 ? '$label ($time)' : label),
     );
   }
 }
@@ -447,7 +459,7 @@ class _EmailSetPasswordFormState extends State<EmailSetPasswordForm> {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: Listenable.merge([_c, _c.passwordController]),
-      builder: (context, _) => _FormFrame(
+      builder: (context, _) => AuthFormFrame(
         title: widget.title,
         isLoading: _c.isLoading,
         buttonLabel: widget.buttonLabel,
@@ -460,7 +472,7 @@ class _EmailSetPasswordFormState extends State<EmailSetPasswordForm> {
         children: [
           // ponytail: display-only; remove if the browser pairs without it.
           _EmailField(controller: _c, onSubmit: () {}, readOnly: true),
-          const SizedBox(height: 16),
+          const SizedBox(height: AuthSpacing.field),
           TextField(
             controller: _c.passwordController,
             readOnly: _c.isLoading,
@@ -475,7 +487,8 @@ class _EmailSetPasswordFormState extends State<EmailSetPasswordForm> {
               ),
             ],
             onEditingComplete: _submit,
-            decoration: _decoration(
+            scrollPadding: AuthSpacing.scrollPadding,
+            decoration: authDecoration(
               widget.passwordLabel,
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _obscure = !_obscure),
@@ -509,9 +522,18 @@ class _PasswordChecklist extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The theme's onSurfaceVariant is `inkMuted` (Colors.grey was 2.7:1 on a
+    // white card). Pb is optional so plain-MaterialApp tests keep working.
+    final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
+    final ok = theme.extension<Pb>()?.success ?? Colors.green;
     final base =
-        Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey) ??
-        const TextStyle(fontSize: 12, color: Colors.grey);
+        theme.textTheme.bodySmall?.copyWith(
+          color: muted,
+          fontSize: 13,
+          height: 1.5,
+        ) ??
+        TextStyle(fontSize: 13, height: 1.5, color: muted);
     final texts = context.passwordRequirementTexts;
     return Padding(
       padding: const EdgeInsets.only(top: 4),
@@ -526,14 +548,14 @@ class _PasswordChecklist extends StatelessWidget {
                   Icon(
                     r.validator(password) ? AppIcons.check : AppIcons.close,
                     size: 16,
-                    color: r.validator(password) ? Colors.green : Colors.grey,
+                    color: r.validator(password) ? ok : muted,
                   ),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
                       PasswordRequirement.localized(r, texts),
                       style: password.isNotEmpty && r.validator(password)
-                          ? base.copyWith(color: Colors.green)
+                          ? base.copyWith(color: ok)
                           : base,
                     ),
                   ),
