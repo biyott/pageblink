@@ -3,6 +3,7 @@ import 'package:serverpod/serverpod.dart';
 import '../generated/protocol.dart';
 import '../rag/chunker.dart';
 import '../rag/embedding_spec.dart';
+import '../rag/text_norm.dart';
 import '../sample/sample_note.dart';
 import '../providers/embedding_provider.dart';
 import '../services/acl.dart';
@@ -96,7 +97,7 @@ class DocumentEndpoint extends Endpoint {
             Document(
               ownerId: userId,
               projectId: projectId,
-              title: title,
+              title: nfc(title),
               contentHash: contentHash,
               version: 1,
               pageCount: pages.length,
@@ -128,7 +129,9 @@ class DocumentEndpoint extends Endpoint {
       );
     }
     final now = DateTime.now().toUtc();
-    final cleanTitle = title.trim().isEmpty ? _titleFrom(body) : title.trim();
+    final cleanTitle = nfc(
+      title.trim().isEmpty ? _titleFrom(body) : title.trim(),
+    );
 
     Document document;
     if (documentId == null) {

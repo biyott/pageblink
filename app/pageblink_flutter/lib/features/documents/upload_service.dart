@@ -7,6 +7,7 @@ import 'package:pdfrx/pdfrx.dart' show PdfException, PdfPasswordException;
 
 import '../../app/l10n.dart';
 import '../../app/local_pdfs.dart';
+import '../../app/text_norm.dart';
 import '../../client.dart';
 import 'pdf_text.dart' as pdf;
 
@@ -431,7 +432,7 @@ Future<UploadOutcome> _uploadOne(
   final Document document;
   try {
     document = await api.upload(
-      file.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), ''),
+      nfc(file.name.replaceAll(RegExp(r'\.pdf$', caseSensitive: false), '')),
       pages,
       pdf.contentHash(bytes),
       projectId,

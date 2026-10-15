@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/l10n.dart';
+import '../../app/text_norm.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
 import '../../app/open_item_controller.dart';
@@ -245,7 +246,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 
   List<Document> _visible(List<Document> docs) {
-    final q = _query.trim().toLowerCase();
+    final q = nfc(_query.trim()).toLowerCase();
     return [
       for (final d in docs)
         if (switch (_filter) {
@@ -255,8 +256,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               _Filter.attention => d.status == 'failed',
             } &&
             (q.isEmpty ||
-                d.title.toLowerCase().contains(q) ||
-                (d.body ?? '').toLowerCase().contains(q)))
+                nfc(d.title).toLowerCase().contains(q) ||
+                nfc(d.body ?? '').toLowerCase().contains(q)))
           d,
     ];
   }
