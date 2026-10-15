@@ -120,6 +120,7 @@ class AskEndpoint extends Endpoint {
       final cited = <int>{};
       await for (final event in RagServices.llm(
         session,
+        modelId: modelId,
       ).answer(question, sources)) {
         switch (event) {
           case LlmText(:final text):
