@@ -155,7 +155,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 | ② | **노트별 색 변경 + 상단 고정** | 미착수 | 아래 §3-2 |
 | ③ | **PDF·노트 검색 컬럼** | 계획 | [010](010-pdf-search-column.md) |
 | ④ | **폼 입력란 PDF 폴백 (P3)** | 계획 | [011](011-pdf-form-field-fallback.md) |
-| ⑤ | **UI polish 잔여** UP-03/04/05/08/09/10/11 | 미착수 | [spec.md](../design/ui-polish/spec.md) (UP-07은 superseded) |
+| ⑤ | **UI polish 잔여** (코드 감사 결과는 [013](013-ui-polish-status.md)) — ✅ UP-01 · 🟡 UP-02·06·16·18 · ⬜ UP-03·04·05·08·09·10·11·12·13·14·15·17·19·20·21 · ⛔ UP-07(재색인 UX로 대체)·UP-22(클라이언트 결정 대기) | 부분 진행 (이전의 "UP-03/04/05/08/09/10/11 미착수"는 불완전한 기억 기반 목록이었음) | [013 현황·실행 순서](013-ui-polish-status.md) · [spec.md](../design/ui-polish/spec.md) |
 | ⑥ | **사용자 피드백 대기** | 대기 | 아래 §3-3 |
 | ⑦ | **기타 (낮음)** | – | 아래 §3-4 |
 
