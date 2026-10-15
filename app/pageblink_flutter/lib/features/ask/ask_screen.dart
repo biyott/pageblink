@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
+import '../../app/text_wrap.dart';
 import '../../app/theme.dart';
 import '../../app/l10n.dart';
 import '../../client.dart';
@@ -237,7 +238,7 @@ class _AskScreenState extends State<AskScreen> {
           ),
         Expanded(
           child: _turns.isEmpty
-              ? _EmptyHint(
+              ? AskEmptyHint(
                   includePersonal: _includePersonal,
                   onPick: (q) {
                     _input.text = q;
@@ -698,8 +699,8 @@ class AskTurnView extends StatefulWidget {
 
 class _AskTurnViewState extends State<AskTurnView>
     with TickerProviderStateMixin {
-  /// Selected row: 140ms delay + 1400ms (ask_sources.dart `sourceFx`), then the
-  /// resting halo, which has no end.
+  /// Selected row: 120ms delay + 1320ms (ask_sources.dart `sourceFx`), then the
+  /// resting ring, which has no end.
   late final _flash = AnimationController(
     vsync: this,
     duration: sourceFlashDuration,
@@ -710,20 +711,30 @@ class _AskTurnViewState extends State<AskTurnView>
     vsync: this,
     duration: citeAckDuration,
   );
+
+  /// The previous pick's ring fading out, 200ms, when another source is picked.
+  late final _release = AnimationController(
+    vsync: this,
+    duration: sourceReleaseDuration,
+  );
   final _chipKeys = <int, GlobalKey>{};
   int? _acking;
 
-  /// The source picked last (marker or row). Its halo stays after the
+  /// The source whose ring is fading out, and what it showed when it began.
+  int? _releasing;
+  SourceFx _releaseFrom = SourceFx.none;
+
+  /// The source picked last (marker or row). Its ring stays after the
   /// animation, until another source is picked or the turn is rebuilt.
   late final _pick = ValueNotifier<int?>(null);
-  late final _markerTick = Listenable.merge([_ack, _pick]);
+  late final _markerTick = Listenable.merge([_ack, _pick, _release]);
   int? get _selected => _pick.value;
   set _selected(int? v) => _pick.value = v;
 
   /// The animation for [_selected] has begun (it waits for a scroll first).
   bool _started = false;
 
-  /// [_selected] was picked again after resting: the halo stays through the
+  /// [_selected] was picked again after resting: the ring stays through the
   /// start delay instead of going out.
   bool _replay = false;
 
@@ -749,8 +760,10 @@ class _AskTurnViewState extends State<AskTurnView>
       _expanded = false;
       _snap = false;
       _chipKeys.clear();
+      _releasing = null;
       _flash.value = 0;
       _ack.value = 0;
+      _release.value = 0;
     }
   }
 
@@ -758,6 +771,7 @@ class _AskTurnViewState extends State<AskTurnView>
   void dispose() {
     _flash.dispose();
     _ack.dispose();
+    _release.dispose();
     _pick.dispose();
     super.dispose();
   }
@@ -797,6 +811,15 @@ class _AskTurnViewState extends State<AskTurnView>
       if (chip == null || !chip.mounted) return;
     }
     final replay = _selected == index && _started && _flash.isCompleted;
+    // Another source: the old ring fades out (at once when motion is reduced).
+    final prev = _selected;
+    if (prev != null && prev != index && !reduced) {
+      _releaseFrom = _fx(prev);
+      _releasing = prev;
+      _release.forward(from: 0);
+    } else if (prev != index) {
+      _releasing = null;
+    }
     setState(() {
       _acking = index;
       _selected = index;
@@ -836,8 +859,17 @@ class _AskTurnViewState extends State<AskTurnView>
     return top >= 0 && top + box.size.height <= viewport.size.height;
   }
 
+  /// Share of the fading ring still shown for [index] (0 when it is not the
+  /// one being released).
+  double _keep(int index) => _releasing == index && _release.isAnimating
+      ? sourceReleaseKeep(_release.value)
+      : 0;
+
   SourceFx _fx(int index) {
-    if (_selected != index) return SourceFx.none;
+    if (_selected != index) {
+      final k = _keep(index);
+      return k > 0 ? _releaseFrom.faded(k) : SourceFx.none;
+    }
     if (!_started) return _replay ? SourceFx.settled : SourceFx.none;
     return _reduced
         ? SourceFx.settled
@@ -863,6 +895,7 @@ class _AskTurnViewState extends State<AskTurnView>
         ackValue: () => _ackValue(n),
         reduced: _reduced,
         selected: () => _selected == n,
+        pick: () => _selected == n ? 1 : _keep(n),
         onTap: tag.onTap,
       ),
     );
@@ -871,10 +904,11 @@ class _AskTurnViewState extends State<AskTurnView>
   Widget _sourceRow(List<Citation> all, Citation c) {
     return AnimatedBuilder(
       key: _chipKeys.putIfAbsent(c.index, GlobalKey.new),
-      animation: _flash,
+      animation: Listenable.merge([_flash, _release]),
       builder: (context, _) => SourceRow(
         citation: c,
         fx: _fx(c.index),
+        selected: _selected == c.index,
         onTap: () {
           _cite(c.index, scroll: false);
           widget.onBlink(all, c);
@@ -1016,8 +1050,16 @@ class _AskTurnViewState extends State<AskTurnView>
   }
 }
 
-class _EmptyHint extends StatelessWidget {
-  const _EmptyHint({required this.onPick, required this.includePersonal});
+/// The empty state: the example questions. A card shows its question with
+/// Korean word-keeping line breaks, but [onPick] gets the plain string: the
+/// joiner is for display only and must never reach the server.
+@visibleForTesting
+class AskEmptyHint extends StatelessWidget {
+  const AskEmptyHint({
+    super.key,
+    required this.onPick,
+    required this.includePersonal,
+  });
 
   final ValueChanged<String> onPick;
 
@@ -1100,7 +1142,7 @@ class _SuggestionCard extends StatelessWidget {
                   vertical: 12,
                 ),
                 child: Text(
-                  text,
+                  keepAllKorean(text),
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),

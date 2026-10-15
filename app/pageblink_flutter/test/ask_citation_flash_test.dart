@@ -1,9 +1,13 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 import 'package:pageblink_flutter/app/l10n.dart';
+import 'package:pageblink_flutter/app/text_wrap.dart';
 import 'package:pageblink_flutter/app/theme.dart';
 import 'package:pageblink_flutter/features/ask/ask_markers.dart';
 import 'package:pageblink_flutter/features/ask/ask_screen.dart';
@@ -54,9 +58,28 @@ Color _inner(WidgetTester tester, int n) {
       .color!;
 }
 
-/// The row's resting colour: the neutral `chipBg`, for every kind.
-Color _paper(WidgetTester tester, int n) =>
-    tester.element(find.byKey(ValueKey('source-chip-$n'))).pb.chipBg;
+/// The row's resting colour: the neutral `rowFill`, for every kind.
+Color _paper(WidgetTester tester, int n) => SourceTones.of(
+  tester.element(find.byKey(ValueKey('source-chip-$n'))),
+).rowFill;
+
+/// The row's rainbow ring painter, null while the row shows no ring.
+RainbowRingPainter? _ring(WidgetTester tester, int n) {
+  final f = find.byKey(ValueKey('source-ring-$n'));
+  if (f.evaluate().isEmpty) return null;
+  return tester.widget<CustomPaint>(f).painter as RainbowRingPainter;
+}
+
+/// The thin ring around the `⚡n` pill.
+RainbowRingPainter _markerRing(WidgetTester tester, int n) {
+  final f = find.descendant(
+    of: find.byKey(ValueKey('cite-marker-$n')).first,
+    matching: find.byWidgetPredicate(
+      (w) => w is CustomPaint && w.painter is RainbowRingPainter,
+    ),
+  );
+  return tester.widget<CustomPaint>(f).painter as RainbowRingPainter;
+}
 
 List<BoxShadow> _halo(WidgetTester tester, int n) {
   final box = tester.widget<DecoratedBox>(
@@ -129,77 +152,112 @@ void main() {
       return turn;
     }
 
-    testWidgets('tapping ⚡1 pulses source 1 only, then keeps its halo', (
+    testWidgets('tapping ⚡1 pulses source 1 only, then keeps its ring', (
       t,
     ) async {
       await pump(t, answer: '첫째 [1] 그리고 둘째 [2].');
       expect(_glow(t, 1), isNull);
+      expect(_ring(t, 1), isNull);
       await _tapMarker(t, 1);
       await t.pump();
-      await t.pump(const Duration(milliseconds: 140)); // start delay
+      await t.pump(const Duration(milliseconds: 100)); // inside the delay
       expect(_glow(t, 1), isNull);
-      await t.pump(const Duration(milliseconds: 245)); // first peak (1.0)
+      await t.pump(const Duration(milliseconds: 20 + 200)); // first rise done
       expect(_glow(t, 1), isNotNull);
       expect(_glow(t, 2), isNull);
       expect(_inner(t, 1), isNot(_paper(t, 1)));
-      await t.pump(const Duration(milliseconds: 420)); // trough (0.35)
+      await t.pump(const Duration(milliseconds: 340)); // trough
       expect(_glow(t, 1), isNotNull);
-      await t.pump(const Duration(milliseconds: 262)); // second peak (0.85)
+      await t.pump(const Duration(milliseconds: 220)); // second peak
       expect(_glow(t, 1), isNotNull);
-      await t.pump(const Duration(milliseconds: 473)); // bloom done
+      await t.pump(const Duration(milliseconds: 560)); // settle done
       await t.pumpAndSettle();
-      // No end: the halo is still there, the inside is back to chipBg.
+      // No end: the ring is still there, the inside is back to rowFill.
       expect(_glow(t, 1), isNotNull);
+      expect(_ring(t, 1)!.strength, 1);
       expect(_inner(t, 1), _paper(t, 1));
       expect(_glow(t, 2), isNull);
       await t.pump(const Duration(seconds: 30));
       expect(_glow(t, 1), isNotNull);
+      expect(_ring(t, 1)!.strength, 1);
     });
 
-    testWidgets('resting halo: four cool hues (violet..sky), faint', (t) async {
+    testWidgets('resting ring: 12 pastel hues closed, one neutral shadow', (
+      t,
+    ) async {
       for (final b in Brightness.values) {
+        final tones = b == Brightness.dark
+            ? SourceTones.dark
+            : SourceTones.light;
         await pump(t, answer: '[1]', brightness: b);
         await _tapMarker(t, 1);
         await t.pumpAndSettle();
+        final r = _ring(t, 1)!;
+        expect(r.colors, hasLength(13), reason: '$b');
+        expect(r.colors.first, r.colors.last, reason: '$b closed');
+        expect(r.colors, tones.rainbowClosed, reason: '$b palette');
+        expect({...tones.rainbow}, hasLength(12), reason: '$b distinct');
+        expect(r.strength, 1);
+        expect(r.sweep, 0);
+        expect(r.tightAlpha, tones.ringTight);
+        expect(r.wideAlpha, tones.ringWide);
+        // One shadow, no hue.
         final h = _halo(t, 1);
-        expect(h, hasLength(4), reason: '$b');
-        expect({for (final s in h) s.color.toARGB32()}, hasLength(4));
-        expect({for (final s in h) s.offset}, hasLength(4));
-        for (final s in h) {
-          expect(s.color.a, inInclusiveRange(0.08, 0.40), reason: '$b');
-          expect(s.blurRadius, 20);
-          // No pink, orange or yellow: hue 195..275 (sky to violet).
-          final hue = HSLColor.fromColor(s.color).hue;
-          expect(hue, inInclusiveRange(195, 275), reason: '$b $hue');
-        }
+        expect(h, hasLength(1), reason: '$b');
+        expect(HSLColor.fromColor(h.single.color).saturation, 0);
         expect(_inner(t, 1), _paper(t, 1));
       }
+      // Light and dark tell the hues apart (dark is a step lighter).
+      expect(SourceTones.light.rainbow, isNot(SourceTones.dark.rainbow));
     });
 
     testWidgets('the beats follow the timeline (not monotonic)', (t) async {
       expect(sourceFx(0).halo, 0);
-      expect(sourceFx(0.05).fill, 0); // 77ms, in the delay
+      expect(sourceFx(0.05).fill, 0); // 72ms, in the delay
       double at(double ms) => ms / sourceFlashDuration.inMilliseconds;
-      final peak = sourceFx(at(385)); // 140 + 245
-      final trough = sourceFx(at(805)); // + 420
-      final peak2 = sourceFx(at(1067)); // + 262
+      final peak = sourceFx(at(320)); // 120 + 200
+      final trough = sourceFx(at(660)); // + 340
+      final peak2 = sourceFx(at(880)); // + 220
       expect(peak.fill, closeTo(1, 0.01));
+      expect(peak.halo, closeTo(0.55, 0.01));
       expect(trough.fill, closeTo(0.35, 0.01));
+      expect(trough.halo, closeTo(0.30, 0.01));
       expect(peak2.fill, closeTo(0.85, 0.01));
-      final mid = sourceFx(at(1067 + 236)); // half-way through the bloom
+      expect(peak2.halo, closeTo(0.60, 0.01));
+      final mid = sourceFx(at(880 + 238)); // light at its brightest
       expect(mid.bloomAlpha, closeTo(1, 0.01));
       expect(mid.bloom, inInclusiveRange(0.5, 1));
       expect(mid.fill, lessThan(peak2.fill));
+      expect(mid.halo, inInclusiveRange(0.6, 1));
+      expect(mid.sweep, lessThan(0)); // still turning
       final end = sourceFx(1);
       expect(end.fill, 0);
       expect(end.bloomAlpha, 0);
       expect(end.halo, 1);
-      expect(end.rainbow, 1);
-      // 12.5% faster than the 1760ms it replaces.
-      expect(sourceFlashDuration.inMilliseconds, 1540);
+      expect(end.sweep, 0);
+      // 120 + 200 + 340 + 220 + 560.
+      expect(sourceFlashDuration.inMilliseconds, 1440);
+      expect(sourceFlashLead.inMilliseconds, 120);
+      // The same source again: the ring never leaves 1.0.
+      for (final ms in <double>[0, 100, 320, 660, 880, 1100, 1440]) {
+        expect(sourceFx(at(ms), replay: true).halo, 1, reason: '$ms');
+      }
     });
 
-    testWidgets('the centre-out light is drawn only during the bloom', (
+    testWidgets('at the end of the first rise: fill 1 and ring 0.55', (
+      t,
+    ) async {
+      await pump(t, answer: '[1]');
+      await _tapMarker(t, 1);
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 120 + 200));
+      expect(sourceFx(320 / 1440).fill, closeTo(1, 0.01));
+      expect(_ring(t, 1)!.strength, closeTo(0.55, 0.02));
+      expect(_halo(t, 1), hasLength(1)); // one neutral shadow while picked
+      await t.pumpAndSettle();
+    });
+
+    testWidgets('the centre-out light is drawn only during the settle', (
       t,
     ) async {
       await pump(t, answer: '[1]');
@@ -222,29 +280,40 @@ void main() {
           .length;
       await _tapMarker(t, 1);
       await t.pump();
-      await t.pump(const Duration(milliseconds: 140 + 245 + 420 + 262 + 100));
+      await t.pump(const Duration(milliseconds: 120 + 200 + 340 + 220 + 100));
       expect(blooms(), 1);
       await t.pumpAndSettle();
       expect(blooms(), 0);
     });
 
-    testWidgets('picking another source moves the halo (marker and row)', (
+    testWidgets('picking another source fades the old ring out in 200ms', (
       t,
     ) async {
       await pump(t, answer: '[1] [2]');
       await _tapMarker(t, 1);
       await t.pumpAndSettle();
       expect(_glow(t, 1), isNotNull);
+      expect(_ring(t, 1)!.strength, 1);
       await _tapMarker(t, 2);
       await t.pump();
-      expect(_glow(t, 1), isNull); // gone at once
+      // Not at once: it is still there and going out.
+      expect(_ring(t, 1)!.strength, closeTo(1, 0.01));
+      await t.pump(const Duration(milliseconds: 100));
+      final mid = _ring(t, 1)!.strength;
+      expect(mid, inExclusiveRange(0.0, 1.0));
+      expect(_ring(t, 2), isNull); // the new row is still in its 120ms delay
+      await t.pump(const Duration(milliseconds: 50));
+      expect(_ring(t, 1)!.strength, lessThan(mid));
+      expect(_ring(t, 2)!.strength, greaterThan(0)); // 150ms: it has begun
+      await t.pump(const Duration(milliseconds: 60)); // 210ms: old ring gone
+      expect(_ring(t, 1), isNull);
+      expect(_glow(t, 1), isNull);
       await t.pumpAndSettle();
       expect(_glow(t, 1), isNull);
       expect(_glow(t, 2), isNotNull);
-      // Row tap: same effect; and the marker of the picked number is deeper.
+      // Row tap: same effect.
       await _tapRow(t, 1);
       await t.pump();
-      expect(_glow(t, 2), isNull);
       await t.pumpAndSettle();
       expect(_glow(t, 1), isNotNull);
       expect(_glow(t, 2), isNull);
@@ -264,15 +333,29 @@ void main() {
         return (box.decoration as ShapeDecoration).color!;
       }
 
+      final tones = SourceTones.light;
       final rest = fill(1), rest2 = fill(2);
+      expect(rest, tones.pill);
       await _tapMarker(t, 1);
       await t.pumpAndSettle();
-      expect(fill(1), isNot(rest));
+      // Black 14% over the pill, never accent.
+      expect(
+        fill(1),
+        Color.alphaBlend(
+          const Color(0xFF000000).withValues(alpha: 0.14),
+          tones.pill,
+        ),
+      );
+      expect(fill(1).computeLuminance(), lessThan(rest.computeLuminance()));
       expect(fill(2), rest2);
+      expect(_markerRing(t, 1).strength, closeTo(0.65, 0.001));
+      expect(_markerRing(t, 2).strength, 0);
       await _tapMarker(t, 2);
       await t.pumpAndSettle();
       expect(fill(1), rest);
       expect(fill(2), isNot(rest2));
+      expect(_markerRing(t, 1).strength, 0);
+      expect(_markerRing(t, 2).strength, closeTo(0.65, 0.001));
     });
 
     testWidgets('another turn in the same slot starts without a halo', (
@@ -311,27 +394,6 @@ void main() {
       expect(find.textContaining('more', findRichText: true), findsOneWidget);
     });
 
-    testWidgets('glow: one purple glow at the first peak, offset (0, 2)', (
-      t,
-    ) async {
-      await pump(t, answer: '[1]');
-      await _tapMarker(t, 1);
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 140 + 245));
-      final h = _halo(t, 1);
-      expect(h, hasLength(4));
-      for (final s in h) {
-        expect(s.blurRadius, 20);
-        expect(s.spreadRadius, 0);
-        expect(s.offset, const Offset(0, 2));
-        expect(
-          s.color.withValues(alpha: 1),
-          h.first.color.withValues(alpha: 1),
-        );
-      }
-      await t.pumpAndSettle();
-    });
-
     testWidgets('the pressed marker answers with a short ack, then rests', (
       t,
     ) async {
@@ -348,14 +410,30 @@ void main() {
         return (box.decoration as ShapeDecoration).color!;
       }
 
+      double scale(int n) => t
+          .widget<Transform>(
+            find
+                .descendant(
+                  of: find.byKey(ValueKey('cite-marker-$n')).first,
+                  matching: find.byType(Transform),
+                )
+                .first,
+          )
+          .transform
+          .getMaxScaleOnAxis();
+
       final rest = fill(1), rest2 = fill(2);
       await _tapMarker(t, 1);
       await t.pump();
       await t.pump(const Duration(milliseconds: 120)); // ack peak
-      expect(fill(1), isNot(rest));
+      expect(scale(1), closeTo(1.08, 0.001));
+      expect(_markerRing(t, 1).strength, closeTo(1, 0.001));
+      expect(fill(1).computeLuminance(), lessThan(rest.computeLuminance()));
+      expect(scale(2), 1);
       expect(fill(2), rest2);
       await t.pumpAndSettle();
       // The ack is over; what stays is the picked tint, nowhere near accent.
+      expect(scale(1), 1);
       expect(fill(1), isNot(t.element(find.byType(Scaffold)).pb.accent));
       expect(fill(1), isNot(rest)); // picked: deeper, but still grey
       expect(fill(2), rest2);
@@ -402,15 +480,15 @@ void main() {
       expect(_glow(t, 1), isNotNull);
       await _tapMarker(t, 1);
       await t.pump();
-      await t.pump(const Duration(milliseconds: 140)); // back in the delay
+      await t.pump(const Duration(milliseconds: 100)); // back in the delay
       expect(_glow(t, 1), isNull);
-      await t.pump(const Duration(milliseconds: 245));
+      await t.pump(const Duration(milliseconds: 20 + 200));
       expect(_glow(t, 1), isNotNull);
       await t.pumpAndSettle();
       expect(_glow(t, 1), isNotNull);
     });
 
-    testWidgets('tapping the picked source again replays from its halo', (
+    testWidgets('tapping the picked source again replays from its ring', (
       t,
     ) async {
       await pump(t, answer: '[1]');
@@ -420,26 +498,92 @@ void main() {
       await t.pump();
       await t.pump(const Duration(milliseconds: 100)); // in the delay
       expect(_glow(t, 1), isNotNull); // never goes out
+      expect(_ring(t, 1)!.strength, 1);
       expect(_inner(t, 1), _paper(t, 1));
-      await t.pump(const Duration(milliseconds: 40 + 245));
+      await t.pump(const Duration(milliseconds: 20 + 200));
       expect(_inner(t, 1), isNot(_paper(t, 1))); // played again
+      expect(_ring(t, 1)!.strength, 1);
       await t.pumpAndSettle();
       expect(_glow(t, 1), isNotNull);
       expect(_inner(t, 1), _paper(t, 1));
     });
 
-    testWidgets('reduced motion: resting halo at once, no ramp', (t) async {
-      await pump(t, answer: '[1]', reduced: true);
+    testWidgets('reduced motion: resting ring at once, no ramp or fade', (
+      t,
+    ) async {
+      await pump(t, answer: '[1] [2]', reduced: true);
       await _tapMarker(t, 1);
       await t.pump();
       expect(_glow(t, 1), isNotNull);
-      final c = _halo(t, 1).map((s) => s.color).toList();
+      expect(_ring(t, 1)!.strength, 1);
+      expect(_ring(t, 1)!.sweep, 0);
       expect(_inner(t, 1), _paper(t, 1));
       await t.pump(const Duration(milliseconds: 300));
-      expect(_halo(t, 1).map((s) => s.color).toList(), c);
+      expect(_ring(t, 1)!.strength, 1);
       await t.pumpAndSettle();
       expect(_glow(t, 1), isNotNull);
-      expect(_halo(t, 1), hasLength(4));
+      expect(_halo(t, 1), hasLength(1));
+      // Another source: the old ring is gone at once, the new one is settled.
+      await _tapMarker(t, 2);
+      await t.pump();
+      expect(_ring(t, 1), isNull);
+      expect(_ring(t, 2)!.strength, 1);
+      await t.pumpAndSettle();
+    });
+
+    testWidgets('the ring spills 8px vertically, 12 (1 column) / 8 (2) wide', (
+      t,
+    ) async {
+      for (final (w, side) in [(390.0, 12.0), (800.0, 8.0)]) {
+        await pump(t, answer: '[1]', width: w);
+        await _tapMarker(t, 1);
+        await t.pumpAndSettle();
+        final clip = t.widget<ClipPath>(
+          find
+              .ancestor(
+                of: find.byKey(const ValueKey('source-chip-1')),
+                matching: find.byType(ClipPath),
+              )
+              .first,
+        );
+        final size = t.getSize(find.byKey(const ValueKey('source-chip-1')));
+        final b = clip.clipper!.getClip(size).getBounds();
+        expect(b.top, closeTo(-8, 0.01), reason: 'width $w');
+        expect(b.bottom, closeTo(size.height + 8, 0.01), reason: 'width $w');
+        expect(b.left, closeTo(-side, 0.01), reason: 'width $w');
+        expect(b.right, closeTo(size.width + side, 0.01), reason: 'width $w');
+        // The row is 8px from the next one: no overlap with its inside.
+      }
+    });
+
+    testWidgets('selected is true at once for the row and the marker only', (
+      t,
+    ) async {
+      final h = t.ensureSemantics();
+      await pump(t, answer: '[1] [2]', locale: const Locale('en'));
+      SemanticsNode row(int n) => t.getSemantics(
+        find.bySemanticsLabel(
+          n == 1 ? 'Source 1: Doc 1, PDF page 1' : 'Source 2: Doc 2, note',
+        ),
+      );
+      SemanticsNode marker(int n) =>
+          t.getSemantics(find.bySemanticsLabel('Source $n').first);
+      expect(row(1), isNot(isSemantics(isSelected: true)));
+      await _tapMarker(t, 1);
+      await t.pump(); // before the animation has started
+      expect(row(1), isSemantics(isSelected: true));
+      expect(marker(1), isSemantics(isSelected: true));
+      expect(row(2), isNot(isSemantics(isSelected: true)));
+      expect(marker(2), isNot(isSemantics(isSelected: true)));
+      await t.pumpAndSettle();
+      await _tapRow(t, 2);
+      await t.pump();
+      expect(row(2), isSemantics(isSelected: true));
+      expect(marker(2), isSemantics(isSelected: true));
+      expect(row(1), isNot(isSemantics(isSelected: true)));
+      expect(marker(1), isNot(isSemantics(isSelected: true)));
+      await t.pumpAndSettle();
+      h.dispose();
     });
 
     testWidgets('tapping the source row still calls onBlink', (t) async {
@@ -548,7 +692,7 @@ void main() {
       expect(_glow(t, 5), isNotNull);
       expect(_glow(t, 1), isNull);
       await t.pumpAndSettle();
-      expect(_glow(t, 5), isNotNull); // keeps its halo
+      expect(_glow(t, 5), isNotNull); // keeps its ring
       expect(find.text('Show fewer'), findsOneWidget);
       // Fold: the row is gone, the pick is kept; unfold shows it again.
       await t.tap(find.byKey(const ValueKey('sources-toggle')));
@@ -637,7 +781,7 @@ void main() {
     });
   });
 
-  group('source colours (neutral rows, grey pill with a yellow bolt)', () {
+  group('source colours (neutral rows, slate pill with a yellow bolt)', () {
     Future<AskTurn> pumpKinds(
       WidgetTester t,
       List<Citation> cs, {
@@ -690,30 +834,40 @@ void main() {
       return (box.decoration as ShapeDecoration).color!;
     }
 
-    Icon bolt(WidgetTester t, int n) => t.widget<Icon>(
-      find
-          .descendant(
-            of: find.byKey(ValueKey('cite-marker-$n')).first,
-            matching: find.byType(Icon),
-          )
-          .first,
-    );
+    BoltPainter bolt(WidgetTester t, int n) =>
+        t
+                .widget<CustomPaint>(
+                  find
+                      .descendant(
+                        of: find.byKey(ValueKey('cite-marker-$n')).first,
+                        matching: find.byWidgetPredicate(
+                          (w) => w is CustomPaint && w.painter is BoltPainter,
+                        ),
+                      )
+                      .first,
+                )
+                .painter
+            as BoltPainter;
 
-    testWidgets('notes and PDFs share one neutral row colour: chipBg', (
+    testWidgets('notes and PDFs share one neutral row colour: rowFill', (
       t,
     ) async {
       for (final b in Brightness.values) {
+        final tones = b == Brightness.dark
+            ? SourceTones.dark
+            : SourceTones.light;
         // Documents 5 and 8 used to land on different pastels.
         await pumpKinds(t, [
           cite(1, 5, 'note'),
           cite(2, 8, 'note'),
           cite(3, 5, 'pdf'),
         ], brightness: b);
-        final pb = buildPbTheme(b).extension<Pb>()!;
         for (final n in [1, 2, 3]) {
-          expect(_inner(t, n), pb.chipBg, reason: '$b row $n');
+          expect(_inner(t, n), tones.rowFill, reason: '$b row $n');
         }
       }
+      // Light is opaque (a neighbour's glow does not show through).
+      expect(SourceTones.light.rowFill.a, 1);
     });
 
     testWidgets('the kind shows in the icon and the second line only', (
@@ -730,18 +884,19 @@ void main() {
       IconData kindIcon(int n) => t.widget<Icon>(icons(n).at(0)).icon!;
       expect(kindIcon(1), isNot(kindIcon(2)));
       expect(t.widget<Icon>(icons(1).at(0)).size, 14);
+      expect(t.widget<Icon>(icons(1).at(0)).color, SourceTones.light.sub);
       expect(find.text('노트'), findsNothing); // default locale is English
       expect(find.text('Note'), findsOneWidget);
       expect(find.text('PDF · Page 1'), findsOneWidget);
     });
 
-    testWidgets('a picked row settles back to chipBg', (t) async {
+    testWidgets('a picked row settles back to rowFill', (t) async {
       for (final n in [1, 2]) {
         await pumpKinds(t, [cite(1, 5, 'note'), cite(2, 3, 'pdf')]);
         final rest = _inner(t, n);
         await _tapMarker(t, n);
         await t.pump();
-        await t.pump(const Duration(milliseconds: 140 + 245));
+        await t.pump(const Duration(milliseconds: 120 + 200));
         await t.pump(const Duration(milliseconds: 250)); // past the fade
         expect(_inner(t, n), isNot(rest));
         await t.pumpAndSettle();
@@ -750,21 +905,49 @@ void main() {
       }
     });
 
-    testWidgets('the pulse only rises towards accentContainer', (t) async {
+    testWidgets('the border of a picked row stays at the selected grey', (
+      t,
+    ) async {
+      for (final b in Brightness.values) {
+        final tones = b == Brightness.dark
+            ? SourceTones.dark
+            : SourceTones.light;
+        await pumpKinds(t, [cite(1, 5, 'note')], answer: '[1]', brightness: b);
+        Color border() {
+          final stack = find
+              .ancestor(
+                of: find.byKey(const ValueKey('source-chip-1')),
+                matching: find.byType(Stack),
+              )
+              .first;
+          final m = t.widget<Material>(
+            find.descendant(of: stack, matching: find.byType(Material)).first,
+          );
+          return ((m.shape as RoundedRectangleBorder).side).color;
+        }
+
+        expect(border(), tones.rowBorder, reason: '$b');
+        await _tapMarker(t, 1);
+        await t.pumpAndSettle();
+        expect(border(), tones.rowBorderSelected, reason: '$b');
+      }
+    });
+
+    testWidgets('the pulse only rises towards rowPulse', (t) async {
       await pumpKinds(t, [cite(1, 5, 'note')], answer: '[1]');
-      final pb = t.element(find.byType(Scaffold)).pb;
+      const tones = SourceTones.light;
       await _tapMarker(t, 1);
       await t.pump();
-      await t.pump(const Duration(milliseconds: 140 + 245)); // peak, fill 1.0
+      await t.pump(const Duration(milliseconds: 120 + 200)); // peak, fill 1.0
       // The Material animates colour changes: let it catch up (still inside
-      // the 420ms dip, where the fill is between 1.0 and 0.35).
+      // the 340ms dip, where the fill is between 1.0 and 0.35).
       await t.pump(const Duration(milliseconds: 100));
       final c = _inner(t, 1);
-      // Between chipBg and accentContainer on every channel (no detour).
+      // Between rowFill and rowPulse on every channel (no detour).
       for (final ch in [
-        (pb.chipBg.r, pb.accentContainer.r, c.r),
-        (pb.chipBg.g, pb.accentContainer.g, c.g),
-        (pb.chipBg.b, pb.accentContainer.b, c.b),
+        (tones.rowFill.r, tones.rowPulse.r, c.r),
+        (tones.rowFill.g, tones.rowPulse.g, c.g),
+        (tones.rowFill.b, tones.rowPulse.b, c.b),
       ]) {
         final lo = ch.$1 < ch.$2 ? ch.$1 : ch.$2;
         final hi = ch.$1 < ch.$2 ? ch.$2 : ch.$1;
@@ -773,26 +956,28 @@ void main() {
       await t.pumpAndSettle();
     });
 
-    testWidgets('every pill is the same grey with a yellow bolt', (t) async {
+    testWidgets('every pill is the same slate with a yellow bolt', (t) async {
       for (final b in Brightness.values) {
-        final dark = b == Brightness.dark;
+        final tones = b == Brightness.dark
+            ? SourceTones.dark
+            : SourceTones.light;
         // 1 and 2 arrived (note, PDF); 3 has no source yet.
         await pumpKinds(t, [
           cite(1, 5, 'note'),
           cite(2, 3, 'pdf'),
         ], brightness: b);
-        final pb = buildPbTheme(b).extension<Pb>()!;
         for (final n in [1, 2, 3]) {
-          expect(markerFill(t, n), citeMarkerFill(dark: dark), reason: '$b $n');
-          expect(bolt(t, n).color, citeMarkerBolt(dark: dark), reason: '$b $n');
+          expect(markerFill(t, n), tones.pill, reason: '$b $n');
+          expect(bolt(t, n).color, tones.bolt, reason: '$b $n');
         }
-        // Grey: no hue of its own beyond a hair.
+        // Slate: a grey with a hair of blue.
         final f = markerFill(t, 1);
-        expect((f.r - f.b).abs(), lessThan(0.08), reason: '$b');
-        // The bolt is yellow/amber (hue 35..55), not orange or red.
-        final hue = HSLColor.fromColor(citeMarkerBolt(dark: dark)).hue;
+        expect(f, const Color(0xFF626874));
+        expect(f.b - f.r, lessThan(0.08), reason: '$b');
+        // The bolt is yellow (hue 35..55), not orange.
+        final hue = HSLColor.fromColor(tones.bolt).hue;
         expect(hue, inInclusiveRange(35, 55), reason: '$b $hue');
-        // Digit is ink.
+        // The digit is white, 12 / w600.
         final digit = t.widget<Text>(
           find
               .descendant(
@@ -801,8 +986,29 @@ void main() {
               )
               .first,
         );
-        expect(digit.style!.color, pb.ink, reason: '$b');
+        expect(digit.style!.color, tones.digit, reason: '$b');
+        expect(digit.style!.fontSize, 12);
+        expect(digit.style!.fontWeight, FontWeight.w600);
       }
+    });
+
+    testWidgets('the source row badge matches the pill', (t) async {
+      await pumpKinds(t, [cite(1, 5, 'note')], answer: '[1]');
+      final badge = t.widget<Container>(
+        find
+            .descendant(
+              of: find.ancestor(
+                of: find.byKey(const ValueKey('source-chip-1')),
+                matching: find.byType(Stack),
+              ),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      expect(
+        (badge.decoration as BoxDecoration).color,
+        SourceTones.light.pill,
+      );
     });
 
     testWidgets('a source arriving later does not recolour its pill', (
@@ -817,55 +1023,371 @@ void main() {
       expect(markerFill(t, 1), before);
     });
 
-    test('contrast: row text, pill digit and bolt (pure functions)', () {
+    test('contrast: digit, bolt, secondary text, title, selected border', () {
       expect(
         contrastRatio(const Color(0xFF000000), const Color(0xFFFFFFFF)),
         closeTo(21, 0.01),
       );
       for (final dark in [false, true]) {
         final pb = dark ? Pb.dark : Pb.light;
+        final tones = dark ? SourceTones.dark : SourceTones.light;
         // The answer bubble is glassStrong over the page gradient; test every
-        // stop (rows add chipBg on top).
+        // stop (rows add their own face on top).
         for (final page in [pb.bgStart, pb.bgMid, pb.bgEnd]) {
           final bubble = Color.alphaBlend(pb.glassStrong, page);
-          final row = Color.alphaBlend(pb.chipBg, bubble);
-          final pulse = pb.accentContainer;
-          final sub = subInkFor(pb, dark: dark);
+          final row = Color.alphaBlend(tones.rowFill, bubble);
+          final pulse = Color.alphaBlend(tones.rowPulse, bubble);
           for (final bg in [row, pulse]) {
-            expect(contrastRatio(pb.ink, bg), greaterThanOrEqualTo(4.5));
             expect(
-              contrastRatio(Color.alphaBlend(sub, bg), bg),
+              contrastRatio(pb.ink, bg),
+              greaterThanOrEqualTo(4.5),
+              reason: 'title $dark $bg',
+            );
+            expect(
+              contrastRatio(tones.sub, bg),
               greaterThanOrEqualTo(4.5),
               reason: 'sub $dark $bg',
             );
           }
+          // The state signal: the selected border against the bubble, and
+          // the row's own face for the part inside the border.
           expect(
-            contrastRatio(pb.onAccentContainer, pb.accentContainer),
+            contrastRatio(tones.rowBorderSelected, bubble),
+            greaterThanOrEqualTo(3),
+            reason: 'selected border $dark $page',
+          );
+          // Sub text against the pill's neighbour: the badge digit.
+          expect(
+            contrastRatio(tones.digit, tones.pill),
             greaterThanOrEqualTo(4.5),
             reason: 'badge $dark',
           );
         }
-        final fill = citeMarkerFill(dark: dark);
-        final picked = citeMarkerPicked(pb, fill);
-        for (final f in [fill, picked]) {
+        // Pill states: rest, hover, press, picked, ack. Pressing only darkens,
+        // so the digit and the bolt get better, never worse.
+        final m = tones.markerAlpha;
+        final states = [
+          for (final a in [0.0, m.hover, m.press, m.picked, m.ack])
+            Color.alphaBlend(
+              tones.markerOverlay.withValues(alpha: a),
+              tones.pill,
+            ),
+        ];
+        for (final f in states) {
           expect(
-            contrastRatio(pb.ink, f),
+            contrastRatio(tones.digit, f),
             greaterThanOrEqualTo(4.5),
-            reason: 'digit $dark',
+            reason: 'digit $dark $f',
           );
-          // Graphic object: 3:1 where a yellow can reach it (dark). On the
-          // light grey a yellow tops out near 2:1 (3:1 needs a brown), so the
-          // light bolt is held at its measured 1.8:1 (picked) and the digit carries it.
+          // Graphic object: 3:1.
           expect(
-            contrastRatio(citeMarkerBolt(dark: dark), f),
-            greaterThanOrEqualTo(dark ? 3 : 1.8),
-            reason: 'bolt $dark',
+            contrastRatio(tones.bolt, f),
+            greaterThanOrEqualTo(3),
+            reason: 'bolt $dark $f',
           );
         }
-        // The pill is told apart from the bubble by 1.1:1 at least.
+        // The pill is told apart from the bubble.
         final bubble = Color.alphaBlend(pb.glassStrong, pb.bgMid);
-        expect(contrastRatio(fill, bubble), greaterThanOrEqualTo(1.1));
+        expect(contrastRatio(tones.pill, bubble), greaterThanOrEqualTo(1.5));
       }
+    });
+  });
+
+  group('the end state is the rest colour (no residual whiteness)', () {
+    // d509b49: the centre-out light was pure white at 80% (light) / 30% (dark),
+    // spread over the whole row and only reached 0 at the very last frame, so
+    // the inside ended brighter than it rested (dark: ~2x). Here the light is a
+    // soft neutral, capped, and out before the settle ends.
+    const pad = 24.0, rowW = 300.0;
+    final citation = _c(1);
+
+    Future<(Uint8List, int, Size)> shot(
+      WidgetTester t,
+      Brightness b,
+      SourceFx fx,
+    ) async {
+      final key = GlobalKey();
+      final pb = b == Brightness.dark ? Pb.dark : Pb.light;
+      final bubble = Color.alphaBlend(pb.glassStrong, pb.bgMid);
+      await t.pumpWidget(
+        MaterialApp(
+          theme: buildPbTheme(b),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: RepaintBoundary(
+                key: key,
+                child: ColoredBox(
+                  color: bubble,
+                  child: Padding(
+                    padding: const EdgeInsets.all(pad),
+                    child: SizedBox(
+                      width: rowW,
+                      child: SourceRow(
+                        citation: citation,
+                        fx: fx,
+                        onTap: () {},
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.pump(const Duration(seconds: 1)); // the Material catches up
+      final rowSize = t.getSize(find.byType(Material).last);
+      late Uint8List bytes;
+      late int width;
+      await t.runAsync(() async {
+        final r =
+            key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+        final img = await r.toImage(pixelRatio: 1);
+        width = img.width;
+        bytes = (await img.toByteData())!.buffer.asUint8List();
+      });
+      return (bytes, width, rowSize);
+    }
+
+    List<int> px(Uint8List d, int w, int x, int y) {
+      final o = (y * w + x) * 4;
+      return [d[o], d[o + 1], d[o + 2]];
+    }
+
+    /// Whole pixels inside the row, 2px in from its border (text and icons
+    /// included, they are identical in every state).
+    Iterable<(int, int)> inside(Size row) sync* {
+      final rr = RRect.fromRectAndRadius(
+        Rect.fromLTWH(pad, pad, row.width, row.height),
+        const Radius.circular(14),
+      ).deflate(2);
+      for (var y = pad.toInt(); y < (pad + row.height).toInt(); y++) {
+        for (var x = pad.toInt(); x < (pad + row.width).toInt(); x++) {
+          if (rr.contains(Offset(x + 0.5, y + 0.5))) yield (x, y);
+        }
+      }
+    }
+
+    for (final b in Brightness.values) {
+      testWidgets('settled row interior == rest, ring only outside ($b)', (
+        t,
+      ) async {
+        final (rest, w, row) = await shot(t, b, SourceFx.none);
+        final (done, _, _) = await shot(t, b, SourceFx.settled);
+        // The row's face is the rest colour at the centre and in the corners.
+        final tones = b == Brightness.dark
+            ? SourceTones.dark
+            : SourceTones.light;
+        final pb = b == Brightness.dark ? Pb.dark : Pb.light;
+        final face = Color.alphaBlend(
+          tones.rowFill,
+          Color.alphaBlend(pb.glassStrong, pb.bgMid),
+        );
+        int ch(double v) => (v * 255).round();
+        for (final p in [
+          (pad.toInt() + 6, pad.toInt() + 6), // corner
+          (pad.toInt() + rowW.toInt() - 7, pad.toInt() + 6),
+          (pad.toInt() + 6, pad.toInt() + row.height.toInt() - 7),
+          (pad.toInt() + 150, pad.toInt() + 5), // top middle
+        ]) {
+          final c = px(done, w, p.$1, p.$2);
+          expect(c[0], closeTo(ch(face.r), 1), reason: '$b $p r');
+          expect(c[1], closeTo(ch(face.g), 1), reason: '$b $p g');
+          expect(c[2], closeTo(ch(face.b), 1), reason: '$b $p b');
+        }
+        // Every pixel inside the row is the same as at rest (1/255).
+        var worst = 0;
+        for (final (x, y) in inside(row)) {
+          final a = px(rest, w, x, y), c = px(done, w, x, y);
+          for (var k = 0; k < 3; k++) {
+            worst = worst > (a[k] - c[k]).abs() ? worst : (a[k] - c[k]).abs();
+          }
+        }
+        expect(worst, lessThanOrEqualTo(1), reason: '$b interior differs');
+        // The ring is really there: pixels just outside differ from the page.
+        var outside = 0;
+        for (var x = pad.toInt(); x < pad + rowW; x += 7) {
+          final above = px(done, w, x, pad.toInt() - 4);
+          final plain = px(rest, w, x, pad.toInt() - 4);
+          if ((above[0] - plain[0]).abs() +
+                  (above[1] - plain[1]).abs() +
+                  (above[2] - plain[2]).abs() >
+              6) {
+            outside++;
+          }
+        }
+        expect(outside, greaterThan(10), reason: '$b ring missing outside');
+      });
+
+      testWidgets('the light never makes the row whiter than the cap ($b)', (
+        t,
+      ) async {
+        // Out before the settle ends, at every step after it.
+        expect(
+          sourceFx((880 + 560 * 0.85) / 1440).bloomAlpha,
+          closeTo(0, 1e-9),
+        );
+        expect(
+          sourceFx((880 + 560 * 0.95) / 1440).bloomAlpha,
+          closeTo(0, 1e-9),
+        );
+        final (rest, w, row) = await shot(t, b, SourceFx.none);
+        final bg = px(rest, w, pad.toInt() + 6, pad.toInt() + 6);
+        // Cap: rest + 6% white (light), + 12% (dark: its pulse is a lighter
+        // step by design).
+        final k = b == Brightness.dark ? 0.12 : 0.06;
+        final cap = [for (final v in bg) v + (255 - v) * k];
+        for (var ms = 880.0; ms <= 1440; ms += 40) {
+          final (img, _, _) = await shot(t, b, sourceFx(ms / 1440));
+          for (final (x, y) in inside(row)) {
+            final a = px(rest, w, x, y);
+            if (a[0] != bg[0] || a[1] != bg[1] || a[2] != bg[2]) continue;
+            final c = px(img, w, x, y);
+            for (var i = 0; i < 3; i++) {
+              expect(
+                c[i],
+                lessThanOrEqualTo(cap[i] + 1),
+                reason: '$b ${ms}ms ($x,$y) ch$i',
+              );
+            }
+          }
+        }
+        // The last frame is the rest colour.
+        final (end, _, _) = await shot(t, b, sourceFx(1));
+        for (final (x, y) in inside(row)) {
+          final a = px(rest, w, x, y), c = px(end, w, x, y);
+          for (var i = 0; i < 3; i++) {
+            expect((a[i] - c[i]).abs(), lessThanOrEqualTo(1));
+          }
+        }
+      });
+
+      testWidgets(
+        'marker pill: settled is rest darkened 14%, never lighter ($b)',
+        (
+          t,
+        ) async {
+          final key = GlobalKey();
+          final pb = b == Brightness.dark ? Pb.dark : Pb.light;
+          final tones = b == Brightness.dark
+              ? SourceTones.dark
+              : SourceTones.light;
+          final turn = AskTurn('q')
+            ..answer.write('[1]')
+            ..done = true
+            ..citations[1] = _c(1);
+          await t.pumpWidget(
+            MaterialApp(
+              theme: buildPbTheme(b),
+              home: Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: RepaintBoundary(
+                    key: key,
+                    child: ColoredBox(
+                      color: Color.alphaBlend(pb.glassStrong, pb.bgMid),
+                      child: SizedBox(
+                        width: 360,
+                        child: AskTurnView(turn, onBlink: (_, _) {}),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await t.pumpAndSettle();
+          Future<List<int>> pill() async {
+            final box = t.getRect(find.byKey(const ValueKey('cite-marker-1')));
+            final origin = t.getTopLeft(find.byKey(key));
+            // 2px of hit padding, then 2px into the stadium: left of the bolt.
+            final x = (box.left - origin.dx + 2 + 2).round();
+            final y = (box.center.dy - origin.dy).round();
+            late Uint8List bytes;
+            late int width;
+            await t.runAsync(() async {
+              final r =
+                  key.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary;
+              final img = await r.toImage(pixelRatio: 1);
+              width = img.width;
+              bytes = (await img.toByteData())!.buffer.asUint8List();
+            });
+            return px(bytes, width, x, y);
+          }
+
+          int ch(double v) => (v * 255).round();
+          final rest = await pill();
+          expect(rest[0], closeTo(ch(tones.pill.r), 1));
+          expect(rest[2], closeTo(ch(tones.pill.b), 1));
+          await _tapMarker(t, 1);
+          await t.pumpAndSettle();
+          final done = await pill();
+          final want = Color.alphaBlend(
+            tones.markerOverlay.withValues(alpha: tones.markerAlpha.picked),
+            tones.pill,
+          );
+          expect(done[0], closeTo(ch(want.r), 1));
+          expect(done[1], closeTo(ch(want.g), 1));
+          expect(done[2], closeTo(ch(want.b), 1));
+          for (var i = 0; i < 3; i++) {
+            expect(done[i], lessThanOrEqualTo(rest[i]), reason: 'ch$i');
+          }
+        },
+      );
+    }
+  });
+
+  group('example question cards', () {
+    testWidgets('show keep-all text but send the plain string (no U+2060)', (
+      t,
+    ) async {
+      const wj = '⁠';
+      final sent = <String>[];
+      await t.pumpWidget(
+        MaterialApp(
+          theme: buildPbTheme(Brightness.light),
+          locale: const Locale('ko'),
+          supportedLocales: supportedLocales,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Scaffold(
+            body: AskEmptyHint(includePersonal: false, onPick: sent.add),
+          ),
+        ),
+      );
+      final questions = L.ko.askSuggestions;
+      for (final q in questions) {
+        expect(q.contains(wj), isFalse, reason: 'source string is plain');
+        // Hangul words are kept whole on screen.
+        expect(find.text(q), findsNothing);
+        expect(find.text(keepAllKorean(q)), findsOneWidget);
+      }
+      for (final q in questions) {
+        await t.tap(find.text(keepAllKorean(q)));
+      }
+      expect(sent, questions);
+      for (final q in sent) {
+        expect(q.contains(wj), isFalse);
+      }
+    });
+
+    testWidgets('English questions are untouched', (t) async {
+      final sent = <String>[];
+      await t.pumpWidget(
+        MaterialApp(
+          theme: buildPbTheme(Brightness.light),
+          locale: const Locale('en'),
+          supportedLocales: supportedLocales,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Scaffold(
+            body: AskEmptyHint(includePersonal: false, onPick: sent.add),
+          ),
+        ),
+      );
+      final q = L.en.askSuggestions.first;
+      await t.tap(find.text(q));
+      expect(sent, [q]);
     });
   });
 }

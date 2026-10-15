@@ -7,47 +7,53 @@ import '../../app/app_icons.dart';
 import '../../app/l10n.dart';
 import '../../app/theme.dart';
 
-// Spec: docs/design/ask-sources/spec.md (inline marker, source rows, motion).
+// Spec: docs/design/ask-sources-v2/spec.md (slate pill with a filled yellow
+// bolt, neutral rows, a rainbow outer glow that stays after the selection).
 
-/// Row selection timeline (after spec §3, revised 2026-10-15): a 140ms start
-/// delay, then 1400ms in four beats ending in a resting state that stays until
-/// another source is picked. 12.5% shorter than the 1760ms it replaces; every
-/// beat is the old one x 0.875.
-///   rise   245ms  fill and purple glow up to 1.0        easeOutCubic
-///   dip    420ms  1.0 -> 0.35 (breathe)                 easeInOutSine
-///   rise2  262ms  0.35 -> 0.85                          easeInOutSine
-///   bloom  473ms  a light spreads from the centre; the inside goes back to
-///                 the neutral row colour; the glow turns into the cool
-///                 (violet-blue) halo that stays
-const sourceFlashLead = Duration(milliseconds: 140);
-const sourceFlashDuration = Duration(milliseconds: 1540);
+/// Row selection timeline (spec v2 §5.3): a 120ms start delay, then 1320ms in
+/// four beats ending in a resting state that stays until another source is
+/// picked (or a new turn starts). Total 1440ms.
+///   rise    200ms  fill 0 -> 1, ring 0 -> 0.55          easeOutCubic
+///   dip     340ms  fill 1 -> 0.35, ring 0.55 -> 0.30    easeInOutSine
+///   rise2   220ms  fill 0.35 -> 0.85, ring 0.30 -> 0.60 easeInOutSine
+///   settle  560ms  light from the centre; the inside goes back to the
+///                  neutral row colour; the ring rises to 1.0 and the sweep
+///                  turns from -50 degrees to 0
+const sourceFlashLead = Duration(milliseconds: 120);
+const sourceFlashDuration = Duration(milliseconds: 1440);
 
-const _lead = 140.0,
-    _rise = 245.0,
-    _dip = 420.0,
-    _rise2 = 262.0,
-    _bloomMs = 473.0;
-const _total = _lead + _rise + _dip + _rise2 + _bloomMs;
+const _lead = 120.0,
+    _rise = 200.0,
+    _dip = 340.0,
+    _rise2 = 220.0,
+    _settle = 560.0;
+const _total = _lead + _rise + _dip + _rise2 + _settle;
 
-/// What one source row shows. All values 0..1.
+/// Share of the settle beat after which the centre light is fully out.
+const _bloomEnd = 0.85;
+
+/// The ring's start angle offset while it "rises" (-50 degrees).
+const _sweepFrom = -50 * math.pi / 180;
+
+/// What one source row shows.
 class SourceFx {
   const SourceFx({
     this.fill = 0,
     this.halo = 0,
-    this.rainbow = 0,
+    this.sweep = 0,
     this.bloom = 0,
     this.bloomAlpha = 0,
   });
 
-  /// Share of the inside that has moved from the neutral row colour
-  /// (`chipBg`) to the pulse colour (`accentContainer`); 0 = at rest.
+  /// Share of the inside that has moved from `rowFill` to `rowPulse` (one
+  /// neutral grey step deeper); 0 = at rest. All values 0..1 except [sweep].
   final double fill;
 
-  /// Strength of the outer glow; 0 = no shadows at all.
+  /// Strength of the rainbow ring (and its neutral shadow); 0 = nothing drawn.
   final double halo;
 
-  /// 0 = one purple glow, 1 = the resting cool-spectrum halo.
-  final double rainbow;
+  /// Rotation of the ring's colours in radians; 0 = at rest.
+  final double sweep;
 
   /// Radius progress and brightness of the centre-out light.
   final double bloom, bloomAlpha;
@@ -55,47 +61,53 @@ class SourceFx {
   static const none = SourceFx();
 
   /// The state after the animation, kept until another source is selected.
-  static const settled = SourceFx(halo: 1, rainbow: 1);
+  static const settled = SourceFx(halo: 1);
+
+  /// This look faded by [k] (1 = as is, 0 = gone), for the 200ms release.
+  SourceFx faded(double k) => SourceFx(fill: fill * k, halo: halo * k);
 }
 
 double _ease(Curve c, double a, double b, double t) =>
     a + (b - a) * c.transform(t.clamp(0.0, 1.0));
 
-/// The row's look at controller value [v] (0..1). [replay] starts from the
-/// resting halo instead of nothing (the same source was picked again).
+/// The row's look at controller value [v] (0..1). [replay] keeps the ring at
+/// 1.0 the whole time (the same source was picked again): only the inside and
+/// the light play.
 SourceFx sourceFx(double v, {bool replay = false}) {
   var t = v * _total;
   if (t <= _lead) return replay ? SourceFx.settled : SourceFx.none;
   t -= _lead;
-  final from = replay ? 1.0 : 0.0;
+  double ring(double x) => replay ? 1 : x;
   if (t < _rise) {
     final e = Curves.easeOutCubic.transform(t / _rise);
-    return SourceFx(
-      fill: e,
-      halo: from + (1 - from) * e,
-      rainbow: from * (1 - e),
-    );
+    return SourceFx(fill: e, halo: ring(0.55 * e));
   }
   t -= _rise;
   if (t < _dip) {
-    final g = _ease(Curves.easeInOutSine, 1, 0.35, t / _dip);
-    return SourceFx(fill: g, halo: g);
+    return SourceFx(
+      fill: _ease(Curves.easeInOutSine, 1, 0.35, t / _dip),
+      halo: ring(_ease(Curves.easeInOutSine, 0.55, 0.30, t / _dip)),
+    );
   }
   t -= _dip;
   if (t < _rise2) {
-    final g = _ease(Curves.easeInOutSine, 0.35, 0.85, t / _rise2);
-    return SourceFx(fill: g, halo: g);
+    return SourceFx(
+      fill: _ease(Curves.easeInOutSine, 0.35, 0.85, t / _rise2),
+      halo: ring(_ease(Curves.easeInOutSine, 0.30, 0.60, t / _rise2)),
+    );
   }
   t -= _rise2;
-  if (t < _bloomMs) {
-    final u = t / _bloomMs;
+  if (t < _settle) {
+    final u = t / _settle;
     return SourceFx(
       // The inside waits until the light has crossed the middle.
       fill: _ease(Curves.easeInOutCubic, 0.85, 0, (u - 0.25) / 0.75),
-      halo: _ease(Curves.easeInOut, 0.85, 1, u),
-      rainbow: Curves.easeInOut.transform(u),
+      halo: ring(_ease(Curves.easeInOut, 0.60, 1, (u - 0.15) / 0.85)),
+      sweep: replay ? 0 : _sweepFrom * (1 - Curves.easeInOut.transform(u)),
       bloom: Curves.easeOutCubic.transform(u),
-      bloomAlpha: math.sin(math.pi * u),
+      // The light is out by 85% of the settle, so the last 80ms show nothing
+      // but the row's own colour coming back.
+      bloomAlpha: math.sin(math.pi * math.min(1.0, u / _bloomEnd)),
     );
   }
   return SourceFx.settled;
@@ -104,7 +116,13 @@ SourceFx sourceFx(double v, {bool replay = false}) {
 /// Where the flash timeline sits right after the start delay.
 final sourceFlashSkipLead = _lead / _total;
 
-/// Marker acknowledgement (spec §3.3): up 0-120ms, hold to 200ms, ease out to
+/// Fade-out of the previous pick's ring when another source is picked.
+const sourceReleaseDuration = Duration(milliseconds: 200);
+
+/// Share of [SourceFx] left [v] (0..1) into the release.
+double sourceReleaseKeep(double v) => 1 - Curves.easeOut.transform(v);
+
+/// Marker acknowledgement (spec §3.2): up 0-120ms, hold to 200ms, ease out to
 /// 600ms.
 const citeAckDuration = Duration(milliseconds: 600);
 final citeAckCurve = TweenSequence<double>([
@@ -123,36 +141,283 @@ final citeAckCurve = TweenSequence<double>([
 const sourcesCollapseFrom = 5;
 const sourcesCollapsedShow = 3;
 
-/// Secondary text: dark `inkMuted` misses AA on the bubble, so dark uses ink
-/// 75%.
-Color subInkFor(Pb pb, {required bool dark}) =>
-    dark ? pb.ink.withValues(alpha: 0.75) : pb.inkMuted;
-
-Color subInk(BuildContext context) => subInkFor(
-  context.pb,
-  dark: Theme.of(context).brightness == Brightness.dark,
-);
-
 /// WCAG 2.x contrast ratio of two opaque colours (1..21).
 double contrastRatio(Color a, Color b) {
   final la = a.computeLuminance(), lb = b.computeLuminance();
   return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
 }
 
-/// The `⚡n` pill: a neutral grey, the same for every number (no source or
-/// kind tint), with a yellow bolt and an `ink` digit. Opaque so the pill reads
-/// the same on any bubble colour.
-Color citeMarkerFill({required bool dark}) =>
-    dark ? const Color(0xFF4A4850) : const Color(0xFFE9E8E6);
+/// Twelve pastel hues around the wheel (OKLCH, ~30 degrees apart; spec §5.1).
+/// Never used as an inside fill, only for the ring.
+const _rainbowLight = [
+  Color(0xFFFE9FA6),
+  Color(0xFFFEA47C),
+  Color(0xFFFBC369),
+  Color(0xFFEEE276),
+  Color(0xFFA0DA8D),
+  Color(0xFF70DCB6),
+  Color(0xFF65D9DF),
+  Color(0xFF6DCAF8),
+  Color(0xFF9BBEFE),
+  Color(0xFFBCADFE),
+  Color(0xFFE2A3EC),
+  Color(0xFFF69FC8),
+];
+const _rainbowDark = [
+  Color(0xFFFFA9AF),
+  Color(0xFFFEAE8B),
+  Color(0xFFFCCB7E),
+  Color(0xFFF2E88B),
+  Color(0xFFACDE9B),
+  Color(0xFF85E0BE),
+  Color(0xFF7EDDE2),
+  Color(0xFF82CFF7),
+  Color(0xFFA5C5FE),
+  Color(0xFFC2B5FD),
+  Color(0xFFE4ADED),
+  Color(0xFFF6A9CD),
+];
 
-/// The bolt only is yellow. Light uses a deepened amber: a lighter yellow is
-/// under 1.7:1 on the light grey (this amber: 2.0, 1.8 picked) (3:1 would need a brown, so it is not met).
-Color citeMarkerBolt({required bool dark}) =>
-    dark ? const Color(0xFFFFD54A) : const Color(0xFFD99A00);
+/// The colours of the sources area (spec v2 §2). Kept here, not in `Pb`,
+/// until they are promoted app-wide.
+///
+/// Swapping to the quiet light option A (spec §10): change [pill], [digit] and
+/// [bolt] of [light] (`#E6E7EB`, `#1F1B16`, `#E3A500`) and its
+/// [markerOverlay] / [markerAlpha] (ink 6/12/10/18%).
+@immutable
+class SourceTones {
+  const SourceTones({
+    required this.pill,
+    required this.digit,
+    required this.bolt,
+    required this.headerBolt,
+    required this.rowFill,
+    required this.rowPulse,
+    required this.rowBorder,
+    required this.rowBorderSelected,
+    required this.sub,
+    required this.rowHover,
+    required this.rowPress,
+    required this.markerOverlay,
+    required this.markerAlpha,
+    required this.bloom,
+    required this.bloomPeak,
+    required this.rainbow,
+    required this.ringTight,
+    required this.ringWide,
+    required this.shadow,
+  });
 
-/// The picked number's pill: `ink` 5% over [fill], barely deeper.
-Color citeMarkerPicked(Pb pb, Color fill) =>
-    Color.alphaBlend(pb.ink.withValues(alpha: 0.05), fill);
+  /// Marker pill and number badge; [digit] is the number on it and [bolt] the
+  /// filled bolt on the pill.
+  final Color pill, digit, bolt;
+
+  /// The bolt of the `⚡ Sources N` header (sits on the bubble, decorative).
+  final Color headerBolt;
+
+  /// Row: face, one step deeper while pulsing, border, border when picked.
+  final Color rowFill, rowPulse, rowBorder, rowBorderSelected;
+
+  /// Secondary line, chevron, kind icon and header label.
+  final Color sub;
+
+  /// Row overlays on hover and press.
+  final Color rowHover, rowPress;
+
+  /// Pill overlay (darker the more it is pressed) and its strength per state.
+  final Color markerOverlay;
+  final ({double hover, double press, double picked, double ack}) markerAlpha;
+
+  /// The centre-out light: a soft neutral highlight no brighter than its
+  /// [bloomPeak] alpha lets the row become (never pure white at full alpha).
+  /// Peak: about +6% white over `rowFill` in light, subtle in dark.
+  final Color bloom;
+  final double bloomPeak;
+
+  /// Ring colours (12) and the alpha of its sharp and wide layers.
+  final List<Color> rainbow;
+  final double ringTight, ringWide;
+
+  /// The one neutral shadow under a picked row.
+  final Color shadow;
+
+  /// The 12 colours and the first again, so the sweep closes.
+  List<Color> get rainbowClosed => [...rainbow, rainbow.first];
+
+  static const light = SourceTones(
+    pill: Color(0xFF626874),
+    digit: Color(0xFFFFFFFF),
+    bolt: Color(0xFFFFD54A),
+    headerBolt: Color(0xFFE3A500),
+    rowFill: Color(0xFFF2F3F5),
+    rowPulse: Color(0xFFE1E3E8),
+    rowBorder: Color(0xFFDADDE3),
+    rowBorderSelected: Color(0xFF858B96),
+    sub: Color(0xFF555B67),
+    rowHover: Color(0x0A1F1B16),
+    rowPress: Color(0x141F1B16),
+    markerOverlay: Color(0xFF000000),
+    markerAlpha: (hover: 0.08, press: 0.16, picked: 0.14, ack: 0.24),
+    bloom: Color(0xFFF4F4F8),
+    bloomPeak: 0.5,
+    rainbow: _rainbowLight,
+    ringTight: 0.95,
+    ringWide: 0.75,
+    shadow: Color(0x0F000000),
+  );
+
+  static const dark = SourceTones(
+    pill: Color(0xFF626874),
+    digit: Color(0xFFFFFFFF),
+    bolt: Color(0xFFFFD54A),
+    headerBolt: Color(0xFFFFD54A),
+    rowFill: Color(0x0FFFFFFF),
+    rowPulse: Color(0x1AFFFFFF),
+    rowBorder: Color(0x24FFFFFF),
+    rowBorderSelected: Color(0xFFB4B9C4),
+    sub: Color(0xFFD2D4DA),
+    rowHover: Color(0x0FFFFFFF),
+    rowPress: Color(0x1AFFFFFF),
+    markerOverlay: Color(0xFF000000),
+    markerAlpha: (hover: 0.08, press: 0.16, picked: 0.14, ack: 0.24),
+    bloom: Color(0xFFFFFFFF),
+    bloomPeak: 0.08,
+    rainbow: _rainbowDark,
+    ringTight: 0.85,
+    ringWide: 0.60,
+    shadow: Color(0x47000000),
+  );
+
+  static SourceTones of(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? dark : light;
+}
+
+/// A filled lightning bolt (Feather `zap` polygon on a 24 grid) with a round
+/// 0.9px join in the same colour, so it keeps its mass at 11-12px where an
+/// outline icon would be a hairline.
+class BoltPainter extends CustomPainter {
+  const BoltPainter(this.color);
+
+  final Color color;
+
+  static const _points = [
+    Offset(13, 2),
+    Offset(3, 14),
+    Offset(12, 14),
+    Offset(11, 22),
+    Offset(21, 10),
+    Offset(12, 10),
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width / 24;
+    final path = Path()..addPolygon([for (final p in _points) p * s], true);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.9
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(BoltPainter old) => old.color != color;
+}
+
+class _Bolt extends StatelessWidget {
+  const _Bolt({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => SizedBox.square(
+    dimension: size,
+    child: CustomPaint(painter: BoltPainter(color)),
+  );
+}
+
+/// A closed rainbow ring around a rounded rectangle: a [SweepGradient] stroke
+/// drawn twice (wide and soft, then thin and sharp) with `MaskFilter.blur`.
+/// [colors] is the 12 hues plus the first again. [strength] scales the alpha
+/// (0 paints nothing); [sweep] rotates the colours in radians.
+class RainbowRingPainter extends CustomPainter {
+  const RainbowRingPainter({
+    required this.colors,
+    required this.strength,
+    required this.tightAlpha,
+    required this.wideAlpha,
+    this.sweep = 0,
+    this.radius = 14,
+    this.tightWidth = 3.5,
+    this.tightSigma = 1.3,
+    this.wideWidth = 9,
+    this.wideSigma = 3.0,
+    this.clipInset,
+  });
+
+  final List<Color> colors;
+  final double strength, sweep, tightAlpha, wideAlpha;
+  final double radius, tightWidth, tightSigma, wideWidth, wideSigma;
+
+  /// Paint only this far outside the shape (the markers: the glow must not
+  /// reach the neighbouring lines). null = no clip, the caller clips.
+  final double? clipInset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (strength <= 0) return;
+    final rect = Offset.zero & size;
+    final rr = RRect.fromRectAndRadius(
+      rect,
+      Radius.circular(math.min(radius, size.shortestSide / 2)),
+    );
+    if (clipInset != null) {
+      canvas.clipPath(
+        Path()
+          ..fillType = PathFillType.evenOdd
+          ..addRect(rect.inflate(clipInset!))
+          ..addRRect(rr),
+      );
+    }
+    void layer(double width, double sigma, double alpha) {
+      final a = (alpha * strength).clamp(0.0, 1.0);
+      canvas.drawRRect(
+        rr,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = width
+          ..shader = SweepGradient(
+            colors: [for (final c in colors) c.withValues(alpha: a)],
+            transform: GradientRotation(sweep),
+          ).createShader(rect)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, sigma),
+      );
+    }
+
+    layer(wideWidth, wideSigma, wideAlpha);
+    layer(tightWidth, tightSigma, tightAlpha);
+  }
+
+  @override
+  bool shouldRepaint(RainbowRingPainter o) =>
+      o.strength != strength ||
+      o.sweep != sweep ||
+      o.colors != colors ||
+      o.tightAlpha != tightAlpha ||
+      o.wideAlpha != wideAlpha ||
+      o.wideWidth != wideWidth ||
+      o.wideSigma != wideSigma;
+}
 
 /// The inline `⚡n` pill. The tap itself comes from the markdown package's
 /// `asWidgetSpan` wrapper; this widget adds the look and hover/press/focus.
@@ -165,21 +430,26 @@ class CiteMarker extends StatefulWidget {
     required this.ackValue,
     required this.reduced,
     required this.selected,
+    required this.pick,
     this.onTap,
   });
 
   final int index;
   final double height;
 
-  /// Ticks while some marker is acknowledging or the pick changes; [ackValue]
-  /// and [selected] are read on each tick (the markdown package does not
-  /// rebuild the pill when its inputs change).
+  /// Ticks while some marker is acknowledging, the pick changes or a pick is
+  /// fading; [ackValue], [selected] and [pick] are read on each tick (the
+  /// markdown package does not rebuild the pill when its inputs change).
   final Listenable ack;
   final double Function() ackValue;
   final bool reduced;
 
-  /// This number's source is the one currently picked: a slightly deeper fill.
+  /// This number's source is the one currently picked (semantics).
   final bool Function() selected;
+
+  /// How much of the picked look this pill shows, 0..1: 1 while picked, fading
+  /// to 0 over the 200ms release.
+  final double Function() pick;
   final VoidCallback? onTap;
 
   @override
@@ -194,124 +464,154 @@ class _CiteMarkerState extends State<CiteMarker> {
   @override
   Widget build(BuildContext context) {
     final pb = context.pb;
-    final onPrimary = Theme.of(context).colorScheme.onPrimary;
+    final tones = SourceTones.of(context);
     final base = Theme.of(context).textTheme.bodyMedium;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Semantics(
-      button: true,
-      label: context.l.citeMarkerLabel(widget.index),
-      excludeSemantics: true,
-      onTap: widget.onTap,
-      child: FocusableActionDetector(
-        mouseCursor: SystemMouseCursors.click,
-        onShowHoverHighlight: (v) => setState(() => _hover = v),
-        onShowFocusHighlight: (v) => setState(() => _focus = v),
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              widget.onTap?.call();
-              return null;
+    final label = context.l.citeMarkerLabel(widget.index);
+    return AnimatedBuilder(
+      animation: widget.ack,
+      builder: (context, _) {
+        final a = widget.ackValue();
+        final pick = widget.pick();
+        final m = tones.markerAlpha;
+        final overlay = math.max(
+          _down ? m.press : (_hover ? m.hover : 0.0),
+          math.max(m.picked * pick, m.ack * a),
+        );
+        final ring = math.max(0.65 * pick, a);
+        return Semantics(
+          button: true,
+          selected: widget.selected(),
+          label: label,
+          excludeSemantics: true,
+          onTap: widget.onTap,
+          child: FocusableActionDetector(
+            mouseCursor: SystemMouseCursors.click,
+            onShowHoverHighlight: (v) => setState(() => _hover = v),
+            onShowFocusHighlight: (v) => setState(() => _focus = v),
+            actions: {
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  widget.onTap?.call();
+                  return null;
+                },
+              ),
             },
-          ),
-        },
-        child: Listener(
-          onPointerDown: (_) => setState(() => _down = true),
-          onPointerUp: (_) => setState(() => _down = false),
-          onPointerCancel: (_) => setState(() => _down = false),
-          // The transparent 2px either side widens the hit area to ~34x18.
-          child: ColoredBox(
-            color: Colors.transparent,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2),
-              child: AnimatedBuilder(
-                animation: widget.ack,
-                builder: (context, _) {
-                  final a = widget.ackValue();
-                  var fill = citeMarkerFill(dark: dark);
-                  if (widget.selected()) fill = citeMarkerPicked(pb, fill);
-                  final tint = _down ? 0.24 : (_hover ? 0.12 : 0.0);
-                  if (tint > 0) {
-                    fill = Color.alphaBlend(
-                      pb.accent.withValues(alpha: tint),
-                      fill,
-                    );
-                  }
-                  fill = Color.lerp(fill, pb.accent, a)!;
-                  return Transform.scale(
+            child: Listener(
+              onPointerDown: (_) => setState(() => _down = true),
+              onPointerUp: (_) => setState(() => _down = false),
+              onPointerCancel: (_) => setState(() => _down = false),
+              // The transparent 2px either side widens the hit area to ~34x18.
+              child: ColoredBox(
+                color: Colors.transparent,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Transform.scale(
                     scale: widget.reduced ? 1 : 1 + 0.08 * a,
-                    child: DecoratedBox(
-                      decoration: ShapeDecoration(
-                        color: fill,
-                        shape: StadiumBorder(
-                          side: _focus
-                              ? BorderSide(color: pb.accent, width: 2)
-                              : BorderSide.none,
-                        ),
+                    // The ring is painted behind the pill by a painter, not
+                    // laid out: picking never moves the line.
+                    child: CustomPaint(
+                      painter: RainbowRingPainter(
+                        colors: tones.rainbowClosed,
+                        strength: ring,
+                        tightAlpha: tones.ringTight,
+                        wideAlpha: tones.ringWide,
+                        radius: 999,
+                        tightWidth: 1.8,
+                        tightSigma: 0.6,
+                        wideWidth: 4.5 + a,
+                        wideSigma: 1.3 + 0.5 * a,
+                        clipInset: 5,
                       ),
-                      child: SizedBox(
-                        height: widget.height,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(4, 0, 6, 0),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                AppIcons.citationMarker,
-                                size: 10,
-                                color: Color.lerp(
-                                  citeMarkerBolt(dark: dark),
-                                  onPrimary,
-                                  a,
+                      child: DecoratedBox(
+                        decoration: ShapeDecoration(
+                          color: Color.alphaBlend(
+                            tones.markerOverlay.withValues(alpha: overlay),
+                            tones.pill,
+                          ),
+                          shape: StadiumBorder(
+                            side: _focus
+                                ? BorderSide(color: pb.accent, width: 2)
+                                : BorderSide.none,
+                          ),
+                        ),
+                        child: SizedBox(
+                          height: widget.height,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 0, 6, 0),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _Bolt(size: 11, color: tones.bolt),
+                                const SizedBox(width: 2),
+                                Text(
+                                  '${widget.index}',
+                                  textScaler: TextScaler.noScaling,
+                                  style: base?.copyWith(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1,
+                                    letterSpacing: 0,
+                                    decoration: TextDecoration.none,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                    color: tones.digit,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${widget.index}',
-                                textScaler: TextScaler.noScaling,
-                                style: base?.copyWith(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1,
-                                  letterSpacing: 0,
-                                  decoration: TextDecoration.none,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
-                                  ],
-                                  color: Color.lerp(pb.ink, onPrimary, a),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
+/// How far the ring may spill sideways: 12px in one column, 8px in two (the
+/// gap between the columns). [SourcesList] sets it per row.
+class _RingInset extends InheritedWidget {
+  const _RingInset({required this.horizontal, required super.child});
+
+  final double horizontal;
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_RingInset>()?.horizontal ??
+      12;
+
+  @override
+  bool updateShouldNotify(_RingInset old) => old.horizontal != horizontal;
+}
+
 /// One source under an answer: number badge, title, kind · page, chevron.
-/// [fx] is the selection look; the keyed [DecoratedBox] carries the glow as
-/// `ShapeDecoration.shadows` (null when the row is not selected). The glow is
-/// clipped away from the row's inside so the resting inside is exactly the
-/// neutral `chipBg`; the kind shows only in the icon and the second line.
+/// [fx] is the selection look. A keyed [DecoratedBox] (`source-chip-n`) carries
+/// one neutral shadow as `ShapeDecoration.shadows` (null when the row is not
+/// selected) and, inside it, a [RepaintBoundary] with the rainbow ring
+/// (`source-ring-n`). Both are clipped away from the row's inside, 8px
+/// vertically and 12px sideways at most, so the inside stays exactly the
+/// neutral `rowFill` and a neighbour is never painted over.
 class SourceRow extends StatefulWidget {
   const SourceRow({
     super.key,
     required this.citation,
     required this.fx,
     required this.onTap,
+    this.selected = false,
   });
 
   final Citation citation;
   final SourceFx fx;
   final VoidCallback onTap;
+
+  /// This is the picked source (semantics; set at once on tap).
+  final bool selected;
 
   @override
   State<SourceRow> createState() => _SourceRowState();
@@ -325,46 +625,73 @@ class _SourceRowState extends State<SourceRow> {
   @override
   Widget build(BuildContext context) {
     final pb = context.pb;
+    final tones = SourceTones.of(context);
     final l = context.l;
     final c = widget.citation;
     final fx = widget.fx;
     final isNote = c.kind == 'note';
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final sub = subInkFor(pb, dark: dark);
+    final sub = tones.sub;
     final radius = BorderRadius.circular(14);
+    // The picked row's border (the 3:1 state signal) stays after the glow.
+    final picked = math.max(fx.fill, fx.halo).clamp(0.0, 1.0);
     final shape = RoundedRectangleBorder(
       borderRadius: radius,
       side: _focus
           ? BorderSide(color: pb.accent, width: 2)
           : BorderSide(
               color: Color.lerp(
-                pb.hairline,
-                pb.accent.withValues(alpha: 0.55),
-                fx.fill,
+                tones.rowBorder,
+                tones.rowBorderSelected,
+                picked,
               )!,
             ),
     );
     final subtitle = isNote ? l.kindNote : '${l.kindPdf} · ${l.pageN(c.page)}';
     return Stack(
-      // The halo spills over the row's edge; the stack must not clip it.
+      // The ring spills over the row's edge; the stack must not clip it.
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
           child: IgnorePointer(
             child: ClipPath(
-              clipper: const _OutsideClip(14),
+              clipper: _OutsideClip(14, horizontal: _RingInset.of(context)),
               child: DecoratedBox(
                 key: ValueKey('source-chip-${c.index}'),
                 decoration: ShapeDecoration(
                   shape: RoundedRectangleBorder(borderRadius: radius),
-                  shadows: _halo(pb, dark, fx),
+                  shadows: fx.halo <= 0
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: tones.shadow.withValues(
+                              alpha: tones.shadow.a * fx.halo,
+                            ),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                 ),
+                child: fx.halo <= 0
+                    ? null
+                    : RepaintBoundary(
+                        child: CustomPaint(
+                          key: ValueKey('source-ring-${c.index}'),
+                          painter: RainbowRingPainter(
+                            colors: tones.rainbowClosed,
+                            strength: fx.halo,
+                            sweep: fx.sweep,
+                            tightAlpha: tones.ringTight,
+                            wideAlpha: tones.ringWide,
+                          ),
+                        ),
+                      ),
               ),
             ),
           ),
         ),
         Semantics(
           button: true,
+          selected: widget.selected,
           label: l.sourceRowLabel(
             c.index,
             c.documentTitle,
@@ -374,7 +701,7 @@ class _SourceRowState extends State<SourceRow> {
           excludeSemantics: true,
           onTap: widget.onTap,
           child: Material(
-            color: Color.lerp(pb.chipBg, pb.accentContainer, fx.fill),
+            color: Color.lerp(tones.rowFill, tones.rowPulse, fx.fill),
             shape: shape,
             child: InkWell(
               customBorder: shape,
@@ -383,12 +710,8 @@ class _SourceRowState extends State<SourceRow> {
               onHighlightChanged: (v) => setState(() => _down = v),
               onFocusChange: (v) => setState(() => _focus = v),
               overlayColor: WidgetStateProperty.resolveWith((s) {
-                if (s.contains(WidgetState.pressed)) {
-                  return pb.accent.withValues(alpha: 0.14);
-                }
-                if (s.contains(WidgetState.hovered)) {
-                  return pb.accent.withValues(alpha: 0.08);
-                }
+                if (s.contains(WidgetState.pressed)) return tones.rowPress;
+                if (s.contains(WidgetState.hovered)) return tones.rowHover;
                 return null;
               }),
               child: Stack(
@@ -399,7 +722,7 @@ class _SourceRowState extends State<SourceRow> {
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             borderRadius: radius,
-                            gradient: _bloom(pb, dark, fx),
+                            gradient: _bloom(tones, fx),
                           ),
                         ),
                       ),
@@ -475,41 +798,13 @@ class _SourceRowState extends State<SourceRow> {
   }
 }
 
-/// Cool-spectrum halo. [SourceFx.rainbow] 0 is one purple glow (offset down
-/// 2, as the old flash); 1 is four glows that stay within violet to sky blue
-/// (hue -50..+12 from the accent, no pink, orange or yellow) and sit on
-/// different sides of the row.
-List<BoxShadow>? _halo(Pb pb, bool dark, SourceFx fx) {
-  if (fx.halo <= 0) return null;
-  final hsl = HSLColor.fromColor(pb.accent);
-  const turn = [-50.0, -30.0, -10.0, 12.0]; // sky, blue, indigo, violet
-  const at = [Offset(-7, 0), Offset(0, 6), Offset(7, 0), Offset(0, -5)];
-  final r = fx.rainbow;
-  final alpha = (dark ? 0.34 : 0.30) * fx.halo;
-  return [
-    for (var i = 0; i < 4; i++)
-      BoxShadow(
-        color: Color.lerp(
-          pb.accent,
-          hsl
-              .withHue((hsl.hue + turn[i]) % 360)
-              .withSaturation(dark ? 0.9 : 0.8)
-              .withLightness(dark ? 0.74 : 0.62)
-              .toColor(),
-          r,
-        )!.withValues(alpha: alpha * (0.4 + 0.6 * r) * (i == 3 ? 0.8 : 1)),
-        blurRadius: 20,
-        offset: Offset.lerp(const Offset(0, 2), at[i], r)!,
-      ),
-  ];
-}
-
 /// The light that spreads from the middle of the row (an ellipse, so it
-/// reaches the long edges at the same time as the short ones).
-RadialGradient _bloom(Pb pb, bool dark, SourceFx fx) {
-  // Neutral white in both modes; only its strength differs.
-  const c = Colors.white;
-  final a = (dark ? 0.3 : 0.8) * fx.bloomAlpha;
+/// reaches the long edges at the same time as the short ones). Soft and
+/// capped: it only lifts the pulse back towards the row's own colour and is
+/// at 0 before the settle ends, so the end state is exactly `rowFill`.
+RadialGradient _bloom(SourceTones tones, SourceFx fx) {
+  final a = tones.bloomPeak * fx.bloomAlpha;
+  final c = tones.bloom;
   return RadialGradient(
     radius: 0.08 + 0.7 * fx.bloom,
     colors: [
@@ -534,22 +829,34 @@ class _Ellipse extends GradientTransform {
   }
 }
 
-/// Everything except the row itself: the halo must not tint the inside.
+/// Everything except the row itself, up to 8px above and below and
+/// [horizontal]px either side: the glow must not tint the inside, and must
+/// stay inside the 8px gap to the next row.
 class _OutsideClip extends CustomClipper<Path> {
-  const _OutsideClip(this.radius);
+  const _OutsideClip(this.radius, {this.horizontal = 12});
 
-  final double radius;
+  final double radius, horizontal;
+
+  static const vertical = 8.0;
 
   @override
   Path getClip(Size size) => Path()
     ..fillType = PathFillType.evenOdd
-    ..addRect((Offset.zero & size).inflate(80))
+    ..addRect(
+      Rect.fromLTRB(
+        -horizontal,
+        -vertical,
+        size.width + horizontal,
+        size.height + vertical,
+      ),
+    )
     ..addRRect(
       RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
     );
 
   @override
-  bool shouldReclip(_OutsideClip old) => old.radius != radius;
+  bool shouldReclip(_OutsideClip old) =>
+      old.radius != radius || old.horizontal != horizontal;
 }
 
 class _Badge extends StatelessWidget {
@@ -559,23 +866,20 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pb = context.pb;
+    final tones = SourceTones.of(context);
     return Container(
       width: 22,
       height: 22,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: pb.accentContainer,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: tones.pill, shape: BoxShape.circle),
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text(
           '$n',
           style: TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: pb.onAccentContainer,
+            fontWeight: FontWeight.w600,
+            color: tones.digit,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
@@ -613,7 +917,7 @@ class SourcesList extends StatefulWidget {
 }
 
 class _SourcesListState extends State<SourcesList> {
-  // The glow of a flashing row must not be clipped at rest; the size
+  // The ring of a picked row must not be clipped at rest; the size
   // animation clips while it runs so rows do not paint over what follows.
   bool _animating = false;
 
@@ -632,9 +936,10 @@ class _SourcesListState extends State<SourcesList> {
         ? all.length - sourcesCollapsedShow
         : 0;
     final shown = hidden > 0 ? all.take(sourcesCollapsedShow).toList() : all;
-    final sub = subInk(context);
+    final tones = SourceTones.of(context);
+    final sub = tones.sub;
     final headStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.8,
       color: sub,
@@ -650,7 +955,13 @@ class _SourcesListState extends State<SourcesList> {
           runSpacing: 8,
           children: [
             for (final c in shown)
-              SizedBox(width: w, child: widget.rowBuilder(c)),
+              SizedBox(
+                width: w,
+                child: _RingInset(
+                  horizontal: cols == 2 ? 8 : 12,
+                  child: widget.rowBuilder(c),
+                ),
+              ),
           ],
         );
       },
@@ -666,7 +977,10 @@ class _SourcesListState extends State<SourcesList> {
             header: true,
             child: Row(
               children: [
-                Icon(AppIcons.citation, size: 12, color: pb.accent),
+                // Decorative: the label carries the meaning.
+                ExcludeSemantics(
+                  child: _Bolt(size: 12, color: tones.headerBolt),
+                ),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
