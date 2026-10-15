@@ -567,13 +567,16 @@ class _Sidebar extends StatelessWidget {
                     ),
                   ),
                 ),
-                _TierRow(
-                  icon: AppIcons.privacy,
-                  title: 'Cloak',
-                  subtitle: l.deviceOnly,
-                  badge: l.soon.toUpperCase(),
-                  dim: true,
-                ),
+                // Device-only tier: not built yet, so not shown. Flip
+                // [_showCloakTier] when the feature ships.
+                if (_showCloakTier)
+                  _TierRow(
+                    icon: AppIcons.privacy,
+                    title: 'Cloak',
+                    subtitle: l.deviceOnly,
+                    badge: l.soon.toUpperCase(),
+                    dim: true,
+                  ),
                 _TierRow(
                   icon: AppIcons.tierCloud,
                   title: l.myCloud,
@@ -663,6 +666,8 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
+
+const _showCloakTier = false;
 
 class _TierRow extends StatelessWidget {
   const _TierRow({
