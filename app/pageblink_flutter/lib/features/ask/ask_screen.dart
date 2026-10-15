@@ -334,8 +334,15 @@ class _AskScreenState extends State<AskScreen> {
   }
 
   /// Renders `[n]` markers as ⚡n so they read as tappable citation numbers.
+  /// A space goes before the chip and, unless punctuation follows, after it;
+  /// thin spaces inside the code span pad the chip itself.
   static String renderMarkers(String text) =>
-      text.replaceAllMapped(_marker, (m) => ' `⚡${m[1]}`');
+      text.replaceAllMapped(_marker, (m) {
+        final next = m.end < text.length ? text[m.end] : '';
+        final gap = next.isEmpty || _noGapAfter.hasMatch(next) ? '' : ' ';
+        return ' `\u2009⚡${m[1]}\u2009`$gap';
+      });
+  static final _noGapAfter = RegExp(r'[\s.,;:!?)\]]');
 }
 
 /// Menu sentinel for Auto; never sent to the server (Auto sends null).
@@ -770,6 +777,9 @@ class _TurnView extends StatelessWidget {
                                 color: pb.accent,
                               ),
                               side: BorderSide(color: pb.accent),
+                              labelPadding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
                               backgroundColor: Colors.transparent,
                               labelStyle: TextStyle(
                                 fontSize: 13,
