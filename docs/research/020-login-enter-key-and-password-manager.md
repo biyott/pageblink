@@ -3,6 +3,7 @@
 | 항목 | 값 |
 |---|---|
 | 조사일 | 2026-10-15 10:47 (KST) |
+| 갱신 | 2026-10-15 13:02 (KST) — §5 "남은 범위"만 후속 커밋 `9330713` 반영 |
 | 담당 | 서브에이전트 (general-purpose · 패키지/Flutter SDK/웹 엔진 소스 정독, 서버·브라우저 실행 없음) |
 | 질문 | ① 로그인에서 Enter를 눌러도 로그인이 안 된다 ② Chrome(웹)에서 아이디/비밀번호 저장(비밀번호 관리자)이 동작하지 않는다 — 지원하려면? |
 | 결론 한 줄 | ① `serverpod_auth_idp_flutter 4.0.4`의 로그인 폼 `TextField`에 `onSubmitted`/`onEditingComplete`가 없어 Enter는 포커스만 해제함(패키지 원인, 앱 래핑·단축키 가로채기 아님) ② 같은 폼에 `autofillHints`·`AutofillGroup`이 없고 앱에서 주입할 방법이 없음 → 로그인 폼만 패키지 컨트롤러 위에 자체 구현해 해결 |
@@ -68,10 +69,49 @@
 | 자동 채우기(저장된 계정 선택) | ⚠️ 미확인 | 위 속성은 갖췄으나 실기기 확인 필요. 웹은 `TextInput.requestAutofill`을 무시하고 브라우저 UI에 맡김(`:2415-2426`) |
 | HTTPS | ⚠️ 미확인 | Chrome은 비보안 컨텍스트에서 저장 UI를 제한할 수 있음(localhost는 예외로 알려져 있으나 이 환경에서 미확인) |
 
-### 5. 남은 범위 (이번에 하지 않은 것)
+### 5. 남은 범위 → 후속 작업으로 해소 (2026-10-15 13:02 갱신)
 
-- 가입(이메일 입력 → 인증 코드 → 비밀번호 설정)과 비밀번호 재설정 화면은 여전히 패키지 폼: Enter 미동작, `newPassword` 힌트 없음. 가입 직후 자동 로그인 시 Chrome 저장은 이 경로에서는 힌트 부재로 보장 못 함(⚠️).
-- 규모 추정: 같은 방식(컨트롤러 재사용)으로 나머지 5개 폼(시작·인증·비밀번호 설정·재설정 시작·재설정 완료)을 옮기면 `email_sign_in.dart` +150~250줄. 더 싼 대안은 Enter만 `Focus(onKeyEvent)`로 처리하는 것(+30줄, 자동완성 힌트는 못 줌).
+> 이 절은 조사 시점(10:47)에는 "가입·비밀번호 재설정 화면은 여전히 패키지 폼이라 Enter 미동작, `newPassword` 힌트 없음"이었습니다. 같은 날 후속 커밋 `9330713`("own sign-up, verify-code and password-reset forms")으로 해소되어 아래로 갱신합니다. 위 §1~§4의 로그인 화면 조사 내용은 그대로입니다.
+
+**교체한 6개 화면** (✅ 커밋 `9330713`, `lib/screens/email_register_forms.dart`)
+
+| 화면 | 위젯 |
+|---|---|
+| 가입 시작 | `EmailStartRegistrationForm` |
+| 비밀번호 재설정 요청 | `EmailRequestResetForm` |
+| 인증코드 확인 (가입 · 재설정 2종) | `EmailVerifyCodeForm` |
+| 비밀번호 설정 (가입 · 재설정 2종) | `EmailSetPasswordForm` |
+
+- 라우팅: `email_sign_in.dart`의 `_PageBlinkEmailSignInState.build`가 `EmailFlowScreen` 7개(로그인 포함)를 switch로 나눠 각 폼에 연결.
+- Enter 제출·자동완성 힌트를 이 폼들에도 적용 → §5의 "Enter 미동작 · `newPassword` 힌트 없음" 해소.
+
+**패키지 흐름과 달라진 점** (✅)
+
+| 항목 | 패키지 | 이번 구현 |
+|---|---|---|
+| 비밀번호 규칙 체크리스트 | `PasswordRequirements` 위젯 (배럴에서 export 안 됨) | 같은 모양을 새로 구현. 규칙: 12자 이상 / 소문자+숫자 / 대문자 또는 특수문자 |
+| 인증코드 입력 | `pinput`의 칸 나누기(`Pinput`) | `pinput`이 앱 직접 의존성이 아니어서 일반 `TextField`. 마지막 글자 입력 시 자동 제출은 유지 |
+| 재전송 버튼 | 라벨 영어 고정 | 카운트다운 포함 새로 구현, 라벨 한/영화 |
+| 비밀번호 설정 폼 | 이메일 칸 없음 | 위에 읽기 전용 이메일 칸 추가(브라우저가 새 비밀번호를 계정에 묶도록). 효과는 ⚠️ 미검증 |
+| 약관 체크박스 | 콜백이 없으면 표시 안 함 | 없음(동일) |
+
+**자동완성** (✅)
+
+| 필드 | `autofillHints` |
+|---|---|
+| 이메일 | `[username, email]` |
+| 인증코드 | `[oneTimeCode]` |
+| 새 비밀번호 | `[newPassword]` |
+
+- 저장(commit)은 비밀번호 설정 두 화면에서 성공했을 때만. 나머지 화면은 `cancel`, 화면 이동 시 `finishAutofillContext(shouldSave: false)`.
+
+**테스트** (✅): `test/email_sign_in_test.dart`에 4건 추가(전체 51건 통과 시점).
+
+**남은 것**
+- ⚠️ 실브라우저 미확인: Chrome 저장 프롬프트, 인증코드 `one-time-code` 제안, 읽기 전용 이메일 칸의 효과.
+- ⚠️ 비밀번호 칸은 패키지처럼 ASCII 허용 문자만 입력 가능 → 한글 IME 입력은 걸러짐.
+- 패키지 업그레이드 시 추적 지점: `email_sign_in_widget.dart`의 `_buildScreen` 매핑, `email/forms/*.dart` 버튼 활성 규칙, `VerificationCodeConfig` 기본값, `EmailAuthController.navigateTo` 초기화 규칙·`_guarded`, `PasswordRequirement.allowedCharacters`.
+- 이후 로그인 레이아웃 작업(커밋 `cf8575b`, [`docs/design/login-layout/spec.md`](../design/login-layout/spec.md))에서 폼 간격·포커스 테두리가 정리됨.
 
 ## 미확인 · 리스크
 
