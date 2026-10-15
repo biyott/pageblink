@@ -97,15 +97,40 @@ bool _listEq(List<Object> a, List<Object> b) {
 
 /// A [TextEditingController] that paints [liveMarkdownSpan] while [live];
 /// when not live it is the stock plain controller (source mode).
+///
+/// With [boxes] (research 024, approach A) the prefix of a checklist line
+/// (`- [ ] `) is painted transparent at its normal width and reported as a
+/// [LiveKind.checkMarker] run; a layer over the field (`LiveCheckLayer`) draws
+/// the checkbox there and takes the taps. The text is unchanged.
+///
+/// No `TextSpan.recognizer` is used on purpose: with semantics on (screen
+/// reader) outside macOS, `RenderEditable` asserts on a recognizer in an
+/// editable and, in release, drops the text field's own semantics.
 class LiveMarkdownController extends TextEditingController {
-  LiveMarkdownController({super.text, required this.styleOf});
+  LiveMarkdownController({
+    super.text,
+    required this.styleOf,
+    bool boxes = false,
+  }) {
+    _boxes = boxes;
+  }
 
   /// Resolves styles for the current theme / width. Called from
   /// [buildTextSpan], so changes of either rebuild the field.
   final LiveStyles Function(BuildContext context, TextStyle base) styleOf;
 
   bool _live = true;
+  bool _boxes = false;
   String? _quote;
+
+  /// Hide checklist prefixes (see the class doc); set by a host that paints
+  /// the boxes.
+  bool get boxes => _boxes;
+  set boxes(bool v) {
+    if (v == _boxes) return;
+    _boxes = v;
+    notifyListeners();
+  }
 
   bool get live => _live;
   set live(bool v) {
@@ -127,7 +152,10 @@ class LiveMarkdownController extends TextEditingController {
   // changes reuse the parsed runs. Upgrade path: per-line cache if >50k chars.
   String? _cText;
   LiveStyles? _cStyles;
+  bool _cBoxes = false;
   List<LiveRun> _cRuns = const [];
+  String? _kText;
+  List<CheckMarker> _kChecks = const [];
   String? _hText, _hQuote;
   TextRange? _hRange;
 
@@ -161,13 +189,17 @@ class LiveMarkdownController extends TextEditingController {
     List<LiveRun> runs;
     if (!_live) {
       runs = [LiveRun(0, text.length, const TextStyle())];
-    } else if (_cText == text && _cStyles == styles) {
+    } else if (_cText == text && _cStyles == styles && _cBoxes == _boxes) {
       runs = _cRuns;
     } else {
-      runs = parseLiveRuns(text, styles);
+      final p = parseLive(text, styles, boxes: _boxes);
+      runs = p.runs;
       _cText = text;
       _cStyles = styles;
+      _cBoxes = _boxes;
       _cRuns = runs;
+      _kText = text;
+      _kChecks = p.checks;
     }
     return runsToSpan(
       text,
@@ -178,13 +210,33 @@ class LiveMarkdownController extends TextEditingController {
       highlightColor: styles.highlight,
     );
   }
+
+  /// Checklist items of the current text (cached with the parsed runs).
+  List<CheckMarker> get checks {
+    if (_kText != text) {
+      _kChecks = checkMarkers(text);
+      _kText = text;
+    }
+    return _kChecks;
+  }
 }
+
+/// What a run is besides its style; hosts act on it.
+enum LiveKind { text, checkMarker }
+
+/// A checklist item prefix: `[start, end)` is `- [ ] ` from the bullet to the
+/// space after the box, `boxStart` the `[`. A list prefix before `start` is
+/// indentation (and quote markers).
+typedef CheckMarker = ({int start, int boxStart, int end, bool done});
 
 /// One styled run `[start, end)`; [style] is a delta over the base style.
 class LiveRun {
-  const LiveRun(this.start, this.end, this.style);
+  const LiveRun(this.start, this.end, this.style, [this.kind = LiveKind.text]);
   final int start, end;
   final TextStyle style;
+
+  /// [LiveKind.checkMarker] is only reported when parsing with `boxes`.
+  final LiveKind kind;
 }
 
 /// Convenience used by tests and by [LiveMarkdownController].
@@ -244,9 +296,9 @@ List<LiveRun> _overlay(List<LiveRun> runs, TextRange r, TextStyle over) {
     }
     final a = run.start > r.start ? run.start : r.start;
     final b = run.end < r.end ? run.end : r.end;
-    if (run.start < a) out.add(LiveRun(run.start, a, run.style));
-    out.add(LiveRun(a, b, run.style.merge(over)));
-    if (b < run.end) out.add(LiveRun(b, run.end, run.style));
+    if (run.start < a) out.add(LiveRun(run.start, a, run.style, run.kind));
+    out.add(LiveRun(a, b, run.style.merge(over), run.kind));
+    if (b < run.end) out.add(LiveRun(b, run.end, run.style, run.kind));
   }
   return out;
 }
@@ -356,11 +408,36 @@ typedef LiveLink = ({int start, int end, String url});
 typedef _Span = ({String kind, int start, int end, int n});
 
 /// Splits [text] into contiguous runs covering it completely (in order).
-List<LiveRun> parseLiveRuns(String text, LiveStyles st) {
-  final out = _Out(text.length);
+List<LiveRun> parseLiveRuns(String text, LiveStyles st, {bool boxes = false}) =>
+    parseLive(text, st, boxes: boxes).runs;
+
+/// [parseLiveRuns] plus the checklist items found. With [boxes] the prefix of
+/// each item (`- [ ] `) is one transparent [LiveKind.checkMarker] run instead
+/// of the muted bullet and box pieces; its width and the text are unchanged.
+({List<LiveRun> runs, List<CheckMarker> checks}) parseLive(
+  String text,
+  LiveStyles st, {
+  bool boxes = false,
+}) {
+  final out = _Out(text.length)..boxes = boxes;
   _parse(text, st, out);
-  return out.runs;
+  return (runs: out.runs, checks: out.checks);
 }
+
+/// The checklist items of [text], as the live parser reads them (not inside
+/// fenced code).
+List<CheckMarker> checkMarkers(String text) =>
+    parseLive(text, const LiveStyles()).checks;
+
+/// The item whose prefix holds [offset] (both ends included), if any.
+CheckMarker? checkMarkerAt(List<CheckMarker> items, int offset) {
+  for (final m in items) {
+    if (m.start <= offset && offset <= m.end) return m;
+  }
+  return null;
+}
+
+const _boxMarker = TextStyle(color: Color(0x00000000));
 
 /// Spans and links of the whole text, as the live parser reads them. The
 /// toggles and their state functions ask this, so they agree with the paint.
@@ -478,14 +555,21 @@ void _block(String t, int s, int e, LiveStyles st, _Out out) {
     // Prefix pieces, text unchanged: indent stays as typed, the marker gets
     // the accent, the box its state colour.
     final all = l.group(0)!, box = l.group(4), at = l.end - all.length;
-    out.emit(at + l.group(1)!.length, cur);
-    out.emit(
-      box == null ? l.end : at + all.indexOf('['),
-      l.group(2) != null ? st.bullet : st.number,
-    );
-    if (box != null) {
-      final done = box[1] != ' ';
-      out.emit(l.end, done ? st.done : st.todo);
+    final lead = at + l.group(1)!.length;
+    final bullet = l.group(2) != null ? st.bullet : st.number;
+    out.emit(lead, cur);
+    if (box == null) {
+      out.emit(l.end, bullet);
+    } else {
+      final open = at + all.indexOf('['), done = box[1] != ' ';
+      out.checks.add((start: lead, boxStart: open, end: l.end, done: done));
+      if (out.boxes) {
+        // Hidden by colour only: same glyphs, same width, same offsets.
+        out.emit(l.end, _boxMarker, LiveKind.checkMarker);
+      } else {
+        out.emit(open, bullet);
+        out.emit(l.end, done ? st.done : st.todo);
+      }
       if (done) cur = cur.merge(st.checked);
     }
     pos = l.end;
@@ -790,13 +874,18 @@ class _Out {
   List<LiveLink>? links;
   List<_Span>? spans;
 
-  void emit(int end, TextStyle style) {
+  /// Checklist items, in text order; [boxes] hides their prefix (see
+  /// [parseLive]).
+  final checks = <CheckMarker>[];
+  bool boxes = false;
+
+  void emit(int end, TextStyle style, [LiveKind kind = LiveKind.text]) {
     if (end > length) end = length;
     if (end <= pos) return;
-    if (runs.isNotEmpty && runs.last.style == style) {
-      runs[runs.length - 1] = LiveRun(runs.last.start, end, style);
+    if (runs.isNotEmpty && runs.last.style == style && runs.last.kind == kind) {
+      runs[runs.length - 1] = LiveRun(runs.last.start, end, style, kind);
     } else {
-      runs.add(LiveRun(pos, end, style));
+      runs.add(LiveRun(pos, end, style, kind));
     }
     pos = end;
   }
@@ -974,6 +1063,56 @@ TextEditingValue toggleCheck(TextEditingValue v) => _lines(
   remove: (l) => _relist(l, ''),
   restOnly: true,
 );
+
+/// Checklist items on the line(s) the selection touches (a caret: its line).
+List<CheckMarker> _touchedChecks(TextEditingValue v, List<CheckMarker>? items) {
+  final (a, b) = _lineBlock(v.text, _sel(v));
+  return [
+    for (final m in items ?? checkMarkers(v.text))
+      if (m.start >= a && m.start <= b) m,
+  ];
+}
+
+/// Checklist state of the selected lines for the bar button: whether there is
+/// any item and whether all are done (then the button clears them). Pass
+/// [items] (e.g. `controller.checks`) to skip a parse.
+({bool any, bool allDone}) checkState(
+  TextEditingValue v, [
+  List<CheckMarker>? items,
+]) {
+  final t = _touchedChecks(v, items);
+  return (any: t.isNotEmpty, allDone: t.isNotEmpty && t.every((m) => m.done));
+}
+
+/// Marks every item on the selected lines done, or clears them all if they
+/// already are. Other lines are untouched; the length never changes, so the
+/// selection stays where it was.
+TextEditingValue toggleDone(TextEditingValue v) {
+  final t = _touchedChecks(v, null);
+  if (t.isEmpty) return v;
+  return _setBoxes(v, t, !t.every((m) => m.done));
+}
+
+/// Flips the box of the item whose prefix starts at [markerStart]
+/// (`[ ]` -> `[x]`, `[x]`/`[X]` -> `[ ]`), selection and all else unchanged.
+TextEditingValue toggleCheckAt(TextEditingValue v, int markerStart) {
+  for (final m in checkMarkers(v.text)) {
+    if (m.start == markerStart) return _setBoxes(v, [m], !m.done);
+  }
+  return v;
+}
+
+TextEditingValue _setBoxes(
+  TextEditingValue v,
+  List<CheckMarker> items,
+  bool done,
+) {
+  var out = v.text;
+  for (final m in items) {
+    out = out.replaceRange(m.boxStart + 1, m.boxStart + 2, done ? 'x' : ' ');
+  }
+  return v.copyWith(text: out);
+}
 
 String _relist(String l, String marker) {
   final m = _listLineRe.matchAsPrefix(l);

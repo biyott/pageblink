@@ -119,6 +119,10 @@ class L {
   String get fmtItalic => _t('Italic', '기울임');
   String get fmtList => _t('List', '목록');
   String get fmtCheckbox => _t('Checkbox', '체크박스');
+  String get checkDone => _t('Done', '완료');
+  String get checkTodo => _t('Not done', '미완료');
+  String get fmtCheckAll => _t('Complete all', '모두 완료');
+  String get fmtUncheckAll => _t('Uncheck all', '모두 해제');
   String get fmtQuote => _t('Quote', '인용');
   String get fmtCode => _t('Code', '코드');
   String get fmtLink => _t('Link', '링크');

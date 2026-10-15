@@ -139,6 +139,7 @@ void main() {
       );
       await t.pump();
       expect(find.byIcon(AppIcons.delete), findsNothing);
+      expect(find.byIcon(AppIcons.more), findsNothing);
     });
 
     testWidgets(
@@ -157,7 +158,9 @@ void main() {
           ),
         );
         await t.pump();
-        await t.tap(find.byIcon(AppIcons.delete));
+        await t.tap(find.byIcon(AppIcons.more)); // header menu
+        await t.pumpAndSettle();
+        await t.tap(find.widgetWithText(PopupMenuItem<bool>, 'Delete'));
         await t.pumpAndSettle();
         expect(find.text('Delete this note?'), findsOneWidget);
         await t.tap(find.text('Cancel'));
@@ -166,7 +169,9 @@ void main() {
         expect(find.byType(SnackBar), findsNothing);
 
         // The test has no server client: the call fails, the note stays open.
-        await t.tap(find.byIcon(AppIcons.delete));
+        await t.tap(find.byIcon(AppIcons.more)); // header menu
+        await t.pumpAndSettle();
+        await t.tap(find.widgetWithText(PopupMenuItem<bool>, 'Delete'));
         await t.pumpAndSettle();
         await t.tap(find.widgetWithText(FilledButton, 'Delete'));
         await t.pumpAndSettle();

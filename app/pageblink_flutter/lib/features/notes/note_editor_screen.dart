@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:pageblink_client/pageblink_client.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -12,6 +13,7 @@ import '../../app/open_item_controller.dart';
 import '../../app/pane_header.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
+import 'live_check_layer.dart';
 import 'markdown_live.dart';
 import 'selection_mini_bar.dart';
 
@@ -144,6 +146,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   late final _body = LiveMarkdownController(
     text: widget.note?.body ?? '',
     styleOf: liveStylesFor,
+    boxes: true, // a LiveCheckLayer below draws the checkboxes
   );
   final _bodyFocus = FocusNode();
   final _bodyKey = GlobalKey();
@@ -152,7 +155,15 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   late int? _id = widget.note?.id;
   late String _savedTitle = widget.note?.title ?? '';
   late String _savedBody = widget.note?.body ?? '';
-  bool _saving = false;
+
+  /// Last document the server returned (open, save, re-index): index status.
+  late Document? _doc = widget.note;
+  bool _saving = false; // saving or re-indexing (one spinner)
+
+  // Checkbox layer: item under the mouse (hover outline, click cursor), and
+  // the field's render object (looked up once, then reused while mounted).
+  final _hover = ValueNotifier<int?>(null);
+  EditableTextState? _editableCache;
 
   /// Deleting: no second tap. Deleted: the note is gone, so closing must not
   /// save it again (`saveNote` would fail with "Note not found").
@@ -188,13 +199,15 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     if (c != null && c.flushHandler == _flush) c.flushHandler = null;
     _title.dispose();
     _body.dispose();
+    _hover.dispose();
     _bodyFocus.dispose();
     _bodyScroll.dispose();
     super.dispose();
   }
 
-  /// Saves pending edits. False (with a snackbar) if saving failed.
-  Future<bool> _flush() async {
+  /// Saves pending edits. False (with a snackbar) if saving failed; [failure]
+  /// replaces the default "Save failed" text with the error appended.
+  Future<bool> _flush({String? failure}) async {
     if (_deleted) return true;
     if (_saving || _deleting) return false;
     if (!_changed || _body.text.trim().isEmpty) return true;
@@ -209,6 +222,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
         widget.note?.projectId ?? widget.projectId,
       );
       _id = saved.id;
+      _doc = saved;
       _savedTitle = _title.text;
       _savedBody = _body.text;
       boardRefresh.value++;
@@ -216,9 +230,87 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       return true;
     } catch (e) {
       if (mounted) setState(() => _saving = false);
-      messenger.showSnackBar(SnackBar(content: Text(l.saveFailed(e))));
+      messenger.showSnackBar(
+        SnackBar(content: Text(failure ?? l.saveFailed(e))),
+      );
       return false;
     }
+  }
+
+  /// Header menu "Re-index". Unsaved edits are saved first and that save *is*
+  /// the re-index (`saveNote` indexes what it stores), so no second call is
+  /// made; without edits the stored text is re-indexed. The server's reason is
+  /// never shown here, only the fixed text (the header icon has the detail).
+  Future<void> _reindex() async {
+    final id = _id;
+    if (id == null || _saving || _deleting) return;
+    final l = context.l;
+    final messenger = ScaffoldMessenger.of(context);
+    void report(Document d) => messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          d.status == 'ready' ? l.indexed(d.title) : l.reindexFailed,
+        ),
+      ),
+    );
+    if (_changed && _body.text.trim().isNotEmpty) {
+      if (!await _flush(failure: l.reindexFailed)) return;
+      final d = _doc;
+      if (d != null) report(d);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      final d = await client.document.reindex(id);
+      _doc = d;
+      boardRefresh.value++;
+      report(d);
+    } catch (e) {
+      debugPrint('reindex failed: $e');
+      messenger.showSnackBar(SnackBar(content: Text(l.reindexFailed)));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  RenderEditable? _bodyRender() {
+    var e = _editableCache;
+    if (e == null || !e.mounted) {
+      e = _editableCache = findEditableText(_bodyKey.currentContext);
+    }
+    return e != null && e.mounted ? e.renderEditable : null;
+  }
+
+  RenderBox? _stackBox() {
+    final r = _stackKey.currentContext?.findRenderObject();
+    return r is RenderBox ? r : null;
+  }
+
+  /// The checklist item whose box is under [p] (stack coordinates), if any.
+  CheckTarget? _checkAt(Offset p) {
+    final r = _bodyRender(), st = _stackBox();
+    if (!_body.live || r == null || st == null) return null;
+    return checkTargetAt(
+      checkBoxTargets(r, st, _body.checks),
+      p,
+      touch: _touchDevice,
+    );
+  }
+
+  bool get _touchDevice => switch (Theme.of(context).platform) {
+    TargetPlatform.android ||
+    TargetPlatform.iOS ||
+    TargetPlatform.fuchsia => true,
+    _ => false,
+  };
+
+  /// Flips one item's box. The text keeps its length, so caret and selection
+  /// stay put and focus is not touched. Nothing happens while an IME
+  /// composition is open.
+  void _toggleCheck(int markerStart) {
+    final c = _body.value.composing;
+    if (c.isValid && !c.isCollapsed) return;
+    _body.value = toggleCheckAt(_body.value, markerStart);
   }
 
   Future<void> _confirmDelete() async {
@@ -505,13 +597,46 @@ class _NoteEditorViewState extends State<NoteEditorView> {
             embedded: widget.embedded,
             onBack: _saveAndClose,
             onClose: _saveAndClose,
-            title: ValueListenableBuilder(
-              valueListenable: _title,
-              builder: (context, value, _) => Text(
-                value.text.trim().isNotEmpty
-                    ? value.text.trim()
-                    : (widget.note == null ? l.newNote : l.titleHint),
-              ),
+            title: Row(
+              children: [
+                Flexible(
+                  child: ValueListenableBuilder(
+                    valueListenable: _title,
+                    builder: (context, value, _) => Text(
+                      value.text.trim().isNotEmpty
+                          ? value.text.trim()
+                          : (widget.note == null ? l.newNote : l.titleHint),
+                    ),
+                  ),
+                ),
+                // Index state of a stored note, small and quiet.
+                if (_doc?.status == 'failed')
+                  Tooltip(
+                    message: _doc?.lastError == null
+                        ? l.indexingFailed
+                        : l.indexingError(_doc?.lastError),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(
+                        AppIcons.warning,
+                        key: const ValueKey('index-failed'),
+                        size: 16,
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                  )
+                else if (_doc?.status == 'indexing')
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Text(
+                      '${l.indexing}…',
+                      key: const ValueKey('index-running'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: context.pb.inkMuted,
+                      ),
+                    ),
+                  ),
+              ],
             ),
             actions: [
               // Labeled Live | Source toggle; icons only on narrow phones.
@@ -538,12 +663,18 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                 selected: {_body.live},
                 onSelectionChanged: (s) => setState(() => _body.live = s.first),
               ),
-              // Only an existing note can be deleted.
+              // Only a stored note can be re-indexed or deleted.
               if (_id != null)
-                IconButton(
-                  tooltip: l.delete,
-                  icon: const Icon(AppIcons.delete),
-                  onPressed: _saving || _deleting ? null : _confirmDelete,
+                PopupMenuButton<bool>(
+                  tooltip: l.moreActions,
+                  icon: const Icon(AppIcons.more),
+                  enabled: !_saving && !_deleting,
+                  onSelected: (reindex) =>
+                      reindex ? _reindex() : _confirmDelete(),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(value: true, child: Text(l.reindex)),
+                    PopupMenuItem(value: false, child: Text(l.delete)),
+                  ],
                 ),
               if (_saving)
                 const Padding(
@@ -610,105 +741,155 @@ class _NoteEditorViewState extends State<NoteEditorView> {
               constraints: const BoxConstraints(maxWidth: noteColumnWidth),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Stack(
-                  key: _stackKey,
-                  children: [
-                    Listener(
-                      onPointerDown: (e) {
-                        _pointerDown = true;
-                        if (e.buttons == kSecondaryMouseButton) {
-                          _barDismissed = _body.selection; // context menu
-                        }
-                        _syncBar();
-                      },
-                      onPointerUp: (_) {
-                        _pointerDown = false;
-                        _syncBar();
-                      },
-                      onPointerCancel: (_) {
-                        _pointerDown = false;
-                        _syncBar();
-                      },
-                      child: CallbackShortcuts(
-                        bindings: {
-                          key(LogicalKeyboardKey.keyB): () =>
-                              _apply((v) => toggleInline(v, '**')),
-                          key(LogicalKeyboardKey.keyI): () =>
-                              _apply((v) => toggleInline(v, '_')),
-                          if (_barAnchors != null || _link != null)
-                            const SingleActivator(
-                              LogicalKeyboardKey.escape,
-                            ): () {
-                              _barDismissed = _body.selection;
-                              _syncBar();
-                            },
+                // Pointer over a box: outline, and the click cursor (the field's
+                // own cursor is not under the pointer there, the layer is).
+                child: ValueListenableBuilder<int?>(
+                  valueListenable: _hover,
+                  builder: (context, hot, stack) => MouseRegion(
+                    opaque: false,
+                    cursor: hot == null
+                        ? MouseCursor.defer
+                        : SystemMouseCursors.click,
+                    onHover: (e) =>
+                        _hover.value = _checkAt(e.localPosition)?.item.start,
+                    onExit: (_) => _hover.value = null,
+                    child: stack,
+                  ),
+                  child: Stack(
+                    key: _stackKey,
+                    children: [
+                      Listener(
+                        onPointerDown: (e) {
+                          _pointerDown = true;
+                          if (e.buttons == kSecondaryMouseButton) {
+                            _barDismissed = _body.selection; // context menu
+                          }
+                          _syncBar();
                         },
-                        child: TextField(
-                          key: _bodyKey,
-                          controller: _body,
-                          focusNode: _bodyFocus,
-                          scrollController: _bodyScroll,
-                          contextMenuBuilder: (context, state) {
-                            final sel = state.textEditingValue.selection;
-                            return AdaptiveTextSelectionToolbar.buttonItems(
-                              anchors: state.contextMenuAnchors,
-                              buttonItems: [
-                                ...state.contextMenuButtonItems,
-                                if (sel.isValid && !sel.isCollapsed)
-                                  for (final (tip, _, toggle, _)
-                                      in _inlineActions(
-                                        context.l,
-                                        formatState(state.textEditingValue),
-                                      ))
-                                    ContextMenuButtonItem(
-                                      label: tip,
-                                      onPressed: () {
-                                        state.hideToolbar(false);
-                                        _apply(toggle);
-                                      },
-                                    ),
-                              ],
-                            );
+                        onPointerUp: (_) {
+                          _pointerDown = false;
+                          _syncBar();
+                        },
+                        onPointerCancel: (_) {
+                          _pointerDown = false;
+                          _syncBar();
+                        },
+                        child: CallbackShortcuts(
+                          bindings: {
+                            key(LogicalKeyboardKey.keyB): () =>
+                                _apply((v) => toggleInline(v, '**')),
+                            key(LogicalKeyboardKey.keyI): () =>
+                                _apply((v) => toggleInline(v, '_')),
+                            // Check / uncheck the item(s) on the caret's lines.
+                            key(LogicalKeyboardKey.enter): () =>
+                                _apply(toggleDone),
+                            if (_barAnchors != null || _link != null)
+                              const SingleActivator(
+                                LogicalKeyboardKey.escape,
+                              ): () {
+                                _barDismissed = _body.selection;
+                                _syncBar();
+                              },
                           },
-                          style: bodyStyle,
-                          autofocus: widget.note == null,
-                          maxLines: null,
-                          expands: true,
-                          keyboardType: TextInputType.multiline,
-                          inputFormatters: const [ListContinuationFormatter()],
-                          textAlignVertical: TextAlignVertical.top,
-                          decoration: InputDecoration(
-                            hintText: context.l.noteHint,
-                            filled: false,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
+                          child: TextField(
+                            key: _bodyKey,
+                            controller: _body,
+                            focusNode: _bodyFocus,
+                            scrollController: _bodyScroll,
+                            contextMenuBuilder: (context, state) {
+                              final sel = state.textEditingValue.selection;
+                              return AdaptiveTextSelectionToolbar.buttonItems(
+                                anchors: state.contextMenuAnchors,
+                                buttonItems: [
+                                  ...state.contextMenuButtonItems,
+                                  if (sel.isValid && !sel.isCollapsed)
+                                    for (final (tip, _, toggle, _)
+                                        in _inlineActions(
+                                          context.l,
+                                          formatState(state.textEditingValue),
+                                        ))
+                                      ContextMenuButtonItem(
+                                        label: tip,
+                                        onPressed: () {
+                                          state.hideToolbar(false);
+                                          _apply(toggle);
+                                        },
+                                      ),
+                                ],
+                              );
+                            },
+                            style: bodyStyle,
+                            autofocus: widget.note == null,
+                            maxLines: null,
+                            expands: true,
+                            keyboardType: TextInputType.multiline,
+                            inputFormatters: const [
+                              ListContinuationFormatter(),
+                            ],
+                            textAlignVertical: TextAlignVertical.top,
+                            decoration: InputDecoration(
+                              hintText: context.l.noteHint,
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    if (_barAnchors != null)
-                      ListenableBuilder(
-                        listenable: _body,
-                        builder: (context, _) => SelectionMiniBar(
-                          anchors: _barAnchors!,
-                          actions: _inlineActions(l, formatState(_body.value)),
-                          onApply: _apply,
-                          headingLevel: headingLevel(_body.value),
-                          onHeading: (level) =>
-                              _apply((v) => setHeading(v, level)),
+                      // Checkboxes over the field (live mode only; source mode
+                      // shows the plain `- [ ]`).
+                      if (_body.live)
+                        LiveCheckLayer(
+                          controller: _body,
+                          scroll: _bodyScroll,
+                          hover: _hover,
+                          render: _bodyRender,
+                          stack: _stackBox,
+                          accent: theme.colorScheme.primary,
+                          onAccent: theme.colorScheme.onPrimary,
+                          border: context.pb.hairline,
+                          doneLabel: l.checkDone,
+                          todoLabel: l.checkTodo,
+                          onToggle: _toggleCheck,
+                          touch: _touchDevice,
                         ),
-                      ),
-                    if (_link != null && _barAnchors == null)
-                      LinkOpenChip(
-                        anchors: _link!.anchors,
-                        label: l.openLink,
-                        url: _link!.uri.toString(),
-                        icon: AppIcons.openLink,
-                        onPressed: () => _openLink(_link!.uri),
-                      ),
-                  ],
+                      if (_barAnchors != null)
+                        ListenableBuilder(
+                          listenable: _body,
+                          builder: (context, _) {
+                            final c = checkState(_body.value, _body.checks);
+                            return SelectionMiniBar(
+                              anchors: _barAnchors!,
+                              actions: [
+                                ..._inlineActions(l, formatState(_body.value)),
+                                // Only when the selection holds checklist items.
+                                if (c.any)
+                                  (
+                                    c.allDone ? l.fmtUncheckAll : l.fmtCheckAll,
+                                    AppIcons.checklist,
+                                    toggleDone,
+                                    c.allDone,
+                                  ),
+                              ],
+                              onApply: _apply,
+                              headingLevel: headingLevel(_body.value),
+                              onHeading: (level) =>
+                                  _apply((v) => setHeading(v, level)),
+                            );
+                          },
+                        ),
+                      if (_link != null && _barAnchors == null)
+                        LinkOpenChip(
+                          anchors: _link!.anchors,
+                          label: l.openLink,
+                          url: _link!.uri.toString(),
+                          icon: AppIcons.openLink,
+                          onPressed: () => _openLink(_link!.uri),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
