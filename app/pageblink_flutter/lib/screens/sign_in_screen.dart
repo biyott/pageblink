@@ -12,8 +12,12 @@ import 'email_sign_in.dart';
 /// ≥8 chars, no trailing/leading space).
 List<PasswordRequirement> pageBlinkPasswordRequirements(L l) => [
   PasswordRequirement.minLength(12),
-  PasswordRequirement.containsLowercase(),
-  PasswordRequirement.containsNumber(),
+  PasswordRequirement(
+    description: l.pwLowerAndNumber,
+    validator: (p) =>
+        PasswordRequirement.lowercaseLetters.hasMatch(p) &&
+        PasswordRequirement.numbers.hasMatch(p),
+  ),
   PasswordRequirement(
     description: l.pwUppercaseOrSpecial,
     validator: (p) =>

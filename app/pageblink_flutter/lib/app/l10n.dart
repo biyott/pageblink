@@ -44,6 +44,7 @@ class L {
   String get signOut => _t('Sign out', '로그아웃');
 
   // ── Sign-in ───────────────────────────────────────────────────────────
+  String get pwLowerAndNumber => _t('Lowercase letter + number', '소문자 + 숫자 포함');
   String get pwUppercaseOrSpecial => _t(
     'At least 1 uppercase letter or special character',
     '대문자 또는 특수문자 1개 이상',
