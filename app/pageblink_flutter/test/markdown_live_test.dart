@@ -201,6 +201,82 @@ void main() {
       expect(v.text.substring(v.selection.start, v.selection.end), 'ef');
     });
 
+    // Caret contract: after a block format the caret is where typing goes
+    // (content start or its old place in the content), never before / inside
+    // the marker. `|` marks the caret in both input and expectation.
+    TextEditingValue at(String s) {
+      final i = s.indexOf('|');
+      return _v(s.replaceFirst('|', ''), i);
+    }
+
+    String shown(TextEditingValue v) =>
+        v.text.replaceRange(v.selection.start, v.selection.start, '|');
+
+    final blocks = <String, TextEditingValue Function(TextEditingValue)>{
+      'bullet': toggleBullet,
+      'ordered': toggleOrdered,
+      'check': toggleCheck,
+      'quote': toggleQuote,
+      'heading': (v) => setHeading(v, 2),
+    };
+    const marker = {
+      'bullet': '- ',
+      'ordered': '1. ',
+      'check': '- [ ] ',
+      'quote': '> ',
+      'heading': '## ',
+    };
+
+    for (final e in blocks.entries) {
+      final f = e.value, m = marker[e.key]!;
+      test('${e.key}: caret after the marker (empty, start, middle, end)', () {
+        expect(shown(f(at('|'))), '$m|');
+        expect(shown(f(at('a\n|\nb'))), 'a\n$m|\nb');
+        expect(shown(f(at('|hello'))), '$m|hello');
+        expect(shown(f(at('he|llo'))), '${m}he|llo');
+        expect(shown(f(at('hello|'))), '${m}hello|');
+        expect(shown(f(at('한글|'))), '$m한글|');
+      });
+
+      test('${e.key}: toggled off, caret in the content or at its start', () {
+        expect(shown(f(at('$m|'))), '|');
+        expect(shown(f(at('$m|hello'))), '|hello');
+        expect(shown(f(at('${m}he|llo'))), 'he|llo');
+        expect(shown(f(at('${m}hello|'))), 'hello|');
+      });
+
+      test('${e.key}: several lines keep the caret in its own line', () {
+        final v = f(
+          _v('one\ntwo\nthree', 4, 4), // start of "two"
+        );
+        expect(v.selection.isCollapsed, isTrue);
+        expect(shown(v).split('\n')[1], '$m|two');
+      });
+    }
+
+    test('block formats converting a marker keep the caret behind it', () {
+      expect(shown(toggleOrdered(at('- |hello'))), '1. |hello');
+      expect(shown(toggleCheck(at('- |hello'))), '- [ ] |hello');
+      expect(shown(toggleBullet(at('- [ ] |hello'))), '- |hello');
+      expect(shown(toggleQuote(at('> |'))), '|');
+      expect(shown(toggleQuote(at('# |hello'))), '> # |hello');
+      expect(shown(toggleBullet(at('> |x'))), '> - |x');
+    });
+
+    test('inline formats are unchanged: caret between the markers', () {
+      expect(
+        shown(toggleInline(at('ab|'), '**')),
+        'ab****'.replaceRange(4, 4, '|'),
+      );
+      expect(shown(toggleInline(at('|'), '_')), '_|_');
+      expect(shown(toggleInline(at('a|b'), '~~')), 'a~~|~~b');
+      expect(shown(toggleCode(at('a|b'))), 'a`|`b');
+      final sel = toggleInline(_v('say hi now', 4, 6), '**');
+      expect(sel.text.substring(sel.selection.start, sel.selection.end), 'hi');
+      final c = toggleCode(_v('say hi now', 4, 6));
+      expect(c.text.substring(c.selection.start, c.selection.end), 'hi');
+    });
+
     test('bold: wrap, unwrap by selection and by caret, empty pair', () {
       var v = toggleInline(_v('say hi now', 4, 6), '**');
       expect(v.text, 'say **hi** now');

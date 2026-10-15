@@ -1246,6 +1246,15 @@ String _relist(String l, String marker) {
   return '$indent$marker${l.substring(indent.length)}';
 }
 
+/// Offset in [line] where typed text goes: after its quote, heading / list
+/// (and checkbox) prefix; 0 for a plain line.
+int _contentStart(String line) {
+  final q = _quoteLineRe.matchAsPrefix(line)!.end;
+  final m =
+      _headRe.matchAsPrefix(line, q) ?? _listLineRe.matchAsPrefix(line, q);
+  return m?.end ?? q;
+}
+
 /// `[start, end)` of the whole lines touched by [sel] (a selection that ends
 /// right after a `\n` does not touch the next line).
 (int, int) _lineBlock(String text, TextSelection sel) {
@@ -1300,15 +1309,22 @@ TextEditingValue _lines(
     pOld.add(a.length - k);
     pNew.add(b.length - k);
   }
+  // A caret never stays before / inside the (new or removed) prefix: it goes
+  // to where typing continues, the start of the line's content. Content
+  // positions keep their place.
   int map(int o) {
-    if (o <= blockStart) return o;
+    if (o < blockStart) return o;
     var oldStart = blockStart, newStart = blockStart;
     for (var i = 0; i < old.length; i++) {
       if (o <= oldStart + old[i].length) {
         final p = o - oldStart;
-        final np = p >= pOld[i]
+        var np = p >= pOld[i]
             ? p - pOld[i] + pNew[i]
             : (p < pNew[i] ? p : pNew[i]);
+        if (target(old[i])) {
+          final cs = _contentStart(fresh[i]);
+          if (np < cs) np = cs;
+        }
         return newStart + np;
       }
       oldStart += old[i].length + 1;

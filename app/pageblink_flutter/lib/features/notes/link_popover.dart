@@ -266,9 +266,20 @@ class LinkEditPopover extends StatefulWidget {
   State<LinkEditPopover> createState() => _LinkEditPopoverState();
 }
 
+/// What a new link's address field starts with; left as it is, it is no
+/// address at all ([_blank]).
+const _urlDefault = 'https://';
+
+bool _blank(String url) {
+  final u = url.trim().toLowerCase();
+  return u.isEmpty || u == _urlDefault || u == 'http://';
+}
+
 class _LinkEditPopoverState extends State<LinkEditPopover> {
   late final _text = TextEditingController(text: widget.initialText);
-  late final _url = TextEditingController(text: widget.initialUrl);
+  late final _url = TextEditingController(
+    text: widget.initialUrl.isEmpty ? _urlDefault : widget.initialUrl,
+  );
   final _textFocus = FocusNode();
   final _urlFocus = FocusNode();
   bool _hadFocus = false;
@@ -279,13 +290,27 @@ class _LinkEditPopoverState extends State<LinkEditPopover> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _urlFocus.requestFocus();
-      _url.selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: _url.text.length,
-      );
+      // Default `https://`: caret behind it, ready to type. An address being
+      // edited is selected whole, to replace it. (A frame later: gaining
+      // focus on desktop selects all, and must not win.)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (widget.initialUrl.isEmpty) {
+          // not when the clipboard address already came in (selected)
+          if (_url.text == _urlDefault) {
+            _url.selection = TextSelection.collapsed(offset: _url.text.length);
+          }
+        } else {
+          _url.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: _url.text.length,
+          );
+        }
+      });
+      WidgetsBinding.instance.scheduleFrame();
     });
     widget.prefill?.then((u) {
-      if (!mounted || u == null || _url.text.isNotEmpty) return;
+      if (!mounted || u == null || _url.text != _urlDefault) return;
       _url.value = TextEditingValue(
         text: u,
         selection: TextSelection(baseOffset: 0, extentOffset: u.length),
@@ -304,7 +329,7 @@ class _LinkEditPopoverState extends State<LinkEditPopover> {
 
   void _apply() {
     final url = _url.text.trim();
-    if (url.isEmpty) {
+    if (_blank(url)) {
       _urlFocus.requestFocus();
       return;
     }
@@ -375,7 +400,7 @@ class _LinkEditPopoverState extends State<LinkEditPopover> {
                       listenable: _url,
                       builder: (context, _) => FilledButton(
                         key: const ValueKey('link-apply'),
-                        onPressed: _url.text.trim().isEmpty ? null : _apply,
+                        onPressed: _blank(_url.text) ? null : _apply,
                         child: Text(l.ok),
                       ),
                     ),

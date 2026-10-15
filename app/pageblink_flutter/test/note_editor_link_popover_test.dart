@@ -114,6 +114,13 @@ Finder get _body => find.byType(EditableText).at(1);
 bool _bodyFocused(WidgetTester t) =>
     t.widget<EditableText>(_body).focusNode.hasFocus;
 
+TextSelection _urlSelection(WidgetTester t) => t
+    .widget<EditableText>(
+      find.descendant(of: _urlField, matching: find.byType(EditableText)),
+    )
+    .controller
+    .selection;
+
 bool _fieldFocused(WidgetTester t, Finder f) => t
     .widget<EditableText>(
       find.descendant(of: f, matching: find.byType(EditableText)),
@@ -571,8 +578,9 @@ void main() {
       expect(e.c.text, 'hello world'); // no instant toggle
       expect(_edit, findsOneWidget);
       expect(_fieldText(t, _textField), 'world');
-      expect(_fieldText(t, _urlField), '');
+      expect(_fieldText(t, _urlField), 'https://'); // default, caret behind
       expect(_fieldFocused(t, _urlField), isTrue);
+      expect(_urlSelection(t), const TextSelection.collapsed(offset: 8));
       expect(
         e.c.selection,
         const TextSelection(baseOffset: 6, extentOffset: 11),
@@ -620,10 +628,35 @@ void main() {
         ),
       );
       await t.pump();
-      expect(_fieldText(t, _urlField), '');
-      await _enter(t); // empty address: nothing is applied
+      expect(_fieldText(t, _urlField), 'https://');
+      await _enter(t); // default only: nothing is applied
       expect(e.c.text, 'hello world');
       expect(_edit, findsOneWidget);
+    });
+
+    _desktopTest('the default https:// alone is not an address', (t, e) async {
+      e.setClip('');
+      await _set(t, e.c, 'hello world', 6, 11);
+      await _mouseClick(
+        t,
+        t.getCenter(
+          find.descendant(of: _bar, matching: find.byIcon(AppIcons.link)),
+        ),
+      );
+      await t.pump();
+      expect(
+        t
+            .widget<FilledButton>(find.byKey(const ValueKey('link-apply')))
+            .onPressed,
+        isNull,
+      );
+      await _enter(t);
+      expect(e.c.text, 'hello world');
+      expect(_edit, findsOneWidget);
+      // typing behind the default makes a real address
+      await t.enterText(_urlField, 'https://a.co');
+      await _enter(t);
+      expect(e.c.text, 'hello [world](https://a.co)');
     });
 
     _desktopTest('Esc on a new link leaves text and selection alone', (
@@ -723,6 +756,31 @@ void main() {
       expect(_edit, findsNothing);
       expect(e.c.text, 'hello world');
     });
+  });
+
+  group('block format buttons', () {
+    for (final (icon, marker) in [
+      (AppIcons.bulletList, '- '),
+      (AppIcons.orderedList, '1. '),
+      (AppIcons.checklist, '- [ ] '),
+      (AppIcons.quote, '> '),
+    ]) {
+      _desktopTest('toolbar $marker: caret lands behind the marker', (
+        t,
+        e,
+      ) async {
+        await _set(t, e.c, 'a\n\nb', 2);
+        await t.tap(find.byIcon(icon).first);
+        await t.pump();
+        await t.pump();
+        expect(e.c.text, 'a\n$marker\nb');
+        expect(
+          e.c.selection,
+          TextSelection.collapsed(offset: 2 + marker.length),
+        );
+        expect(_bodyFocused(t), isTrue);
+      });
+    }
   });
 
   group('accessibility', () {
