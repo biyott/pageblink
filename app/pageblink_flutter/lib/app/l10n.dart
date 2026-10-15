@@ -179,7 +179,7 @@ class L {
   String get askHint => _t('Ask your notes…', '내 노트에 질문하기…');
   String get askTooltip => _t('Ask', '질문');
   String get answerModel => _t('Answer model', '답변 모델');
-  String get myDocs => _t('My docs', '내 문서');
+  String get myDocs => _t('My documents', '내 문서');
   String get askEmptyTitle => _t('Ask your notes & documents', '노트와 문서에 질문하세요');
   String get askEmptySubtitle => _t(
     'Every answer links back to its ⚡ sources',
@@ -312,13 +312,69 @@ class L {
   String get sourcesLabel => _t('Sources', '출처');
   String get copy => _t('Copy', '복사');
   String get copied => _t('Copied', '복사했어요');
-  String get scope => _t('Scope', '범위');
+  String get scope => _t('Search scope', '검색 범위');
+  String get scopeSubtitle => _t(
+    'Answers come from notes and PDFs in the checked places',
+    '선택한 곳의 노트와 PDF에서 답을 찾아요',
+  );
+  String get scopeEmpty => _t('Nothing selected to search', '검색할 곳이 없어요');
+  String get selectAll => _t('Select all', '모두 선택');
+  String get clearAll => _t('Clear all', '모두 해제');
+  String get done => _t('Done', '완료');
+
+  /// Summary button text for the chosen sources (`projects` = checked count).
+  String scopeSummary(bool personal, int projects) {
+    if (!personal && projects == 0) return scopeEmpty;
+    final p = _t(
+      '$projects ${projects == 1 ? 'project' : 'projects'}',
+      '프로젝트 $projects개',
+    );
+    final what = !personal
+        ? p
+        : projects == 0
+        ? _t('My documents only', '내 문서만')
+        : _t('My documents + $p', '내 문서 + $p');
+    return _t('Sources: $what', '출처: $what');
+  }
+
+  String get modelAuto => _t('Auto', '자동');
+  String get modelAutoRotates =>
+      _t('Auto · rotates free models', '자동 · 무료 모델 순환');
+  String get askFailed => _t(
+    'Could not get an answer. Please try again shortly.',
+    '답변을 받지 못했어요. 잠시 후 다시 시도해 주세요.',
+  );
+
+  /// The server's catalog notes are English and repeat what the badge says.
+  /// Drops the "free" / "paid $…" parts and translates known phrases; unknown
+  /// phrases pass through unchanged. Null when nothing is left.
+  String? modelNote(String? note) {
+    if (note == null) return null;
+    final parts = [
+      for (final p in note.split(' · '))
+        if (p != 'free' && !p.startsWith('paid')) _ko ? (_noteKo[p] ?? p) : p,
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
+
+  static const _noteKo = {
+    'recommended': '추천',
+    'multilingual': '다국어',
+    'fast': '빠름',
+    'large model': '큰 모델',
+    'lightweight': '가벼움',
+    'largest': '가장 큼',
+    'may be slow': '느릴 수 있음',
+    'reasoning': '추론형',
+    'slower first token': '첫 글자가 느림',
+    'quality': '고품질',
+  };
   String get aiDisclaimer => _t(
     'AI can make mistakes. Check the ⚡ sources.',
     'AI는 틀릴 수 있어요. ⚡ 출처를 확인하세요.',
   );
-  String get free => _t('free', '무료');
-  String get paid => _t('paid', '유료');
+  String get free => _t('Free', '무료');
+  String get paid => _t('Paid', '유료');
 
   // ── Citation sheet ────────────────────────────────────────────────────
   String get citedInAnswer => _t('Cited in AI answer', 'AI 답변에서 인용됨');

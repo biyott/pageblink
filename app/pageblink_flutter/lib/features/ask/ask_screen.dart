@@ -41,6 +41,8 @@ class _AskScreenState extends State<AskScreen> {
   bool _includePersonal = true;
   StreamSubscription<AnswerEvent>? _subscription;
   List<LlmModel> _models = const [];
+
+  /// null = Auto: the server picks its default model and rotates (ADR 014).
   String? _modelId;
 
   @override
@@ -52,9 +54,7 @@ class _AskScreenState extends State<AskScreen> {
   Future<void> _loadModels() async {
     try {
       final models = await client.model.list();
-      final fallback = await client.model.defaultModel();
       if (mounted) setState(() => _models = models);
-      if (mounted) setState(() => _modelId ??= fallback);
     } catch (_) {
       // Picker stays hidden; the server default model is used.
     }
@@ -72,12 +72,19 @@ class _AskScreenState extends State<AskScreen> {
 
   bool get _streaming => _turns.isNotEmpty && !_turns.last.done;
 
+  /// Checked projects that still exist; the server drops anything else too.
+  int get _projectCount =>
+      widget.projects.where((p) => _selectedProjects.contains(p.id)).length;
+
+  /// Nothing checked: the server would only answer "nothing found".
+  bool get _scopeEmpty => !_includePersonal && _projectCount == 0;
+
   void _ask() {
     final question = _input.text.trim();
-    if (question.isEmpty || _streaming) return;
+    if (question.isEmpty || _streaming || _scopeEmpty) return;
+    final failed = context.l.askFailed;
     _input.clear();
-    final turn = _Turn(question)
-      ..modelLabel = _models.where((m) => m.id == _modelId).firstOrNull?.label;
+    final turn = _Turn(question);
     setState(() => _turns.add(turn));
 
     final projectIds = widget.projects.isEmpty
@@ -99,6 +106,12 @@ class _AskScreenState extends State<AskScreen> {
               case 'citation':
                 final c = event.citation;
                 if (c != null) turn.citations[c.index] = c;
+              case 'model':
+                // The model that actually answered (may differ after rotation).
+                final id = event.text;
+                turn.modelId = id;
+                turn.modelLabel =
+                    _models.where((m) => m.id == id).firstOrNull?.label ?? id;
               case 'error':
                 turn.error = event.text;
               case 'done':
@@ -106,12 +119,49 @@ class _AskScreenState extends State<AskScreen> {
             }
             _scrollToEnd();
           }),
-          onError: (Object e) => setState(() {
-            turn.error = '$e';
-            turn.done = true;
-          }),
+          onError: (Object e) {
+            debugPrint('ask failed: $e');
+            setState(() {
+              turn.error = failed;
+              turn.done = true;
+            });
+          },
           onDone: () => setState(() => turn.done = true),
         );
+  }
+
+  /// Phones get a bottom sheet, wider layouts a dialog. Changes apply live.
+  Future<void> _pickScope() {
+    Widget content(BuildContext context) => _ScopeChecklist(
+      projects: widget.projects,
+      includePersonal: _includePersonal,
+      selected: {..._selectedProjects},
+      onChanged: (personal, selected) => setState(() {
+        _includePersonal = personal;
+        _selectedProjects
+          ..clear()
+          ..addAll(selected);
+      }),
+    );
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (context) => SafeArea(child: content(context)),
+      );
+    }
+    return showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (context) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: content(context),
+        ),
+      ),
+    );
   }
 
   void _scrollToEnd() {
@@ -201,16 +251,13 @@ class _AskScreenState extends State<AskScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ScopeBar(
-                      projects: widget.projects,
-                      selected: _selectedProjects,
-                      includePersonal: _includePersonal,
-                      onPersonal: (v) => setState(() => _includePersonal = v),
-                      onProject: (id, v) => setState(
-                        () => v
-                            ? _selectedProjects.add(id)
-                            : _selectedProjects.remove(id),
+                    _ScopeButton(
+                      summary: context.l.scopeSummary(
+                        _includePersonal,
+                        _projectCount,
                       ),
+                      empty: _scopeEmpty,
+                      onTap: _pickScope,
                     ),
                     TextField(
                       controller: _input,
@@ -245,7 +292,9 @@ class _AskScreenState extends State<AskScreen> {
                           listenable: _input,
                           builder: (context, _) {
                             final canSend =
-                                _input.text.trim().isNotEmpty && !_streaming;
+                                _input.text.trim().isNotEmpty &&
+                                !_streaming &&
+                                !_scopeEmpty;
                             return IconButton.filled(
                               onPressed: canSend ? _ask : null,
                               tooltip: context.l.askTooltip,
@@ -288,6 +337,9 @@ class _AskScreenState extends State<AskScreen> {
       text.replaceAllMapped(_marker, (m) => ' `⚡${m[1]}`');
 }
 
+/// Menu sentinel for Auto; never sent to the server (Auto sends null).
+const _autoValue = '';
+
 class _ModelPill extends StatelessWidget {
   const _ModelPill({
     required this.models,
@@ -304,16 +356,65 @@ class _ModelPill extends StatelessWidget {
     final pb = context.pb;
     final l = context.l;
     final current = models.where((m) => m.id == selected).firstOrNull;
+    final muted = TextStyle(fontSize: 11, color: pb.inkMuted);
+    Widget check(bool on) => SizedBox(
+      width: 20,
+      child: on ? Icon(Icons.check, size: 18, color: pb.accent) : null,
+    );
     return PopupMenuButton<String>(
       tooltip: l.answerModel,
-      onSelected: onChanged,
+      onSelected: (v) => onChanged(v == _autoValue ? null : v),
       itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _autoValue,
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  l.modelAutoRotates,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              check(current == null),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
         for (final m in models)
           PopupMenuItem(
             value: m.id,
-            child: Text(
-              '${m.label} · ${m.free ? l.free : l.paid}'
-              '${m.note == null ? '' : ' · ${m.note}'}',
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              m.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _FreeBadge(free: m.free),
+                        ],
+                      ),
+                      if (l.modelNote(m.note) case final note?)
+                        Text(
+                          note,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: muted,
+                        ),
+                    ],
+                  ),
+                ),
+                check(m.id == selected),
+              ],
             ),
           ),
       ],
@@ -330,7 +431,8 @@ class _ModelPill extends StatelessWidget {
           children: [
             Flexible(
               child: Text(
-                current?.label ?? l.answerModel,
+                current?.label ?? l.modelAuto,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 13,
@@ -340,10 +442,7 @@ class _ModelPill extends StatelessWidget {
             ),
             if (current != null) ...[
               const SizedBox(width: 6),
-              Text(
-                current.free ? l.free : l.paid,
-                style: TextStyle(fontSize: 11, color: pb.success),
-              ),
+              _FreeBadge(free: current.free),
             ],
             const Icon(Icons.keyboard_arrow_down, size: 18),
           ],
@@ -353,44 +452,219 @@ class _ModelPill extends StatelessWidget {
   }
 }
 
-class _ScopeBar extends StatelessWidget {
-  const _ScopeBar({
+/// Small "Free" / "Paid" tag next to a model name.
+class _FreeBadge extends StatelessWidget {
+  const _FreeBadge({required this.free});
+
+  final bool free;
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    final color = free ? pb.success : pb.inkMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        free ? context.l.free : context.l.paid,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+/// One-line summary of where answers come from; tap to change.
+class _ScopeButton extends StatelessWidget {
+  const _ScopeButton({
+    required this.summary,
+    required this.empty,
+    required this.onTap,
+  });
+
+  final String summary;
+  final bool empty;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    final color = empty ? pb.warn : pb.inkMuted;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Tooltip(
+        message: context.l.scope,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 32),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: empty ? pb.warnContainer : Colors.transparent,
+              border: Border.all(color: empty ? pb.warnBorder : pb.hairline),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  empty ? Icons.warning_amber_rounded : Icons.manage_search,
+                  size: 16,
+                  color: color,
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    summary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: empty ? pb.warn : pb.ink,
+                    ),
+                  ),
+                ),
+                Icon(Icons.keyboard_arrow_down, size: 18, color: color),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Checklist of "My documents" + each project. Keeps a local copy so the
+/// sheet redraws; every change is reported to the screen immediately.
+class _ScopeChecklist extends StatefulWidget {
+  const _ScopeChecklist({
     required this.projects,
-    required this.selected,
     required this.includePersonal,
-    required this.onPersonal,
-    required this.onProject,
+    required this.selected,
+    required this.onChanged,
   });
 
   final List<Project> projects;
-  final Set<int> selected;
   final bool includePersonal;
-  final ValueChanged<bool> onPersonal;
-  final void Function(int id, bool value) onProject;
+  final Set<int> selected;
+  final void Function(bool personal, Set<int> selected) onChanged;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: [
-        FilterChip(
-          avatar: const Icon(Icons.cloud_outlined, size: 18),
-          label: Text(context.l.myDocs),
-          selected: includePersonal,
-          onSelected: onPersonal,
-        ),
-        for (final p in projects) ...[
-          const SizedBox(width: 8),
-          FilterChip(
-            avatar: const Icon(Icons.groups_outlined, size: 18),
-            label: Text(p.name),
-            selected: selected.contains(p.id),
-            onSelected: (v) => onProject(p.id!, v),
+  State<_ScopeChecklist> createState() => _ScopeChecklistState();
+}
+
+class _ScopeChecklistState extends State<_ScopeChecklist> {
+  late bool _personal = widget.includePersonal;
+  late final Set<int> _selected = {...widget.selected};
+
+  void _set({bool? personal, Set<int>? selected}) {
+    setState(() {
+      _personal = personal ?? _personal;
+      if (selected != null) {
+        _selected
+          ..clear()
+          ..addAll(selected);
+      }
+    });
+    widget.onChanged(_personal, {..._selected});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pb = context.pb;
+    final text = Theme.of(context).textTheme;
+    final ids = {for (final p in widget.projects) p.id!};
+    final all = _personal && _selected.containsAll(ids);
+    final none = !_personal && _selected.intersection(ids).isEmpty;
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l.scope, style: text.titleMedium),
+                const SizedBox(height: 2),
+                Text(
+                  l.scopeSubtitle,
+                  style: text.bodySmall?.copyWith(color: pb.inkMuted),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                TextButton(
+                  onPressed: all
+                      ? null
+                      : () => _set(personal: true, selected: ids),
+                  child: Text(l.selectAll),
+                ),
+                TextButton(
+                  onPressed: none
+                      ? null
+                      : () => _set(personal: false, selected: {}),
+                  child: Text(l.clearAll),
+                ),
+              ],
+            ),
+          ),
+          CheckboxListTile(
+            value: _personal,
+            onChanged: (v) => _set(personal: v ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            title: Text(l.myDocs),
+            subtitle: Text(l.onlyYou),
+            secondary: const Icon(Icons.cloud_outlined),
+          ),
+          for (final p in widget.projects)
+            CheckboxListTile(
+              value: _selected.contains(p.id),
+              onChanged: (v) => _set(
+                selected: v == true
+                    ? {..._selected, p.id!}
+                    : ({..._selected}..remove(p.id)),
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              title: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+              secondary: const Icon(Icons.groups_outlined),
+            ),
+          if (!_personal && _selected.intersection(ids).isEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: Text(
+                l.scopeEmpty,
+                style: text.bodySmall?.copyWith(color: pb.warn),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l.done),
+              ),
+            ),
           ),
         ],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class _TurnView extends StatelessWidget {
