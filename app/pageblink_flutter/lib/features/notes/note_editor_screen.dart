@@ -256,7 +256,14 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       fontSize: 16,
       height: sizes.bodyHeight,
     );
-    final wide = width >= 600;
+    // Toolbar above the body on desktops at any window width (a narrow or
+    // zoomed browser window is still a desktop); below it only on touch
+    // devices, where it sits above the keyboard.
+    final desktop =
+        theme.platform == TargetPlatform.macOS ||
+        theme.platform == TargetPlatform.windows ||
+        theme.platform == TargetPlatform.linux;
+    final wide = width >= 600 || desktop;
     // Cmd on Apple platforms, Ctrl elsewhere (Ctrl+B/I are caret moves on Mac).
     final apple =
         theme.platform == TargetPlatform.macOS ||
