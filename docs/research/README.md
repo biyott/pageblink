@@ -54,3 +54,4 @@
 | [017](017-flutter-ux-issues-investigation.md) | Flutter 앱 UX 이슈 6건 (설정 전체화면 · 노트 원 모양 · 라이브 MD · 아이콘 · 문구) | 설정은 `Navigator.push`라 pane 밖 · 원 모양은 테마 enabledBorder(999)+filled가 원인 · 라이브 MD는 buildTextSpan 방식 추천 | 결정 대기 |
 | [018](018-desktop-note-typography.md) | 데스크톱 노트 화면 기본 폰트 크기 조정안 | 편집 16 ↔ 미리보기 14 불일치 · h1~h4가 노트 제목보다 큼 · 폭 상한 없음 → 본문 16/1.7 + 680px 컬럼 + 제목 28/24/20/18 | 제안 단계 (ADR 대기) |
 | [019](019-ask-screen-locale-chips-scope-model-picker.md) | Ask 화면·언어 설정 UX 3건 (언어 우선순위 · 예시 칩 잘림 · 범위/모델 선택) | 언어는 `main.dart` localeResolutionCallback이 선택을 덮어씀 · 예시 칩은 ActionChip 단일행 구조 · 범위는 FilterChip 체크가 아바타와 겹침, 모델 항목은 서버 note 중복 | 결정 대기 |
+| [020](020-login-enter-key-and-password-manager.md) | 로그인 Enter 제출 · Chrome 비밀번호 저장 | 패키지 로그인 폼에 `onSubmitted`·`autofillHints`·`AutofillGroup` 없음(앱 래핑 아님) → 자체 로그인 폼(공개 `EmailAuthController` 재사용) · 실제 저장 프롬프트는 ⚠️ 미확인 | 코드 반영 |

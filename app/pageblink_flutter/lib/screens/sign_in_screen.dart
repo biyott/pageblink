@@ -5,6 +5,7 @@ import '../app/l10n.dart';
 import '../app/theme.dart';
 import '../client.dart';
 import '../app/app_icons.dart';
+import 'email_sign_in.dart';
 
 /// 12–50 chars, a lowercase letter and a number, plus an uppercase letter or
 /// a special character. (The server's own policy, ≥8 chars, is looser.)
@@ -32,6 +33,15 @@ class SignInScreen extends StatefulWidget {
 class _SignInScreenState extends State<SignInScreen> {
   bool _isSignedIn = false;
 
+  // Owned here (not by the package widget) so our login form can use it.
+  // Created lazily (needs the locale), dropped after sign-in so no typed
+  // email/password lingers and the next sign-in screen starts empty.
+  EmailAuthController? _email;
+
+  // Keeps the card (and its autofill context) alive when the layout switches
+  // between the narrow and wide arrangement.
+  final _cardKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +59,34 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() {
       _isSignedIn = client.auth.isAuthenticated;
     });
+    if (_isSignedIn) {
+      // After the frame: the form's widgets must be unmounted first.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_isSignedIn) return;
+        _email?.dispose();
+        _email = null;
+      });
+    }
+  }
+
+  void _onEmailAuthenticated() {
+    if (!mounted) return;
+    final colors = Theme.of(context).colorScheme;
+    context.showSnackBar(
+      message: context.l.userAuthenticated,
+      backgroundColor: colors.primaryContainer,
+      foregroundColor: colors.onPrimaryContainer,
+    );
+  }
+
+  void _onEmailError(Object error) {
+    if (!mounted) return;
+    final colors = Theme.of(context).colorScheme;
+    context.showSnackBar(
+      message: context.l.authFailed(error),
+      backgroundColor: colors.errorContainer,
+      foregroundColor: colors.onErrorContainer,
+    );
   }
 
   @override
@@ -61,12 +99,16 @@ class _SignInScreenState extends State<SignInScreen> {
       l,
       SignInWidget(
         client: client,
-        emailSignInWidget: EmailSignInWidget(
-          client: client,
+        emailSignInWidget: PageBlinkEmailSignIn(
           // Returning users are the common case: open on sign-in; the form
           // shows "Don't have an account? Sign up" below the button.
-          startScreen: EmailFlowScreen.login,
-          passwordRequirements: pageBlinkPasswordRequirements(l),
+          controller: _email ??= EmailAuthController(
+            client: client,
+            startScreen: EmailFlowScreen.login,
+            passwordRequirements: pageBlinkPasswordRequirements(l),
+            onAuthenticated: _onEmailAuthenticated,
+            onError: _onEmailError,
+          ),
         ),
         onAuthenticated: () {
           context.showSnackBar(
@@ -96,6 +138,7 @@ class _SignInScreenState extends State<SignInScreen> {
             final mobile = w < 600;
             final pad = mobile ? 16.0 : (desktop ? 32.0 : 24.0);
             final card = _SignInCard(
+              key: _cardKey,
               compact: mobile,
               signIn: signIn,
             );
@@ -547,7 +590,7 @@ class _PreviewCard extends StatelessWidget {
 }
 
 class _SignInCard extends StatelessWidget {
-  const _SignInCard({required this.compact, required this.signIn});
+  const _SignInCard({super.key, required this.compact, required this.signIn});
 
   final bool compact;
   final Widget signIn;
