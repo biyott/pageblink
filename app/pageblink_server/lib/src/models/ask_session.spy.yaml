@@ -1,0 +1,30 @@
+### One Ask conversation. Server only: the app gets AskSessionView instead.
+class: AskSession
+table: ask_session
+serverOnly: true
+fields:
+  ### Authenticated user. Demo accounts are shared by many visitors.
+  ownerId: UuidValue
+  ### SHA-256 hex of the browser's visitor key. Demo accounts only.
+  visitorKeyHash: String?
+  isDemo: bool, default=false
+  ### First question, shortened to 80 characters.
+  title: String
+  ### UI language of the first question (ko | en), for the admin list.
+  locale: String?
+  ### Questions asked so far (display; the message rows are the truth).
+  questionCount: int, default=0
+  createdAt: DateTime
+  ### Last question received, checkpoint or answer finished. Drives the
+  ### 30-minute list, the 30-second resume rule and the retention purge.
+  lastActiveAt: DateTime
+  ### Set while an answer streams; the gate for "one question at a time".
+  streamingSince: DateTime?
+  ### Hidden from the user's lists (legacy-client rows, user "delete").
+  ### Still kept for the retention period.
+  hiddenAt: DateTime?
+indexes:
+  ask_session_owner_active_idx:
+    fields: ownerId, visitorKeyHash, lastActiveAt
+  ask_session_active_idx:
+    fields: lastActiveAt

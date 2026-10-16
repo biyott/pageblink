@@ -1,0 +1,7 @@
+### Answers per model over the filtered range of the admin list.
+class: AskModelStat
+fields:
+  modelId: String
+  answers: int
+  ### Of those, answers given by another model than the one asked for.
+  fallbacks: int

@@ -1,0 +1,7 @@
+### One row of the recent-conversations list.
+class: AskSessionSummary
+fields:
+  id: int
+  title: String
+  questionCount: int
+  lastActiveAt: DateTime

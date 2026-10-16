@@ -674,4 +674,98 @@ class L {
     "Projects can't be created or joined in the demo.",
     '데모에서는 프로젝트를 만들거나 초대할 수 없어요.',
   );
+
+  // ── Ask history (design 030) ──────────────────────────────────────────
+  String askCount(int n, int limit) => _t('Question $n/$limit', '질문 $n/$limit');
+  String askCountLabel(int n, int limit) => _t(
+    '$n of $limit questions used in this conversation',
+    '이 대화에서 질문 $limit개 중 $n개를 사용했어요',
+  );
+  String askCountLeft(int left) => _t('$left left', '$left개 남음');
+  String askLimitReached(int limit) => _k(
+    'You have asked $limit questions in this conversation. '
+        'Start a new conversation to keep asking.',
+    '이 대화에서 질문 $limit개를 모두 사용했어요. 새 대화를 시작해 계속 질문하세요.',
+  );
+  String get askLimitHint => _t('Start a new conversation', '새 대화를 시작하세요');
+  String get newConversation => _t('New conversation', '새 대화');
+  String get recentChats => _t('Recent conversations', '최근 대화');
+  String recentChatsNote(int minutes) => _t(
+    'Shown for $minutes minutes after your last question',
+    '마지막 질문 후 $minutes분 동안 보여요',
+  );
+  String recentChatsEmpty(int minutes) => _t(
+    'No conversations in the last $minutes minutes',
+    '최근 $minutes분 안의 대화가 없어요',
+  );
+  String get currentChat => _t('Current', '현재');
+  String get removeFromList => _t('Remove from list', '목록에서 지우기');
+  String chatMeta(int questions, int minutesAgo) {
+    final ago = minutesAgo < 1
+        ? _t('just now', '방금')
+        : minutesAgo < 60
+        ? _t('$minutesAgo min ago', '$minutesAgo분 전')
+        : _t('${minutesAgo ~/ 60} h ago', '${minutesAgo ~/ 60}시간 전');
+    return _t(
+      '$questions ${questions == 1 ? 'question' : 'questions'} · $ago',
+      '질문 $questions개 · $ago',
+    );
+  }
+
+  String get askInterrupted => _t('This answer was cut off.', '답변이 중간에 끊겼어요.');
+  String get askAskAgain => _t('Ask again', '다시 질문');
+  String get askBusy => _t(
+    'An answer is still being written. Please wait a moment.',
+    '아직 답변을 쓰는 중이에요. 잠시만 기다려 주세요.',
+  );
+  String get askExpired => _t(
+    'That conversation expired, so this starts a new one.',
+    '대화가 만료되어 새 대화로 시작해요.',
+  );
+  String get askChatGone => _t(
+    'That conversation is no longer available.',
+    '그 대화는 더 이상 볼 수 없어요.',
+  );
+  String get historyLoadFailed =>
+      _t("Couldn't load your recent conversation.", '최근 대화를 불러오지 못했어요.');
+  String historyNotice(int days) => _k(
+    'Conversations are kept on the server for $days days for administration. '
+        'When you use a free model, earlier answers may be sent along with '
+        'your question.',
+    '대화 내용은 관리 목적으로 서버에 $days일 동안 보관돼요. '
+        '무료 모델을 쓸 때는 이전 답변이 함께 전송될 수 있어요.',
+  );
+
+  // ── Settings: account id and the admin conversation list ──────────────
+  String get copyAccountId => _t('Copy my account ID', '내 계정 ID 복사');
+  String get accountIdCopied => _t('Copied account ID', '계정 ID를 복사했어요');
+  String get adminHistory => _t('Conversation history', '대화 기록');
+  String get adminHistoryNote => _k(
+    'May contain personal note content. Access is logged.',
+    '개인 노트 내용이 포함될 수 있어요. 조회는 기록돼요.',
+  );
+  String get adminUserFilter => _t('User ID', '사용자 ID');
+  String get periodAll => _t('All', '전체');
+  String get periodToday => _t('Today', '오늘');
+  String get period7 => _t('7 days', '7일');
+  String get period30 => _t('30 days', '30일');
+  String get adminEmpty => _t('No conversations found', '대화가 없어요');
+  String get adminLoadMore => _t('Load more', '더 보기');
+  String get adminLoadFailed => _t("Couldn't load the list.", '목록을 불러오지 못했어요.');
+  String get adminModels => _t('Answers per model', '모델별 응답 수');
+  String adminModelStat(String model, int answers, int fallbacks) => _t(
+    '$model: $answers${fallbacks > 0 ? ' ($fallbacks fallback)' : ''}',
+    '$model: $answers회${fallbacks > 0 ? ' (폴백 $fallbacks회)' : ''}',
+  );
+  String get adminFallback => _t('fallback model', '폴백 모델');
+  String get adminHidden => _t('Hidden', '숨김');
+  String get adminDemo => 'demo';
+  String adminSessionMeta(int questions) => _t('$questions Q', '질문 $questions');
+  String adminStatus(String status) => switch (status) {
+    'done' => _t('done', '완료'),
+    'error' => _t('error', '오류'),
+    'interrupted' => _t('cut off', '끊김'),
+    'streaming' => _t('streaming', '작성 중'),
+    _ => status,
+  };
 }

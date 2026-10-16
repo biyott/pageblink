@@ -1,0 +1,7 @@
+### Thrown when a question breaks a conversation rule. Not a permission error:
+### the app answers it with a hint (new conversation / wait).
+exception: AskLimitException
+fields:
+  reason: AskLimitReason
+  ### Questions per conversation, for questionLimit.
+  limit: int?

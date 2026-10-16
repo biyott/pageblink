@@ -1,0 +1,15 @@
+### A conversation for the admin list, messages included. Read only.
+class: AskAdminSession
+fields:
+  id: int
+  ownerId: String
+  ### demo-ko / demo-en for the shared demo accounts, else the user id.
+  ownerLabel: String
+  isDemo: bool
+  hidden: bool
+  title: String
+  locale: String?
+  questionCount: int
+  createdAt: DateTime
+  lastActiveAt: DateTime
+  messages: List<AskMessageView>

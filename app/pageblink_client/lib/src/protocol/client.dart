@@ -13,6 +13,14 @@
 import 'dart:async' as _ida;
 import 'package:http/http.dart' as _i85jenna;
 import 'package:pageblink_client/src/protocol/answer_event.dart' as _iv9ukj64;
+import 'package:pageblink_client/src/protocol/ask_admin_filter.dart'
+    as _ihxjv8go;
+import 'package:pageblink_client/src/protocol/ask_admin_page.dart' as _ifeoh06a;
+import 'package:pageblink_client/src/protocol/ask_history_status.dart'
+    as _iq117uuo;
+import 'package:pageblink_client/src/protocol/ask_restore.dart' as _isr923wh;
+import 'package:pageblink_client/src/protocol/ask_session_view.dart'
+    as _ii1ulf7a;
 import 'package:pageblink_client/src/protocol/demo_status.dart' as _ic49xm8h;
 import 'package:pageblink_client/src/protocol/document.dart' as _ix72owx0;
 import 'package:pageblink_client/src/protocol/greetings/greeting.dart'
@@ -308,6 +316,26 @@ class EndpointGreeting extends _isc.EndpointRef {
       );
 }
 
+/// Read-only conversation list for administrators (`ADMIN_USER_IDS`). The
+/// server decides who is one on every call; there is no write method.
+/// {@category Endpoint}
+class EndpointAskAdmin extends _isc.EndpointRef {
+  EndpointAskAdmin(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'askAdmin';
+
+  /// One page of conversations with their messages, newest first, and the
+  /// answers per model over the whole filtered range.
+  _ida.Future<_ifeoh06a.AskAdminPage> listSessions(
+    _ihxjv8go.AskAdminFilter filter,
+  ) => caller.callServerEndpoint<_ifeoh06a.AskAdminPage>(
+    'askAdmin',
+    'listSessions',
+    {'filter': filter},
+  );
+}
+
 /// Retrieval + generation in one streaming call (Phase 0).
 /// {@category Endpoint}
 class EndpointAsk extends _isc.EndpointRef {
@@ -318,12 +346,20 @@ class EndpointAsk extends _isc.EndpointRef {
 
   /// Streams an answer to [question] over the user's personal documents and
   /// the requested projects they are a member of.
+  ///
+  /// With Ask history on (`ASK_HISTORY_ENABLED`, design 030) the question and
+  /// answer are stored, [sessionId] picks the conversation (0 = new, null =
+  /// an app that does not know conversations: recorded hidden, outside the
+  /// limits) and the first event is `session`. Off, nothing changes.
+  /// [visitorKey] tells demo visitors apart; other users' is ignored.
   _ida.Stream<_iv9ukj64.AnswerEvent> ask(
     String question,
     List<int> projectIds,
     bool includePersonal,
     String? modelId, [
     String? locale,
+    int? sessionId,
+    String? visitorKey,
   ]) =>
       caller.callStreamingServerEndpoint<
         _ida.Stream<_iv9ukj64.AnswerEvent>,
@@ -337,9 +373,68 @@ class EndpointAsk extends _isc.EndpointRef {
           'includePersonal': includePersonal,
           'modelId': modelId,
           'locale': locale,
+          'sessionId': sessionId,
+          'visitorKey': visitorKey,
         },
         {},
       );
+}
+
+/// Stored Ask conversations of the signed-in user (design 030). Every method
+/// is a no-op or an empty answer while `ASK_HISTORY_ENABLED` is off. Demo
+/// visitors share one account, so they send their browser's [visitorKey] and
+/// only see their own conversations.
+/// {@category Endpoint}
+class EndpointAskHistory extends _isc.EndpointRef {
+  EndpointAskHistory(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'askHistory';
+
+  /// Whether the app shows the history UI at all, and its rules.
+  _ida.Future<_iq117uuo.AskHistoryStatus> historyStatus() =>
+      caller.callServerEndpoint<_iq117uuo.AskHistoryStatus>(
+        'askHistory',
+        'historyStatus',
+        {},
+      );
+
+  /// The recent conversations and, after a reload within the resume window,
+  /// the one to continue. The server decides by its own clock.
+  _ida.Future<_isr923wh.AskRestore> restore([String? visitorKey]) =>
+      caller.callServerEndpoint<_isr923wh.AskRestore>(
+        'askHistory',
+        'restore',
+        {'visitorKey': visitorKey},
+      );
+
+  /// One conversation of the recent list; null when it is gone, hidden, not
+  /// the caller's or past its viewing window.
+  _ida.Future<_ii1ulf7a.AskSessionView?> open(
+    int sessionId, [
+    String? visitorKey,
+  ]) => caller.callServerEndpoint<_ii1ulf7a.AskSessionView?>(
+    'askHistory',
+    'open',
+    {
+      'sessionId': sessionId,
+      'visitorKey': visitorKey,
+    },
+  );
+
+  /// "Delete" from the list. Only hides: the server keeps it for the
+  /// retention period.
+  _ida.Future<void> hide(
+    int sessionId, [
+    String? visitorKey,
+  ]) => caller.callServerEndpoint<void>(
+    'askHistory',
+    'hide',
+    {
+      'sessionId': sessionId,
+      'visitorKey': visitorKey,
+    },
+  );
 }
 
 /// Upload and list documents. Text is extracted on the client (ADR 003).
@@ -616,7 +711,9 @@ class Client extends _isc.ServerpodClientShared {
     jwtRefresh = EndpointJwtRefresh(this);
     demo = EndpointDemo(this);
     greeting = EndpointGreeting(this);
+    askAdmin = EndpointAskAdmin(this);
     ask = EndpointAsk(this);
+    askHistory = EndpointAskHistory(this);
     document = EndpointDocument(this);
     model = EndpointModel(this);
     project = EndpointProject(this);
@@ -631,7 +728,11 @@ class Client extends _isc.ServerpodClientShared {
 
   late final EndpointGreeting greeting;
 
+  late final EndpointAskAdmin askAdmin;
+
   late final EndpointAsk ask;
+
+  late final EndpointAskHistory askHistory;
 
   late final EndpointDocument document;
 
@@ -647,7 +748,9 @@ class Client extends _isc.ServerpodClientShared {
     'jwtRefresh': jwtRefresh,
     'demo': demo,
     'greeting': greeting,
+    'askAdmin': askAdmin,
     'ask': ask,
+    'askHistory': askHistory,
     'document': document,
     'model': model,
     'project': project,

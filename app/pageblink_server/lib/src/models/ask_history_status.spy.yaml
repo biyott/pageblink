@@ -1,0 +1,15 @@
+### Whether Ask history is on and its rules. When `enabled` is false the app
+### shows none of the history UI.
+class: AskHistoryStatus
+fields:
+  enabled: bool
+  ### Questions per conversation.
+  questionLimit: int, default=0
+  ### Minutes a conversation stays visible after its last activity.
+  visibleMinutes: int, default=0
+  ### Days the server keeps conversations.
+  retentionDays: int, default=0
+  ### Longest question the server keeps (the input box stops there).
+  questionMaxChars: int, default=0
+  ### The caller may open the admin conversation list.
+  isAdmin: bool, default=false

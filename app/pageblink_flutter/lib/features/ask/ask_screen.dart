@@ -1,6 +1,5 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:pageblink_client/pageblink_client.dart';
@@ -9,14 +8,17 @@ import '../../app/text_wrap.dart';
 import '../../app/theme.dart';
 import '../../app/l10n.dart';
 import '../../client.dart';
-import '../demo/demo.dart' show demoLimitText, demoStatus;
+import '../demo/demo.dart' show demoStatus;
 import '../viewer/citation_sheet.dart';
 import '../../app/open_item_controller.dart';
 import '../open_item/open_item_view.dart';
+import 'ask_chat.dart';
 import 'ask_markers.dart';
 import 'ask_sources.dart';
 import 'ask_suggestions.dart';
 import '../../app/app_icons.dart';
+
+export 'ask_chat.dart' show AskTurn;
 
 /// Ask a question; the answer streams in with ⚡ citations you can blink to.
 class AskScreen extends StatefulWidget {
@@ -28,26 +30,13 @@ class AskScreen extends StatefulWidget {
   State<AskScreen> createState() => _AskScreenState();
 }
 
-/// One question and its streaming answer.
-@visibleForTesting
-class AskTurn {
-  AskTurn(this.question);
-  final String question;
-  final answer = StringBuffer();
-  final citations = <int, Citation>{};
-  String? modelId;
-  String? modelLabel;
-  String? error;
-  bool done = false;
-}
-
 class _AskScreenState extends State<AskScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
-  final _turns = <AskTurn>[];
+  final _chat = AskChat();
   final _selectedProjects = <int>{};
   bool _includePersonal = true;
-  StreamSubscription<AnswerEvent>? _subscription;
+  bool _noticeShown = false;
   List<LlmModel> _models = const [];
 
   /// null = Auto: the server picks its default model and rotates (ADR 014).
@@ -56,7 +45,32 @@ class _AskScreenState extends State<AskScreen> {
   @override
   void initState() {
     super.initState();
+    _chat.labelOf = (id) => _models.where((m) => m.id == id).firstOrNull?.label;
+    _chat.onGiveBack = (q) => _input.text = q;
+    _chat.addListener(_chatChanged);
     _loadModels();
+    _chat.start();
+    noticeDismissed().then((gone) {
+      if (mounted) setState(() => _noticeShown = !gone);
+    });
+  }
+
+  /// Scroll to the newest text and announce a counter that got close to the
+  /// limit (once, not on every question).
+  void _chatChanged() {
+    _scrollToEnd();
+    final level = _chat.announce;
+    if (level == null || !mounted) return;
+    _chat.announce = null;
+    final l = context.l;
+    final text = level >= 2
+        ? l.askLimitReached(_chat.count ?? 0)
+        : l.askCountLeft((_chat.limit ?? 0) - (_chat.count ?? 0));
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      text,
+      Directionality.of(context),
+    );
   }
 
   Future<void> _loadModels() async {
@@ -78,13 +92,13 @@ class _AskScreenState extends State<AskScreen> {
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _chat.dispose();
     _input.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
-  bool get _streaming => _turns.isNotEmpty && !_turns.last.done;
+  bool get _streaming => _chat.streaming;
 
   /// Checked projects that still exist; the server drops anything else too.
   int get _projectCount =>
@@ -93,60 +107,52 @@ class _AskScreenState extends State<AskScreen> {
   /// Nothing checked: the server would only answer "nothing found".
   bool get _scopeEmpty => !_includePersonal && _projectCount == 0;
 
+  bool get _blocked => _streaming || _scopeEmpty || _chat.limitReached;
+
   void _ask() {
     final question = _input.text.trim();
-    if (question.isEmpty || _streaming || _scopeEmpty) return;
-    final l = context.l;
-    final failed = l.askFailed;
+    if (question.isEmpty || _blocked) return;
     _input.clear();
-    final turn = AskTurn(question);
-    setState(() => _turns.add(turn));
+    _chat.ask(
+      question,
+      projectIds: widget.projects.isEmpty
+          ? <int>[]
+          : _selectedProjects.toList(),
+      includePersonal: _includePersonal,
+      modelId: _modelId,
+      locale: Localizations.localeOf(context).languageCode,
+    );
+  }
 
-    final projectIds = widget.projects.isEmpty
-        ? <int>[]
-        : _selectedProjects.toList();
-    _subscription = client.ask
-        .ask(
-          question,
-          projectIds,
-          _includePersonal,
-          _modelId,
-          Localizations.localeOf(context).languageCode,
-        )
-        .listen(
-          (event) => setState(() {
-            switch (event.type) {
-              case 'token':
-                turn.answer.write(event.text ?? '');
-              case 'citation':
-                final c = event.citation;
-                if (c != null) turn.citations[c.index] = c;
-              case 'model':
-                // The model that actually answered (may differ after rotation).
-                final id = event.text;
-                turn.modelId = id;
-                turn.modelLabel =
-                    _models.where((m) => m.id == id).firstOrNull?.label ?? id;
-              case 'error':
-                turn.error = event.text;
-              case 'done':
-                turn.done = true;
-            }
-            _scrollToEnd();
-          }),
-          onError: (Object e) {
-            debugPrint('ask failed: $e');
-            setState(() {
-              // The demo's daily limit arrives as a stream error; the banner
-              // above keeps the Sign up action in reach.
-              turn.error = e is DemoLimitException
-                  ? demoLimitText(l, e)
-                  : failed;
-              turn.done = true;
-            });
-          },
-          onDone: () => setState(() => turn.done = true),
-        );
+  /// Recent conversations: bottom sheet on phones, dialog otherwise.
+  Future<void> _pickChat() {
+    _chat.refreshRecent();
+    Widget content(BuildContext context) => _RecentChats(
+      chat: _chat,
+      onPick: (id) {
+        Navigator.of(context).pop();
+        _chat.openSession(id);
+      },
+    );
+    if (MediaQuery.sizeOf(context).width < 600) {
+      return showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (context) => SafeArea(child: content(context)),
+      );
+    }
+    return showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (context) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: content(context),
+        ),
+      ),
+    );
   }
 
   /// Phones get a bottom sheet, wider layouts a dialog. Changes apply live.
@@ -214,7 +220,20 @@ class _AskScreenState extends State<AskScreen> {
   @override
   Widget build(BuildContext context) {
     final pb = context.pb;
+    _chat.l = context.l;
+    return ListenableBuilder(
+      listenable: Listenable.merge([_chat, historyStatus]),
+      builder: (context, _) => _body(context, pb),
+    );
+  }
+
+  Widget _body(BuildContext context, Pb pb) {
+    final l = context.l;
     final wideHeader = MediaQuery.sizeOf(context).width >= 1024;
+    final turns = _chat.turns;
+    final status = historyStatus.value;
+    final historyOn = _chat.on;
+    final limitReached = _chat.limitReached;
     return Column(
       children: [
         if (wideHeader)
@@ -233,20 +252,22 @@ class _AskScreenState extends State<AskScreen> {
                 const Spacer(),
                 IconButton(
                   tooltip: context.l.newChat,
-                  onPressed: _turns.isEmpty
-                      ? null
-                      : () {
-                          _subscription?.cancel();
-                          _subscription = null;
-                          setState(_turns.clear);
-                        },
+                  onPressed: turns.isEmpty ? null : _chat.newChat,
                   icon: const Icon(AppIcons.newQuestion),
                 ),
               ],
             ),
           ),
+        if (historyOn && _noticeShown)
+          _HistoryNotice(
+            text: l.historyNotice(status!.retentionDays),
+            onClose: () {
+              setState(() => _noticeShown = false);
+              dismissNotice();
+            },
+          ),
         Expanded(
-          child: _turns.isEmpty
+          child: turns.isEmpty
               ? AskEmptyHint(
                   includePersonal: _includePersonal,
                   onPick: (q) {
@@ -257,9 +278,12 @@ class _AskScreenState extends State<AskScreen> {
               : ListView.builder(
                   controller: _scroll,
                   padding: const EdgeInsets.all(16),
-                  itemCount: _turns.length,
-                  itemBuilder: (context, i) =>
-                      AskTurnView(_turns[i], onBlink: _blink),
+                  itemCount: turns.length,
+                  itemBuilder: (context, i) => AskTurnView(
+                    turns[i],
+                    onBlink: _blink,
+                    onAskAgain: (q) => _input.text = q,
+                  ),
                 ),
         ),
         SafeArea(
@@ -275,6 +299,31 @@ class _AskScreenState extends State<AskScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (historyOn)
+                      _ChatBar(
+                        chat: _chat,
+                        onRecent: _pickChat,
+                      ),
+                    if (_chat.hint != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Text(
+                          switch (_chat.hint!) {
+                            AskHint.busy => l.askBusy,
+                            AskHint.expired => l.askExpired,
+                            AskHint.notFound => l.askChatGone,
+                            AskHint.loadFailed => l.historyLoadFailed,
+                          },
+                          style: TextStyle(fontSize: 12, color: pb.warnText),
+                        ),
+                      ),
+                    if (limitReached)
+                      _LimitBanner(
+                        text: l.askLimitReached(
+                          _chat.limit ?? _chat.count ?? 0,
+                        ),
+                        onNew: _chat.newChat,
+                      ),
                     _ScopeButton(
                       summary: context.l.scopeSummary(
                         _includePersonal,
@@ -291,12 +340,23 @@ class _AskScreenState extends State<AskScreen> {
                         Expanded(
                           child: TextField(
                             controller: _input,
+                            enabled: !limitReached,
+                            inputFormatters:
+                                historyOn && (status?.questionMaxChars ?? 0) > 0
+                                ? [
+                                    LengthLimitingTextInputFormatter(
+                                      status!.questionMaxChars,
+                                    ),
+                                  ]
+                                : null,
                             minLines: 1,
                             maxLines: 5,
                             textInputAction: TextInputAction.send,
                             onSubmitted: (_) => _ask(),
                             decoration: InputDecoration(
-                              hintText: context.l.askPlaceholder,
+                              hintText: limitReached
+                                  ? l.askLimitHint
+                                  : l.askPlaceholder,
                               filled: false,
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
@@ -315,9 +375,7 @@ class _AskScreenState extends State<AskScreen> {
                             listenable: _input,
                             builder: (context, _) {
                               final canSend =
-                                  _input.text.trim().isNotEmpty &&
-                                  !_streaming &&
-                                  !_scopeEmpty;
+                                  _input.text.trim().isNotEmpty && !_blocked;
                               return IconButton.filled(
                                 onPressed: canSend ? _ask : null,
                                 tooltip: context.l.askTooltip,
@@ -697,10 +755,18 @@ class _ScopeChecklistState extends State<_ScopeChecklist> {
 /// Tapping a ⚡n marker in the answer scrolls to and flashes source chip n.
 @visibleForTesting
 class AskTurnView extends StatefulWidget {
-  const AskTurnView(this.turn, {super.key, required this.onBlink});
+  const AskTurnView(
+    this.turn, {
+    super.key,
+    required this.onBlink,
+    this.onAskAgain,
+  });
 
   final AskTurn turn;
   final void Function(List<Citation> all, Citation c) onBlink;
+
+  /// "Ask again" on a cut-off answer: puts the question back in the input.
+  final ValueChanged<String>? onAskAgain;
 
   @override
   State<AskTurnView> createState() => _AskTurnViewState();
@@ -1051,6 +1117,28 @@ class _AskTurnViewState extends State<AskTurnView>
               ),
             ),
           ),
+        if (turn.pending)
+          const Padding(
+            padding: EdgeInsets.all(8),
+            child: LinearProgressIndicator(),
+          ),
+        if (turn.cutOff)
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            children: [
+              Icon(AppIcons.warning, size: 16, color: pb.warnText),
+              Text(
+                l.askInterrupted,
+                style: TextStyle(fontSize: 13, color: pb.warnText),
+              ),
+              if (widget.onAskAgain != null)
+                TextButton(
+                  onPressed: () => widget.onAskAgain!(turn.question),
+                  child: Text(l.askAskAgain),
+                ),
+            ],
+          ),
         if (turn.error != null)
           Text(turn.error!, style: TextStyle(color: colors.error)),
         const SizedBox(height: 24),
@@ -1162,6 +1250,245 @@ class _SuggestionCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The "kept on the server" notice, shown once until closed.
+class _HistoryNotice extends StatelessWidget {
+  const _HistoryNotice({required this.text, required this.onClose});
+
+  final String text;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: pb.chipBg,
+        border: Border.all(color: pb.hairline),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.info, size: 16, color: pb.inkMuted),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 12, color: pb.inkMuted),
+            ),
+          ),
+          IconButton(
+            tooltip: context.l.dismiss,
+            visualDensity: VisualDensity.compact,
+            iconSize: 18,
+            onPressed: onClose,
+            icon: const Icon(AppIcons.close),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// `[Question 3/10]  [Recent conversations v]  [New conversation +]`
+class _ChatBar extends StatelessWidget {
+  const _ChatBar({required this.chat, required this.onRecent});
+
+  final AskChat chat;
+  final VoidCallback onRecent;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pb = context.pb;
+    final n = chat.count, m = chat.limit ?? chat.status?.questionLimit;
+    final close = chat.level >= 1;
+    final reached = chat.level >= 2;
+    final color = close ? pb.warnText : pb.inkMuted;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (n != null && m != null && n >= 1)
+            Semantics(
+              label: l.askCountLabel(n, m),
+              excludeSemantics: true,
+              child: Container(
+                key: const ValueKey('ask-count'),
+                constraints: const BoxConstraints(minHeight: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: close ? pb.warnContainer : Colors.transparent,
+                  border: Border.all(
+                    color: close ? pb.warnBorder : pb.hairline,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (close) ...[
+                      Icon(AppIcons.warning, size: 16, color: color),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        l.askCount(n, m) +
+                            (close && !reached
+                                ? ' · ${l.askCountLeft(m - n)}'
+                                : ''),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: color,
+                          fontWeight: close ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ActionChip(
+            key: const ValueKey('ask-recent'),
+            avatar: const Icon(AppIcons.expand, size: 18),
+            label: Text(l.recentChats),
+            onPressed: onRecent,
+          ),
+          ActionChip(
+            key: const ValueKey('ask-new-chat'),
+            avatar: const Icon(AppIcons.add, size: 18),
+            label: Text(l.newConversation),
+            tooltip: l.newConversation,
+            onPressed: chat.turns.isEmpty && chat.sessionId == 0
+                ? null
+                : chat.newChat,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when the conversation holds its last question.
+class _LimitBanner extends StatelessWidget {
+  const _LimitBanner({required this.text, required this.onNew});
+
+  final String text;
+  final VoidCallback onNew;
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    return Container(
+      key: const ValueKey('ask-limit-banner'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: pb.warnContainer,
+        border: Border.all(color: pb.warnBorder),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Icon(AppIcons.warning, size: 18, color: pb.warnText),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, color: pb.warnText),
+            ),
+          ),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: onNew,
+            child: Text(context.l.newConversation),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The recent conversations sheet / dialog. Repaints when the list changes.
+class _RecentChats extends StatelessWidget {
+  const _RecentChats({required this.chat, required this.onPick});
+
+  final AskChat chat;
+  final ValueChanged<int> onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pb = context.pb;
+    final text = Theme.of(context).textTheme;
+    return ListenableBuilder(
+      listenable: chat,
+      builder: (context, _) {
+        final minutes = chat.status?.visibleMinutes ?? 0;
+        final now = DateTime.now().toUtc();
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+                child: Text(l.recentChats, style: text.titleMedium),
+              ),
+              if (chat.recent.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                  child: Text(
+                    l.recentChatsEmpty(minutes),
+                    style: text.bodyMedium?.copyWith(color: pb.inkMuted),
+                  ),
+                ),
+              for (final s in chat.recent)
+                ListTile(
+                  key: ValueKey('recent-${s.id}'),
+                  selected: s.id == chat.sessionId,
+                  title: Text(
+                    s.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    [
+                      if (s.id == chat.sessionId) l.currentChat,
+                      l.chatMeta(
+                        s.questionCount,
+                        now.difference(s.lastActiveAt.toUtc()).inMinutes,
+                      ),
+                    ].join(' · '),
+                  ),
+                  onTap: () => onPick(s.id),
+                  trailing: IconButton(
+                    tooltip: l.removeFromList,
+                    icon: const Icon(AppIcons.delete),
+                    onPressed: () => chat.hideSession(s.id),
+                  ),
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+                child: Text(
+                  l.recentChatsNote(minutes),
+                  style: text.bodySmall?.copyWith(color: pb.inkMuted),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

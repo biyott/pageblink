@@ -1,6 +1,12 @@
-### One event in a streamed answer. type: token | citation | model | done | error
+### One event in a streamed answer.
+### type: session | token | citation | model | done | error
+### (`session` comes first when history is on; older apps ignore it.)
 class: AnswerEvent
 fields:
   type: String
   text: String?
   citation: Citation?
+  ### session event: the conversation id and its counter.
+  sessionId: int?
+  questionCount: int?
+  questionLimit: int?

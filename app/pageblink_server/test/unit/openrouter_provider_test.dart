@@ -324,4 +324,50 @@ void main() {
       expect(events.whereType<LlmText>().single.text, 'answer');
     });
   });
+
+  test(
+    'earlier turns are separate user/assistant messages, after the system',
+    () async {
+      late Map<String, dynamic> sent;
+      final client = MockClient.streaming((request, body) async {
+        sent =
+            jsonDecode(await utf8.decodeStream(body)) as Map<String, dynamic>;
+        return http.StreamedResponse(
+          Stream.value(utf8.encode('${_chunk('ok')}data: [DONE]\n\n')),
+          200,
+        );
+      });
+      final provider = OpenRouterLlmProvider('k', client: client);
+      await provider
+          .answer(
+            'and its date?',
+            [SourcePassage(title: 'a', text: 'x')],
+            history: const [ChatTurn('What is the budget?', '12M')],
+          )
+          .toList();
+      final messages = (sent['messages'] as List).cast<Map<String, dynamic>>();
+      expect(messages.map((m) => m['role']), [
+        'system',
+        'user',
+        'assistant',
+        'user',
+      ]);
+      expect(
+        messages[0]['content'],
+        contains(OpenRouterLlmProvider.historyNote),
+      );
+      expect(messages[1]['content'], 'What is the budget?');
+      expect(messages[2]['content'], '12M');
+      expect(messages[3]['content'], contains('Question: and its date?'));
+      expect(messages[3]['content'], contains('Sources:'));
+
+      // no history: exactly the old request
+      await provider.answer('q', [
+        SourcePassage(title: 'a', text: 'x'),
+      ]).toList();
+      final plain = (sent['messages'] as List).cast<Map<String, dynamic>>();
+      expect(plain.map((m) => m['role']), ['system', 'user']);
+      expect(plain[0]['content'], OpenRouterLlmProvider.systemPrompt);
+    },
+  );
 }

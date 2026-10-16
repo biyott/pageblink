@@ -151,4 +151,48 @@ void main() {
     );
     expect(system, contains('Answer in the language of the question'));
   });
+
+  test(
+    'earlier turns are text-only; documents only on the current message',
+    () async {
+      late Map<String, dynamic> sent;
+      final client = MockClient.streaming((request, bodyStream) async {
+        sent =
+            jsonDecode(await utf8.decodeStream(bodyStream))
+                as Map<String, dynamic>;
+        final body = _sse([
+          {
+            'type': 'message_delta',
+            'delta': {'stop_reason': 'end_turn'},
+          },
+        ]);
+        return http.StreamedResponse(Stream.value(utf8.encode(body)), 200);
+      });
+      final provider = ClaudeLlmProvider('k', client: client);
+      await provider
+          .answer(
+            'and its date?',
+            [SourcePassage(title: 'a', text: 'x')],
+            history: const [ChatTurn('What is the budget?', '12M')],
+          )
+          .toList();
+      final messages = (sent['messages'] as List).cast<Map<String, dynamic>>();
+      expect(messages.map((m) => m['role']), ['user', 'assistant', 'user']);
+      expect(messages[0]['content'], 'What is the budget?');
+      expect(messages[1]['content'], '12M');
+      final current = messages[2]['content'] as List;
+      expect(current.first['type'], 'document');
+      final system = (sent['system'] as List).single as Map<String, dynamic>;
+      expect(system['text'], contains(ClaudeLlmProvider.historyNote));
+
+      await provider.answer('q', [
+        SourcePassage(title: 'a', text: 'x'),
+      ]).toList();
+      expect((sent['messages'] as List), hasLength(1));
+      expect(
+        ((sent['system'] as List).single as Map)['text'],
+        ClaudeLlmProvider.systemPrompt,
+      );
+    },
+  );
 }

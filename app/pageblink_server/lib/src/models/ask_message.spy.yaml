@@ -1,0 +1,30 @@
+### One question and its answer inside an AskSession. Server only.
+class: AskMessage
+table: ask_message
+serverOnly: true
+fields:
+  sessionId: int, relation(parent=ask_session, onDelete=Cascade)
+  ### 1-based position in the conversation.
+  seq: int
+  question: String
+  ### The answer exactly as streamed, [n] markers included.
+  answer: String, default=''
+  ### streaming | done | error | interrupted
+  status: String
+  ### Short code only (busy, llm, internal). Never an exception message.
+  errorCode: String?
+  citations: List<Citation>?
+  ### The model that actually answered.
+  modelId: String?
+  ### The answer came from another model than the one asked for.
+  fallback: bool, default=false
+  ### Scope the question was asked with (after the membership intersection).
+  projectIds: List<int>?
+  includePersonal: bool, default=true
+  createdAt: DateTime
+  ### Last checkpoint while streaming, then the finish time.
+  updatedAt: DateTime
+indexes:
+  ask_message_session_seq_idx:
+    fields: sessionId, seq
+    unique: true

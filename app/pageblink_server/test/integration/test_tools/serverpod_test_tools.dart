@@ -14,6 +14,15 @@
 import 'dart:async' as _ida;
 import 'dart:io' as _idi;
 import 'package:pageblink_server/src/generated/answer_event.dart' as _i16h3xsg;
+import 'package:pageblink_server/src/generated/ask_admin_filter.dart'
+    as _i72aracs;
+import 'package:pageblink_server/src/generated/ask_admin_page.dart'
+    as _iyw8g3ru;
+import 'package:pageblink_server/src/generated/ask_history_status.dart'
+    as _idwkcjld;
+import 'package:pageblink_server/src/generated/ask_restore.dart' as _ibsn9t0i;
+import 'package:pageblink_server/src/generated/ask_session_view.dart'
+    as _ig1qdyci;
 import 'package:pageblink_server/src/generated/demo_status.dart' as _ikzdgfd1;
 import 'package:pageblink_server/src/generated/document.dart' as _iloq337r;
 import 'package:pageblink_server/src/generated/greetings/greeting.dart'
@@ -169,7 +178,11 @@ class TestEndpoints {
 
   late final _GreetingEndpoint greeting;
 
+  late final _AskAdminEndpoint askAdmin;
+
   late final _AskEndpoint ask;
+
+  late final _AskHistoryEndpoint askHistory;
 
   late final _DocumentEndpoint document;
 
@@ -201,7 +214,15 @@ class _InternalTestEndpoints extends TestEndpoints
       endpoints,
       serializationManager,
     );
+    askAdmin = _AskAdminEndpoint(
+      endpoints,
+      serializationManager,
+    );
     ask = _AskEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    askHistory = _AskHistoryEndpoint(
       endpoints,
       serializationManager,
     );
@@ -652,6 +673,48 @@ class _GreetingEndpoint {
   }
 }
 
+class _AskAdminEndpoint {
+  _AskAdminEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_iyw8g3ru.AskAdminPage> listSessions(
+    _ist.TestSessionBuilder sessionBuilder,
+    _i72aracs.AskAdminFilter filter,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'askAdmin',
+            method: 'listSessions',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'askAdmin',
+          methodName: 'listSessions',
+          parameters: _ist.testObjectToJson({'filter': filter}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iyw8g3ru.AskAdminPage>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
 class _AskEndpoint {
   _AskEndpoint(
     this._endpointDispatch,
@@ -669,6 +732,8 @@ class _AskEndpoint {
     bool includePersonal,
     String? modelId, [
     String? locale,
+    int? sessionId,
+    String? visitorKey,
   ]) {
     var _localTestStreamManager =
         _ist.TestStreamManager<_i16h3xsg.AnswerEvent>();
@@ -690,6 +755,8 @@ class _AskEndpoint {
                 'includePersonal': includePersonal,
                 'modelId': modelId,
                 'locale': locale,
+                'sessionId': sessionId,
+                'visitorKey': visitorKey,
               },
               requestedInputStreams: [],
               serializationManager: _serializationManager,
@@ -703,6 +770,148 @@ class _AskEndpoint {
       _localTestStreamManager.outputStreamController,
     );
     return _localTestStreamManager.outputStreamController.stream;
+  }
+}
+
+class _AskHistoryEndpoint {
+  _AskHistoryEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_idwkcjld.AskHistoryStatus> historyStatus(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'askHistory',
+            method: 'historyStatus',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'askHistory',
+          methodName: 'historyStatus',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_idwkcjld.AskHistoryStatus>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ibsn9t0i.AskRestore> restore(
+    _ist.TestSessionBuilder sessionBuilder, [
+    String? visitorKey,
+  ]) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'askHistory',
+            method: 'restore',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'askHistory',
+          methodName: 'restore',
+          parameters: _ist.testObjectToJson({'visitorKey': visitorKey}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ibsn9t0i.AskRestore>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_ig1qdyci.AskSessionView?> open(
+    _ist.TestSessionBuilder sessionBuilder,
+    int sessionId, [
+    String? visitorKey,
+  ]) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'askHistory',
+            method: 'open',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'askHistory',
+          methodName: 'open',
+          parameters: _ist.testObjectToJson({
+            'sessionId': sessionId,
+            'visitorKey': visitorKey,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ig1qdyci.AskSessionView?>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<void> hide(
+    _ist.TestSessionBuilder sessionBuilder,
+    int sessionId, [
+    String? visitorKey,
+  ]) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'askHistory',
+            method: 'hide',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'askHistory',
+          methodName: 'hide',
+          parameters: _ist.testObjectToJson({
+            'sessionId': sessionId,
+            'visitorKey': visitorKey,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<void>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
   }
 }
 

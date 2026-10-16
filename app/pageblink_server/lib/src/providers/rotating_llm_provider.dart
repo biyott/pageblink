@@ -55,7 +55,11 @@ class RotatingLlmProvider implements LlmProvider {
   final DailyCounter? paidCounter;
 
   @override
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) async* {
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) async* {
     final free = isFree;
     final chosen = modelIds.isEmpty ? null : modelIds.first;
     // Peeking only: the use is taken when the first paid model is reached.
@@ -95,7 +99,9 @@ class RotatingLlmProvider implements LlmProvider {
         }
       }
       var started = false;
-      final it = StreamIterator(providerFor(modelId).answer(question, sources));
+      final it = StreamIterator(
+        providerFor(modelId).answer(question, sources, history: history),
+      );
       final clock = Stopwatch()..start();
       try {
         while (true) {

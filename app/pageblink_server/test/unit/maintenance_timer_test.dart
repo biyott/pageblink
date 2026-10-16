@@ -74,7 +74,7 @@ void main() {
       expect(
         MaintenanceTimer.startLine(),
         'maintenance: timer started jobs=demo-tokens,auth-tokens,'
-        'demo-documents interval=5m',
+        'demo-documents,ask-history interval=5m',
       );
     });
 
@@ -147,6 +147,7 @@ void main() {
         'demo-tokens': const Duration(minutes: 5),
         'auth-tokens': const Duration(hours: 1),
         'demo-documents': const Duration(hours: 1),
+        'ask-history': const Duration(hours: 1),
       },
     );
   });

@@ -1,0 +1,13 @@
+### A stored question and answer, as the app shows it.
+class: AskMessageView
+fields:
+  seq: int
+  question: String
+  answer: String
+  ### streaming | done | error | interrupted
+  status: String
+  errorCode: String?
+  citations: List<Citation>
+  modelId: String?
+  fallback: bool, default=false
+  createdAt: DateTime

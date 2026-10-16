@@ -56,8 +56,18 @@ class OpenRouterLlmProvider implements LlmProvider {
       'If the sources do not contain the answer, say that it was not found in the documents '
       'instead of guessing. Answer in the language of the question, concisely, using Markdown.';
 
+  /// Added to the system prompt when earlier turns are sent.
+  static const historyNote =
+      'Earlier turns are only for resolving references such as "it" or "the previous one". '
+      'Answer from the numbered sources of the current question; the [n] numbers '
+      'refer only to the current sources.';
+
   @override
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) async* {
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) async* {
     final context = StringBuffer();
     for (var i = 0; i < sources.length; i++) {
       final s = sources[i];
@@ -86,7 +96,16 @@ class OpenRouterLlmProvider implements LlmProvider {
         if (denyDataCollection) 'provider': {'data_collection': 'deny'},
         if (reasoning != null) 'reasoning': reasoning,
         'messages': [
-          {'role': 'system', 'content': systemPrompt},
+          {
+            'role': 'system',
+            'content': history.isEmpty
+                ? systemPrompt
+                : '$systemPrompt $historyNote',
+          },
+          for (final t in history) ...[
+            {'role': 'user', 'content': t.question},
+            {'role': 'assistant', 'content': t.answer},
+          ],
           {
             'role': 'user',
             'content': 'Sources:\n\n$context\nQuestion: $question',

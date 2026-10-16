@@ -10,11 +10,14 @@ class GeminiLlmProvider implements LlmProvider {
   final String model;
 
   @override
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) =>
-      Stream.error(
-        LlmException(
-          'Gemini direct provider is not implemented yet',
-          retryable: true,
-        ),
-      );
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) => Stream.error(
+    LlmException(
+      'Gemini direct provider is not implemented yet',
+      retryable: true,
+    ),
+  );
 }

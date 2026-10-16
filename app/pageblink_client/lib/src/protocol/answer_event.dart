@@ -14,19 +14,27 @@ import 'package:pageblink_client/src/protocol/protocol.dart' as _igm2snhz;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'citation.dart' as _i7jy3rkv;
 
-/// One event in a streamed answer. type: token | citation | model | done | error
+/// One event in a streamed answer.
+/// type: session | token | citation | model | done | error
+/// (`session` comes first when history is on; older apps ignore it.)
 abstract class AnswerEvent
     implements _isc.SerializableModel, _isc.ProtocolSerialization {
   AnswerEvent._({
     required this.type,
     this.text,
     this.citation,
+    this.sessionId,
+    this.questionCount,
+    this.questionLimit,
   });
 
   factory AnswerEvent({
     required String type,
     String? text,
     _i7jy3rkv.Citation? citation,
+    int? sessionId,
+    int? questionCount,
+    int? questionLimit,
   }) = _AnswerEventImpl;
 
   factory AnswerEvent.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -38,6 +46,9 @@ abstract class AnswerEvent
           : _igm2snhz.Protocol().deserialize<_i7jy3rkv.Citation>(
               jsonSerialization['citation'],
             ),
+      sessionId: jsonSerialization['sessionId'] as int?,
+      questionCount: jsonSerialization['questionCount'] as int?,
+      questionLimit: jsonSerialization['questionLimit'] as int?,
     );
   }
 
@@ -47,6 +58,13 @@ abstract class AnswerEvent
 
   _i7jy3rkv.Citation? citation;
 
+  /// session event: the conversation id and its counter.
+  int? sessionId;
+
+  int? questionCount;
+
+  int? questionLimit;
+
   /// Returns a shallow copy of this [AnswerEvent]
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
@@ -54,6 +72,9 @@ abstract class AnswerEvent
     String? type,
     String? text,
     _i7jy3rkv.Citation? citation,
+    int? sessionId,
+    int? questionCount,
+    int? questionLimit,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -62,6 +83,9 @@ abstract class AnswerEvent
       'type': type,
       if (text != null) 'text': text,
       if (citation != null) 'citation': citation?.toJson(),
+      if (sessionId != null) 'sessionId': sessionId,
+      if (questionCount != null) 'questionCount': questionCount,
+      if (questionLimit != null) 'questionLimit': questionLimit,
     };
   }
 
@@ -72,6 +96,9 @@ abstract class AnswerEvent
       'type': type,
       if (text != null) 'text': text,
       if (citation != null) 'citation': citation?.toJsonForProtocol(),
+      if (sessionId != null) 'sessionId': sessionId,
+      if (questionCount != null) 'questionCount': questionCount,
+      if (questionLimit != null) 'questionLimit': questionLimit,
     };
   }
 
@@ -88,10 +115,16 @@ class _AnswerEventImpl extends AnswerEvent {
     required String type,
     String? text,
     _i7jy3rkv.Citation? citation,
+    int? sessionId,
+    int? questionCount,
+    int? questionLimit,
   }) : super._(
          type: type,
          text: text,
          citation: citation,
+         sessionId: sessionId,
+         questionCount: questionCount,
+         questionLimit: questionLimit,
        );
 
   /// Returns a shallow copy of this [AnswerEvent]
@@ -102,6 +135,9 @@ class _AnswerEventImpl extends AnswerEvent {
     String? type,
     Object? text = _Undefined,
     Object? citation = _Undefined,
+    Object? sessionId = _Undefined,
+    Object? questionCount = _Undefined,
+    Object? questionLimit = _Undefined,
   }) {
     return AnswerEvent(
       type: type ?? this.type,
@@ -109,6 +145,9 @@ class _AnswerEventImpl extends AnswerEvent {
       citation: citation is _i7jy3rkv.Citation?
           ? citation
           : this.citation?.copyWith(),
+      sessionId: sessionId is int? ? sessionId : this.sessionId,
+      questionCount: questionCount is int? ? questionCount : this.questionCount,
+      questionLimit: questionLimit is int? ? questionLimit : this.questionLimit,
     );
   }
 }

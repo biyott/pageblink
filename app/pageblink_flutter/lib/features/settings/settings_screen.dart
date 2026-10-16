@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:pageblink_client/pageblink_client.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../../app/l10n.dart';
@@ -6,8 +8,18 @@ import '../../app/locale_controller.dart';
 import '../../app/pane_header.dart';
 import '../../client.dart';
 import '../../app/app_icons.dart';
+import '../../app/theme.dart';
+import '../ask/ask_chat.dart' show historyStatus;
+import 'admin_history_screen.dart';
 
-/// Language preference and sign-out. Opens like a note: in the center pane
+/// Test hook: the signed-in user's id (null = not signed in).
+@visibleForTesting
+String? Function()? accountIdCall;
+
+String? _accountId() =>
+    (accountIdCall ?? () => client.auth.authInfo?.authUserId.toString())();
+
+/// Language preference, account id, conversation history and sign-out. Opens like a note: in the center pane
 /// ([embedded]) or as a page on phones.
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -69,6 +81,50 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const Divider(height: 32),
+              if (_accountId() case final id?)
+                ListTile(
+                  leading: const Icon(AppIcons.copy),
+                  title: Text(l.copyAccountId),
+                  onTap: () async {
+                    await Clipboard.setData(ClipboardData(text: id));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(l.accountIdCopied)),
+                      );
+                    }
+                  },
+                ),
+              ValueListenableBuilder<AskHistoryStatus?>(
+                valueListenable: historyStatus,
+                builder: (context, status, _) {
+                  if (status == null || !status.enabled) {
+                    return const SizedBox.shrink();
+                  }
+                  return Column(
+                    children: [
+                      if (status.isAdmin)
+                        ListTile(
+                          leading: const Icon(AppIcons.ask),
+                          title: Text(l.adminHistory),
+                          trailing: const Icon(AppIcons.next),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const AdminHistoryPage(),
+                            ),
+                          ),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                        child: Text(
+                          l.historyNotice(status.retentionDays),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: context.pb.inkMuted),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
               ListTile(
                 leading: const Icon(AppIcons.signOut),
                 title: Text(l.signOut),

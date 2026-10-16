@@ -14,8 +14,15 @@ demo:
   - signIn:
 greeting:
   - hello:
+askAdmin:
+  - listSessions:
 ask:
   - ask:
+askHistory:
+  - historyStatus:
+  - restore:
+  - open:
+  - hide:
 document:
   - upload:
   - saveNote:

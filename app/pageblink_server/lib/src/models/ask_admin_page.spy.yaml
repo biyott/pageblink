@@ -1,0 +1,9 @@
+### One page of the admin conversation list.
+class: AskAdminPage
+fields:
+  items: List<AskAdminSession>
+  ### Cursor for the next page; null on the last page.
+  nextBeforeActiveAt: DateTime?
+  nextBeforeId: int?
+  ### Over the whole filtered range, not only this page.
+  models: List<AskModelStat>

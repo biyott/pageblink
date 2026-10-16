@@ -9,6 +9,8 @@ import 'app/locale_controller.dart';
 import 'app/open_item_controller.dart';
 import 'app/theme.dart';
 import 'client.dart';
+import 'features/ask/ask_chat.dart'
+    show ensureHistoryStatus, resetHistoryStatus;
 import 'features/ask/ask_screen.dart';
 import 'features/ask/ask_suggestions.dart';
 import 'features/documents/documents_screen.dart';
@@ -109,6 +111,9 @@ class _HomeShellState extends State<HomeShell> {
     // changes the count (note save/delete, PDF added all bump boardRefresh).
     resetDemoStatus();
     refreshDemoStatus();
+    // Ask history: off (and all its UI hidden) unless the server says so.
+    resetHistoryStatus();
+    ensureHistoryStatus();
     boardRefresh.addListener(refreshDemoStatus);
     // Example questions follow the sample note's state (ready, edited,
     // deleted: all bump boardRefresh).

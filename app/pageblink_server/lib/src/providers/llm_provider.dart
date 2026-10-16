@@ -68,9 +68,23 @@ class LlmBusyException extends LlmException {
   LlmBusyException(super.message);
 }
 
+/// An earlier question and the start of its answer in the same conversation.
+/// Only for resolving references ("it", "the previous one"): the answer
+/// comes from the sources of the current question.
+class ChatTurn {
+  const ChatTurn(this.question, this.answer);
+  final String question;
+  final String answer;
+}
+
 /// Streams grounded answers. Implementations are swappable (ADR 004).
+/// [history] is oldest first; empty for a first question.
 abstract class LlmProvider {
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources);
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  });
 }
 
 /// Claude Messages API over raw HTTP + SSE (no official Dart SDK).
@@ -103,6 +117,11 @@ class ClaudeLlmProvider implements LlmProvider {
       'If the documents do not contain the answer, say that it was not found in the documents '
       'instead of guessing. Answer in the language of the question, concisely, using Markdown.';
 
+  /// Added to the system prompt when earlier turns are sent.
+  static const historyNote =
+      'Earlier turns are only for resolving references such as "it" or "the previous one". '
+      'Answer from the documents of the current question.';
+
   /// The document block's `context`: the large unit, or a pointer to the
   /// earlier document that holds it.
   static String? _contextOf(SourcePassage s) =>
@@ -110,7 +129,11 @@ class ClaudeLlmProvider implements LlmProvider {
       (s.contextOf == null ? null : 'Same section as document ${s.contextOf}.');
 
   @override
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) async* {
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) async* {
     final request = http.Request('POST', _endpoint)
       ..headers.addAll({
         'x-api-key': _apiKey,
@@ -128,11 +151,19 @@ class ClaudeLlmProvider implements LlmProvider {
         'system': [
           {
             'type': 'text',
-            'text': systemPrompt,
+            'text': history.isEmpty
+                ? systemPrompt
+                : '$systemPrompt $historyNote',
             'cache_control': {'type': 'ephemeral'},
           },
         ],
         'messages': [
+          // Earlier turns are plain text; only the current user message
+          // carries the documents.
+          for (final t in history) ...[
+            {'role': 'user', 'content': t.question},
+            {'role': 'assistant', 'content': t.answer},
+          ],
           {
             'role': 'user',
             'content': [

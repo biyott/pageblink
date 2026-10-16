@@ -8,6 +8,8 @@ import 'package:serverpod_auth_idp_server/core.dart';
 import '../demo/demo_config.dart';
 import '../demo/demo_guard.dart';
 import '../demo/demo_user.dart';
+import 'ask_config.dart';
+import 'ask_history_store.dart';
 import 'chunk_migration.dart' show SessionScope;
 
 /// One periodic cleanup. [every] is a lower bound: the timer ticks every
@@ -24,7 +26,7 @@ class MaintenanceJob {
 /// calls are not available on the current plan). Every job is idempotent
 /// (deletes only), so several instances may run it at the same time.
 ///
-/// Add future cleanups (e.g. Ask history) to [jobs]. A failing job is logged
+/// Add future cleanups to [jobs]. A failing job is logged
 /// without any user content and retried on the next tick; it never stops the
 /// others or the timer.
 class MaintenanceTimer {
@@ -67,7 +69,21 @@ class MaintenanceTimer {
     },
   );
 
-  static final jobs = <MaintenanceJob>[demoTokens, authTokens, demoDocuments];
+  /// Ask conversations past their keeping time (30 days, demo 7). Runs while
+  /// history is off too: what was stored before still has to age out. The
+  /// session logs nothing (the SQL would carry user text).
+  static final askHistory = MaintenanceJob(
+    'ask-history',
+    const Duration(hours: 1),
+    (s) => AskStore.run(s, (q) => AskStore.purge(q, AskConfig.of(q))),
+  );
+
+  static final jobs = <MaintenanceJob>[
+    demoTokens,
+    authTokens,
+    demoDocuments,
+    askHistory,
+  ];
 
   static Timer? _first;
   static Timer? _periodic;

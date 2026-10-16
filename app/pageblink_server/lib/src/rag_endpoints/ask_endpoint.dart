@@ -3,11 +3,15 @@ import 'package:serverpod/serverpod.dart';
 import '../generated/protocol.dart';
 import '../providers/embedding_provider.dart';
 import '../providers/llm_provider.dart';
+import '../rag/chat_context.dart';
 import '../rag/citation_infer.dart';
 import '../rag/context_builder.dart';
 import '../rag/embedding_spec.dart';
 import '../demo/demo_guard.dart';
 import '../services/acl.dart';
+import '../services/ask_config.dart';
+import '../services/ask_history_store.dart';
+import '../services/llm_catalog.dart';
 import '../services/rag_services.dart';
 
 /// Retrieval + generation in one streaming call (Phase 0).
@@ -21,6 +25,12 @@ class AskEndpoint extends Endpoint {
 
   /// Streams an answer to [question] over the user's personal documents and
   /// the requested projects they are a member of.
+  ///
+  /// With Ask history on (`ASK_HISTORY_ENABLED`, design 030) the question and
+  /// answer are stored, [sessionId] picks the conversation (0 = new, null =
+  /// an app that does not know conversations: recorded hidden, outside the
+  /// limits) and the first event is `session`. Off, nothing changes.
+  /// [visitorKey] tells demo visitors apart; other users' is ignored.
   Stream<AnswerEvent> ask(
     Session session,
     String question,
@@ -28,11 +38,189 @@ class AskEndpoint extends Endpoint {
     bool includePersonal,
     String? modelId, [
     String? locale,
+    int? sessionId,
+    String? visitorKey,
   ]) async* {
     final userId = Acl.requireUser(session);
-    // Throws DemoLimitException(askLimit): arrives as a stream error.
-    DemoGuard.consumeAsk(session, userId);
+    final cfg = AskConfig.of(session);
     final ko = locale == 'ko';
+    if (!cfg.enabled) {
+      // Throws DemoLimitException(askLimit): arrives as a stream error.
+      DemoGuard.consumeAsk(session, userId);
+      yield* _answer(
+        session,
+        userId,
+        question,
+        question,
+        projectIds,
+        includePersonal,
+        modelId,
+        ko,
+        _Run(),
+      );
+      return;
+    }
+
+    final text = capQuestion(question, cfg.questionMax);
+    final ctx = AskStore.ctx(userId, visitorKey);
+    // The rules first: a refused question must not use up a demo question.
+    // Anything else that goes wrong with the history only costs the history.
+    AskPlan? plan;
+    if (ctx.ok) {
+      try {
+        plan = await AskStore.run(
+          session,
+          (s) => AskStore.plan(s, ctx, sessionId, cfg),
+        );
+      } on AskLimitException {
+        rethrow;
+      } catch (e) {
+        AskStore.warn('read', e);
+      }
+    }
+    DemoGuard.consumeAsk(session, userId);
+    AskHandle? handle;
+    if (plan != null) {
+      try {
+        handle = await AskStore.run(
+          session,
+          (s) => AskStore.begin(
+            s,
+            ctx,
+            plan!,
+            cfg,
+            question: text,
+            locale: locale,
+            projectIds: projectIds,
+            includePersonal: includePersonal,
+          ),
+        );
+      } on AskLimitException {
+        rethrow;
+      } catch (e) {
+        AskStore.warn('write', e);
+      }
+    }
+    if (handle != null && !handle.legacy) {
+      yield AnswerEvent(
+        type: 'session',
+        sessionId: handle.sessionId,
+        questionCount: handle.count,
+        questionLimit: cfg.maxQuestions,
+      );
+    }
+
+    // Earlier finished turns of this conversation (never for a legacy app).
+    final past = handle == null || handle.legacy
+        ? const <AskMessage>[]
+        : plan!.past;
+    final run = _Run(
+      past: [for (final m in past) ChatTurn(m.question, m.answer)],
+      cfg: cfg,
+    );
+    final chosen =
+        modelId ?? session.passwords['llmModel'] ?? LlmCatalog.defaultModelId;
+    var status = 'interrupted';
+    String? errorCode;
+    var lastSaved = DateTime.now();
+    try {
+      await for (final e in _answer(
+        session,
+        userId,
+        text,
+        searchQuery(
+          text,
+          past.isEmpty ? null : past.last.question,
+          cfg.queryJoin,
+        ),
+        projectIds,
+        includePersonal,
+        modelId,
+        ko,
+        run,
+      )) {
+        switch (e.type) {
+          case 'token':
+            run.answer.write(e.text ?? '');
+          case 'citation':
+            if (e.citation != null) run.citations.add(e.citation!);
+          case 'model':
+            run.modelId = e.text;
+          case 'done':
+            status = 'done';
+          case 'error':
+            status = 'error';
+            errorCode = run.errorCode ?? 'internal';
+        }
+        yield e;
+        if (handle != null &&
+            status == 'interrupted' &&
+            DateTime.now().difference(lastSaved) >= _checkpointEvery) {
+          lastSaved = DateTime.now();
+          try {
+            await AskStore.run(
+              session,
+              (s) => AskStore.checkpoint(
+                s,
+                handle!,
+                answer: run.answer.toString(),
+                citations: run.citations,
+                modelId: run.modelId,
+                fallback: run.modelId != null && run.modelId != chosen,
+              ),
+            );
+          } catch (err) {
+            AskStore.warn('checkpoint', err);
+          }
+        }
+      }
+    } catch (_) {
+      status = 'error';
+      errorCode = 'internal';
+      rethrow;
+    } finally {
+      // Also runs when the app disconnects mid-answer (status stays
+      // `interrupted`). Awaited, on a session of its own: the request's may
+      // already be closed.
+      if (handle != null) {
+        try {
+          await AskStore.run(
+            session,
+            (s) => AskStore.finish(
+              s,
+              handle!,
+              status: status,
+              answer: run.answer.toString(),
+              citations: run.citations,
+              modelId: run.modelId,
+              fallback: run.modelId != null && run.modelId != chosen,
+              errorCode: errorCode,
+            ),
+          );
+        } catch (err) {
+          AskStore.warn('finish', err);
+        }
+      }
+    }
+  }
+
+  /// How often a partial answer is saved while it streams.
+  static const _checkpointEvery = Duration(seconds: 3);
+
+  /// Retrieval + generation. [query] is what is searched (the question, plus
+  /// the previous one in a conversation); [question] is what the model is
+  /// asked.
+  Stream<AnswerEvent> _answer(
+    Session session,
+    UuidValue userId,
+    String question,
+    String query,
+    List<int> projectIds,
+    bool includePersonal,
+    String? modelId,
+    bool ko,
+    _Run run,
+  ) async* {
     // Intersect with real memberships: client-sent ids are never trusted.
     final allowed = (await Acl.memberProjectIds(
       session,
@@ -53,7 +241,7 @@ class AskEndpoint extends Endpoint {
         final queryVector = Vector(
           (await RagServices.embedding(
             session,
-          ).embed([EmbeddingSpec.query(question)])).single,
+          ).embed([EmbeddingSpec.query(query)])).single,
         );
         hits = await DocChunk.db.find(
           session,
@@ -68,7 +256,7 @@ class AskEndpoint extends Endpoint {
           'Query embedding failed, using keyword fallback: $e',
           level: LogLevel.warning,
         );
-        final terms = question
+        final terms = query
             .split(RegExp(r'[\s,.?!]+'))
             .where((w) => w.length >= 2)
             .take(6)
@@ -86,9 +274,7 @@ class AskEndpoint extends Endpoint {
               );
         yield AnswerEvent(
           type: 'token',
-          text: ko
-              ? '_(의미 검색을 잠시 쓸 수 없어 키워드 검색 결과로 답합니다.)_\n\n'
-              : '_(Semantic search is unavailable right now, so this answer uses keyword matches.)_\n\n',
+          text: ko ? keywordNoticeKo : keywordNoticeEn,
         );
       }
 
@@ -181,10 +367,36 @@ class AskEndpoint extends Endpoint {
         );
       }
 
+      // Earlier turns come after the sources: the sources are never trimmed
+      // for them, the history is (design 030 §4.6).
+      final cfg = run.cfg;
+      final history = cfg == null
+          ? const <ChatTurn>[]
+          : buildHistory(
+              run.past,
+              budget: historyBudget(
+                contextBudget: cfg.contextBudget,
+                promptMax: cfg.promptMax,
+                sourcesChars: sources.fold(
+                  0,
+                  (a, p) =>
+                      a +
+                      p.title.length +
+                      p.text.length +
+                      (p.context?.length ?? 0),
+                ),
+                questionChars: question.length,
+              ),
+              answerChars: cfg.contextAnswer,
+            );
+      if (history.isNotEmpty) {
+        session.log('ask: history turns=${history.length}');
+      }
+
       await for (final event in RagServices.llm(
         session,
         modelId: modelId,
-      ).answer(question, sources)) {
+      ).answer(question, sources, history: history)) {
         switch (event) {
           case LlmText(:final text):
             answerText.write(text);
@@ -229,6 +441,11 @@ class AskEndpoint extends Endpoint {
         exception: e,
         stackTrace: st,
       );
+      run.errorCode = e is LlmBusyException
+          ? 'busy'
+          : e is LlmException
+          ? 'llm'
+          : 'internal';
       yield AnswerEvent(
         type: 'error',
         text: e is LlmBusyException
@@ -241,4 +458,23 @@ class AskEndpoint extends Endpoint {
       );
     }
   }
+}
+
+/// What one question accumulates and is given: the earlier turns and rules
+/// going in, the answer coming out.
+class _Run {
+  _Run({this.past = const [], this.cfg});
+
+  /// Finished earlier turns, oldest first (raw, as stored).
+  final List<ChatTurn> past;
+
+  /// Null when history is off: no earlier turns are built.
+  final AskConfig? cfg;
+
+  final answer = StringBuffer();
+  final citations = <Citation>[];
+  String? modelId;
+
+  /// Short code of the failure, set by the answer when it ends in an error.
+  String? errorCode;
 }

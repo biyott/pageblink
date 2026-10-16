@@ -1,0 +1,7 @@
+### What the Ask screen needs when it opens.
+class: AskRestore
+fields:
+  ### Last activity within the resume window; null starts a new conversation.
+  current: AskSessionView?
+  ### Visible conversations (recent, at most the listed count), newest first.
+  recent: List<AskSessionSummary>

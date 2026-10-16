@@ -1,0 +1,118 @@
+/* AUTOMATICALLY GENERATED CODE DO NOT MODIFY */
+/*   To generate run: "serverpod generate"    */
+
+// ignore_for_file: implementation_imports
+// ignore_for_file: library_private_types_in_public_api
+// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: public_member_api_docs
+// ignore_for_file: type_literal_in_constant_pattern
+// ignore_for_file: use_super_parameters
+// ignore_for_file: invalid_use_of_internal_member
+
+// ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:serverpod_client/serverpod_client.dart' as _isc;
+
+/// One row of the recent-conversations list.
+abstract class AskSessionSummary
+    implements _isc.SerializableModel, _isc.ProtocolSerialization {
+  AskSessionSummary._({
+    required this.id,
+    required this.title,
+    required this.questionCount,
+    required this.lastActiveAt,
+  });
+
+  factory AskSessionSummary({
+    required int id,
+    required String title,
+    required int questionCount,
+    required DateTime lastActiveAt,
+  }) = _AskSessionSummaryImpl;
+
+  factory AskSessionSummary.fromJson(Map<String, dynamic> jsonSerialization) {
+    return AskSessionSummary(
+      id: jsonSerialization['id'] as int,
+      title: jsonSerialization['title'] as String,
+      questionCount: jsonSerialization['questionCount'] as int,
+      lastActiveAt: _isc.DateTimeJsonExtension.fromJson(
+        jsonSerialization['lastActiveAt'],
+      ),
+    );
+  }
+
+  int id;
+
+  String title;
+
+  int questionCount;
+
+  DateTime lastActiveAt;
+
+  /// Returns a shallow copy of this [AskSessionSummary]
+  /// with some or all fields replaced by the given arguments.
+  @_isc.useResult
+  AskSessionSummary copyWith({
+    int? id,
+    String? title,
+    int? questionCount,
+    DateTime? lastActiveAt,
+  });
+  @override
+  Map<String, dynamic> toJson() {
+    return {
+      '__className__': 'AskSessionSummary',
+      'id': id,
+      'title': title,
+      'questionCount': questionCount,
+      'lastActiveAt': lastActiveAt.toJson(),
+    };
+  }
+
+  @override
+  Map<String, dynamic> toJsonForProtocol() {
+    return {
+      '__className__': 'AskSessionSummary',
+      'id': id,
+      'title': title,
+      'questionCount': questionCount,
+      'lastActiveAt': lastActiveAt.toJson(),
+    };
+  }
+
+  @override
+  String toString() {
+    return _isc.SerializationManager.encode(this);
+  }
+}
+
+class _AskSessionSummaryImpl extends AskSessionSummary {
+  _AskSessionSummaryImpl({
+    required int id,
+    required String title,
+    required int questionCount,
+    required DateTime lastActiveAt,
+  }) : super._(
+         id: id,
+         title: title,
+         questionCount: questionCount,
+         lastActiveAt: lastActiveAt,
+       );
+
+  /// Returns a shallow copy of this [AskSessionSummary]
+  /// with some or all fields replaced by the given arguments.
+  @_isc.useResult
+  @override
+  AskSessionSummary copyWith({
+    int? id,
+    String? title,
+    int? questionCount,
+    DateTime? lastActiveAt,
+  }) {
+    return AskSessionSummary(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      questionCount: questionCount ?? this.questionCount,
+      lastActiveAt: lastActiveAt ?? this.lastActiveAt,
+    );
+  }
+}

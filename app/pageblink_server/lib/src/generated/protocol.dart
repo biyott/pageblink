@@ -25,6 +25,19 @@ import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
 import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import 'answer_event.dart' as _iiosvpvg;
+import 'ask_admin_filter.dart' as _iw2qnfnq;
+import 'ask_admin_page.dart' as _is3ts0ul;
+import 'ask_admin_session.dart' as _ioy8iwam;
+import 'ask_history_status.dart' as _irkfr0me;
+import 'ask_limit_exception.dart' as _i7eaw818;
+import 'ask_limit_reason.dart' as _ihtb12es;
+import 'ask_message.dart' as _ipc6xyah;
+import 'ask_message_view.dart' as _ibozmn1p;
+import 'ask_model_stat.dart' as _i8us82b8;
+import 'ask_restore.dart' as _iwpzt5zb;
+import 'ask_session.dart' as _iomvf0vw;
+import 'ask_session_summary.dart' as _ij6hsnla;
+import 'ask_session_view.dart' as _i89or6c7;
 import 'citation.dart' as _i7jy3rkv;
 import 'demo_limit_exception.dart' as _if2i642k;
 import 'demo_limit_reason.dart' as _iyfquffa;
@@ -39,6 +52,19 @@ import 'project.dart' as _ifiazq2p;
 import 'project_member.dart' as _i7o7d07j;
 import 'sample_hint.dart' as _isfemdkk;
 export 'answer_event.dart';
+export 'ask_admin_filter.dart';
+export 'ask_admin_page.dart';
+export 'ask_admin_session.dart';
+export 'ask_history_status.dart';
+export 'ask_limit_exception.dart';
+export 'ask_limit_reason.dart';
+export 'ask_message.dart';
+export 'ask_message_view.dart';
+export 'ask_model_stat.dart';
+export 'ask_restore.dart';
+export 'ask_session.dart';
+export 'ask_session_summary.dart';
+export 'ask_session_view.dart';
 export 'citation.dart';
 export 'demo_limit_exception.dart';
 export 'demo_limit_reason.dart';
@@ -61,6 +87,249 @@ class Protocol extends _is.DatabaseSerializationManager {
   static final Protocol _instance = Protocol._().._registerHostProtocols();
 
   static List<_isp.TableDefinition> get targetTableDefinitions => [
+    _isp.TableDefinition(
+      name: 'ask_message',
+      dartName: 'AskMessage',
+      schema: 'public',
+      module: 'pageblink',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'sessionId',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'seq',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+        ),
+        _isp.ColumnDefinition(
+          name: 'question',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'answer',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+          columnDefault: '\'\'',
+        ),
+        _isp.ColumnDefinition(
+          name: 'status',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'errorCode',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'citations',
+          columnType: _isp.ColumnType.json,
+          isNullable: true,
+          dartType: 'List<protocol:Citation>?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'modelId',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'fallback',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'false',
+        ),
+        _isp.ColumnDefinition(
+          name: 'projectIds',
+          columnType: _isp.ColumnType.json,
+          isNullable: true,
+          dartType: 'List<int>?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'includePersonal',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'true',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+        _isp.ColumnDefinition(
+          name: 'updatedAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+      ],
+      foreignKeys: [
+        _isp.ForeignKeyDefinition(
+          constraintName: 'ask_message_fk_0',
+          columns: ['sessionId'],
+          referenceTable: 'ask_session',
+          referenceTableSchema: 'public',
+          referenceColumns: ['id'],
+          onUpdate: _isp.ForeignKeyAction.noAction,
+          onDelete: _isp.ForeignKeyAction.cascade,
+          matchType: null,
+        ),
+      ],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'ask_message_session_seq_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'sessionId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'seq',
+            ),
+          ],
+          type: 'btree',
+          isUnique: true,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
+    _isp.TableDefinition(
+      name: 'ask_session',
+      dartName: 'AskSession',
+      schema: 'public',
+      module: 'pageblink',
+      columns: [
+        _isp.ColumnDefinition(
+          name: 'id',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int?',
+          columnDefault: 'serial',
+        ),
+        _isp.ColumnDefinition(
+          name: 'ownerId',
+          columnType: _isp.ColumnType.uuid,
+          isNullable: false,
+          dartType: 'UuidValue',
+        ),
+        _isp.ColumnDefinition(
+          name: 'visitorKeyHash',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'isDemo',
+          columnType: _isp.ColumnType.boolean,
+          isNullable: false,
+          dartType: 'bool',
+          columnDefault: 'false',
+        ),
+        _isp.ColumnDefinition(
+          name: 'title',
+          columnType: _isp.ColumnType.text,
+          isNullable: false,
+          dartType: 'String',
+        ),
+        _isp.ColumnDefinition(
+          name: 'locale',
+          columnType: _isp.ColumnType.text,
+          isNullable: true,
+          dartType: 'String?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'questionCount',
+          columnType: _isp.ColumnType.bigint,
+          isNullable: false,
+          dartType: 'int',
+          columnDefault: '0',
+        ),
+        _isp.ColumnDefinition(
+          name: 'createdAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+        _isp.ColumnDefinition(
+          name: 'lastActiveAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: false,
+          dartType: 'DateTime',
+        ),
+        _isp.ColumnDefinition(
+          name: 'streamingSince',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+        _isp.ColumnDefinition(
+          name: 'hiddenAt',
+          columnType: _isp.ColumnType.timestampWithoutTimeZone,
+          isNullable: true,
+          dartType: 'DateTime?',
+        ),
+      ],
+      foreignKeys: [],
+      indexes: [
+        _isp.IndexDefinition(
+          indexName: 'ask_session_owner_active_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'ownerId',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'visitorKeyHash',
+            ),
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'lastActiveAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+        _isp.IndexDefinition(
+          indexName: 'ask_session_active_idx',
+          tableSpace: null,
+          elements: [
+            _isp.IndexElementDefinition(
+              type: _isp.IndexElementDefinitionType.column,
+              definition: 'lastActiveAt',
+            ),
+          ],
+          type: 'btree',
+          isUnique: false,
+          isPrimary: false,
+        ),
+      ],
+      managed: true,
+    ),
     _isp.TableDefinition(
       name: 'doc_chunk',
       dartName: 'DocChunk',
@@ -479,6 +748,45 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _iiosvpvg.AnswerEvent) {
       return _iiosvpvg.AnswerEvent.fromJson(data) as T;
     }
+    if (t == _iw2qnfnq.AskAdminFilter) {
+      return _iw2qnfnq.AskAdminFilter.fromJson(data) as T;
+    }
+    if (t == _is3ts0ul.AskAdminPage) {
+      return _is3ts0ul.AskAdminPage.fromJson(data) as T;
+    }
+    if (t == _ioy8iwam.AskAdminSession) {
+      return _ioy8iwam.AskAdminSession.fromJson(data) as T;
+    }
+    if (t == _irkfr0me.AskHistoryStatus) {
+      return _irkfr0me.AskHistoryStatus.fromJson(data) as T;
+    }
+    if (t == _i7eaw818.AskLimitException) {
+      return _i7eaw818.AskLimitException.fromJson(data) as T;
+    }
+    if (t == _ihtb12es.AskLimitReason) {
+      return _ihtb12es.AskLimitReason.fromJson(data) as T;
+    }
+    if (t == _ipc6xyah.AskMessage) {
+      return _ipc6xyah.AskMessage.fromJson(data) as T;
+    }
+    if (t == _ibozmn1p.AskMessageView) {
+      return _ibozmn1p.AskMessageView.fromJson(data) as T;
+    }
+    if (t == _i8us82b8.AskModelStat) {
+      return _i8us82b8.AskModelStat.fromJson(data) as T;
+    }
+    if (t == _iwpzt5zb.AskRestore) {
+      return _iwpzt5zb.AskRestore.fromJson(data) as T;
+    }
+    if (t == _iomvf0vw.AskSession) {
+      return _iomvf0vw.AskSession.fromJson(data) as T;
+    }
+    if (t == _ij6hsnla.AskSessionSummary) {
+      return _ij6hsnla.AskSessionSummary.fromJson(data) as T;
+    }
+    if (t == _i89or6c7.AskSessionView) {
+      return _i89or6c7.AskSessionView.fromJson(data) as T;
+    }
     if (t == _i7jy3rkv.Citation) {
       return _i7jy3rkv.Citation.fromJson(data) as T;
     }
@@ -521,6 +829,53 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _is.getType<_iiosvpvg.AnswerEvent?>()) {
       return (data != null ? _iiosvpvg.AnswerEvent.fromJson(data) : null) as T;
     }
+    if (t == _is.getType<_iw2qnfnq.AskAdminFilter?>()) {
+      return (data != null ? _iw2qnfnq.AskAdminFilter.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_is3ts0ul.AskAdminPage?>()) {
+      return (data != null ? _is3ts0ul.AskAdminPage.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ioy8iwam.AskAdminSession?>()) {
+      return (data != null ? _ioy8iwam.AskAdminSession.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_irkfr0me.AskHistoryStatus?>()) {
+      return (data != null ? _irkfr0me.AskHistoryStatus.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i7eaw818.AskLimitException?>()) {
+      return (data != null ? _i7eaw818.AskLimitException.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ihtb12es.AskLimitReason?>()) {
+      return (data != null ? _ihtb12es.AskLimitReason.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_ipc6xyah.AskMessage?>()) {
+      return (data != null ? _ipc6xyah.AskMessage.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ibozmn1p.AskMessageView?>()) {
+      return (data != null ? _ibozmn1p.AskMessageView.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i8us82b8.AskModelStat?>()) {
+      return (data != null ? _i8us82b8.AskModelStat.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iwpzt5zb.AskRestore?>()) {
+      return (data != null ? _iwpzt5zb.AskRestore.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_iomvf0vw.AskSession?>()) {
+      return (data != null ? _iomvf0vw.AskSession.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_ij6hsnla.AskSessionSummary?>()) {
+      return (data != null ? _ij6hsnla.AskSessionSummary.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i89or6c7.AskSessionView?>()) {
+      return (data != null ? _i89or6c7.AskSessionView.fromJson(data) : null)
+          as T;
+    }
     if (t == _is.getType<_i7jy3rkv.Citation?>()) {
       return (data != null ? _i7jy3rkv.Citation.fromJson(data) : null) as T;
     }
@@ -562,6 +917,53 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _is.getType<_isfemdkk.SampleHint?>()) {
       return (data != null ? _isfemdkk.SampleHint.fromJson(data) : null) as T;
+    }
+    if (t == List<_ioy8iwam.AskAdminSession>) {
+      return (data as List)
+              .map((e) => deserialize<_ioy8iwam.AskAdminSession>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i8us82b8.AskModelStat>) {
+      return (data as List)
+              .map((e) => deserialize<_i8us82b8.AskModelStat>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_ibozmn1p.AskMessageView>) {
+      return (data as List)
+              .map((e) => deserialize<_ibozmn1p.AskMessageView>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_i7jy3rkv.Citation>) {
+      return (data as List)
+              .map((e) => deserialize<_i7jy3rkv.Citation>(e))
+              .toList()
+          as T;
+    }
+    if (t == _is.getType<List<_i7jy3rkv.Citation>?>()) {
+      return (data != null
+              ? (data as List)
+                    .map((e) => deserialize<_i7jy3rkv.Citation>(e))
+                    .toList()
+              : null)
+          as T;
+    }
+    if (t == List<int>) {
+      return (data as List).map((e) => deserialize<int>(e)).toList() as T;
+    }
+    if (t == _is.getType<List<int>?>()) {
+      return (data != null
+              ? (data as List).map((e) => deserialize<int>(e)).toList()
+              : null)
+          as T;
+    }
+    if (t == List<_ij6hsnla.AskSessionSummary>) {
+      return (data as List)
+              .map((e) => deserialize<_ij6hsnla.AskSessionSummary>(e))
+              .toList()
+          as T;
     }
     if (t == List<String>) {
       return (data as List).map((e) => deserialize<String>(e)).toList() as T;
@@ -626,6 +1028,19 @@ class Protocol extends _is.DatabaseSerializationManager {
   static String? getClassNameForType(Type type) {
     return switch (type) {
       _iiosvpvg.AnswerEvent => 'AnswerEvent',
+      _iw2qnfnq.AskAdminFilter => 'AskAdminFilter',
+      _is3ts0ul.AskAdminPage => 'AskAdminPage',
+      _ioy8iwam.AskAdminSession => 'AskAdminSession',
+      _irkfr0me.AskHistoryStatus => 'AskHistoryStatus',
+      _i7eaw818.AskLimitException => 'AskLimitException',
+      _ihtb12es.AskLimitReason => 'AskLimitReason',
+      _ipc6xyah.AskMessage => 'AskMessage',
+      _ibozmn1p.AskMessageView => 'AskMessageView',
+      _i8us82b8.AskModelStat => 'AskModelStat',
+      _iwpzt5zb.AskRestore => 'AskRestore',
+      _iomvf0vw.AskSession => 'AskSession',
+      _ij6hsnla.AskSessionSummary => 'AskSessionSummary',
+      _i89or6c7.AskSessionView => 'AskSessionView',
       _i7jy3rkv.Citation => 'Citation',
       _if2i642k.DemoLimitException => 'DemoLimitException',
       _iyfquffa.DemoLimitReason => 'DemoLimitReason',
@@ -655,6 +1070,32 @@ class Protocol extends _is.DatabaseSerializationManager {
     switch (data) {
       case _iiosvpvg.AnswerEvent():
         return 'AnswerEvent';
+      case _iw2qnfnq.AskAdminFilter():
+        return 'AskAdminFilter';
+      case _is3ts0ul.AskAdminPage():
+        return 'AskAdminPage';
+      case _ioy8iwam.AskAdminSession():
+        return 'AskAdminSession';
+      case _irkfr0me.AskHistoryStatus():
+        return 'AskHistoryStatus';
+      case _i7eaw818.AskLimitException():
+        return 'AskLimitException';
+      case _ihtb12es.AskLimitReason():
+        return 'AskLimitReason';
+      case _ipc6xyah.AskMessage():
+        return 'AskMessage';
+      case _ibozmn1p.AskMessageView():
+        return 'AskMessageView';
+      case _i8us82b8.AskModelStat():
+        return 'AskModelStat';
+      case _iwpzt5zb.AskRestore():
+        return 'AskRestore';
+      case _iomvf0vw.AskSession():
+        return 'AskSession';
+      case _ij6hsnla.AskSessionSummary():
+        return 'AskSessionSummary';
+      case _i89or6c7.AskSessionView():
+        return 'AskSessionView';
       case _i7jy3rkv.Citation():
         return 'Citation';
       case _if2i642k.DemoLimitException():
@@ -709,6 +1150,45 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'AnswerEvent') {
       return deserialize<_iiosvpvg.AnswerEvent>(data['data']);
+    }
+    if (dataClassName == 'AskAdminFilter') {
+      return deserialize<_iw2qnfnq.AskAdminFilter>(data['data']);
+    }
+    if (dataClassName == 'AskAdminPage') {
+      return deserialize<_is3ts0ul.AskAdminPage>(data['data']);
+    }
+    if (dataClassName == 'AskAdminSession') {
+      return deserialize<_ioy8iwam.AskAdminSession>(data['data']);
+    }
+    if (dataClassName == 'AskHistoryStatus') {
+      return deserialize<_irkfr0me.AskHistoryStatus>(data['data']);
+    }
+    if (dataClassName == 'AskLimitException') {
+      return deserialize<_i7eaw818.AskLimitException>(data['data']);
+    }
+    if (dataClassName == 'AskLimitReason') {
+      return deserialize<_ihtb12es.AskLimitReason>(data['data']);
+    }
+    if (dataClassName == 'AskMessage') {
+      return deserialize<_ipc6xyah.AskMessage>(data['data']);
+    }
+    if (dataClassName == 'AskMessageView') {
+      return deserialize<_ibozmn1p.AskMessageView>(data['data']);
+    }
+    if (dataClassName == 'AskModelStat') {
+      return deserialize<_i8us82b8.AskModelStat>(data['data']);
+    }
+    if (dataClassName == 'AskRestore') {
+      return deserialize<_iwpzt5zb.AskRestore>(data['data']);
+    }
+    if (dataClassName == 'AskSession') {
+      return deserialize<_iomvf0vw.AskSession>(data['data']);
+    }
+    if (dataClassName == 'AskSessionSummary') {
+      return deserialize<_ij6hsnla.AskSessionSummary>(data['data']);
+    }
+    if (dataClassName == 'AskSessionView') {
+      return deserialize<_i89or6c7.AskSessionView>(data['data']);
     }
     if (dataClassName == 'Citation') {
       return deserialize<_i7jy3rkv.Citation>(data['data']);
@@ -790,6 +1270,10 @@ class Protocol extends _is.DatabaseSerializationManager {
       }
     }
     switch (t) {
+      case _ipc6xyah.AskMessage:
+        return _ipc6xyah.AskMessage.t;
+      case _iomvf0vw.AskSession:
+        return _iomvf0vw.AskSession.t;
       case _iy239l3h.DocChunk:
         return _iy239l3h.DocChunk.t;
       case _i92jcfzt.DocPage:

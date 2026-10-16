@@ -1,0 +1,9 @@
+### One conversation with its messages (open / restore).
+class: AskSessionView
+fields:
+  id: int
+  title: String
+  questionCount: int
+  questionLimit: int
+  lastActiveAt: DateTime
+  messages: List<AskMessageView>

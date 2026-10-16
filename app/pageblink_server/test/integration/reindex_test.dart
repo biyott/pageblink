@@ -66,7 +66,11 @@ class FakeLlm implements LlmProvider {
   List<SourcePassage> seen = const [];
 
   @override
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) async* {
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) async* {
     seen = sources;
     yield LlmText('answer');
     for (var i = 0; i < sources.length; i++) {
@@ -627,7 +631,11 @@ class _ScriptedLlm implements LlmProvider {
   List<SourcePassage> sources = const [];
 
   @override
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) {
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) {
     this.sources = sources;
     return _script(sources);
   }
@@ -635,6 +643,9 @@ class _ScriptedLlm implements LlmProvider {
 
 class _BusyLlm implements LlmProvider {
   @override
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) =>
-      Stream.error(LlmBusyException('cap'));
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) => Stream.error(LlmBusyException('cap'));
 }

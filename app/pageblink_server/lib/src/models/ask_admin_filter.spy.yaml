@@ -1,0 +1,12 @@
+### Filter and page cursor of the admin conversation list.
+class: AskAdminFilter
+fields:
+  userId: String?
+  ### Last activity from / to (inclusive).
+  from: DateTime?
+  to: DateTime?
+  ### Keyset cursor: the previous page's last item.
+  beforeActiveAt: DateTime?
+  beforeId: int?
+  ### 1 to 50, default 20.
+  pageSize: int?

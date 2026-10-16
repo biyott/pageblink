@@ -1,0 +1,10 @@
+### Why an Ask question was refused by the conversation rules.
+enum: AskLimitReason
+serialized: byName
+values:
+  ### The conversation already holds its maximum number of questions.
+  - questionLimit
+  ### The previous answer of this conversation is still being written.
+  - busy
+  ### The conversation is gone or past the viewing window: start a new one.
+  - expired

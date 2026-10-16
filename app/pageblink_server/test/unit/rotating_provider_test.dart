@@ -10,8 +10,11 @@ class _Fake implements LlmProvider {
   _Fake(this.events);
   final Stream<LlmEvent> Function() events;
   @override
-  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) =>
-      events();
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) => events();
 }
 
 Stream<LlmEvent> _ok(String text) =>
@@ -336,4 +339,29 @@ void main() {
       expect(off.tried, ['f1']);
     });
   });
+
+  test('the earlier turns reach the provider that answers', () async {
+    List<ChatTurn>? seen;
+    final provider = RotatingLlmProvider([
+      'a',
+    ], (id) => _History((h) => seen = h));
+    await provider
+        .answer('q', [], history: const [ChatTurn('q1', 'a1')])
+        .toList();
+    expect(seen!.single.question, 'q1');
+  });
+}
+
+class _History implements LlmProvider {
+  _History(this.onHistory);
+  final void Function(List<ChatTurn>) onHistory;
+  @override
+  Stream<LlmEvent> answer(
+    String question,
+    List<SourcePassage> sources, {
+    List<ChatTurn> history = const [],
+  }) {
+    onHistory(history);
+    return _ok('x');
+  }
 }

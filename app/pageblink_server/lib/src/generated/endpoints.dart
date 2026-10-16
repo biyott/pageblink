@@ -10,6 +10,8 @@
 // ignore_for_file: invalid_use_of_internal_member
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
+import 'package:pageblink_server/src/generated/ask_admin_filter.dart'
+    as _i72aracs;
 import 'package:pageblink_server/src/generated/page_text.dart' as _ibhttuac;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
@@ -20,7 +22,9 @@ import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
 import '../demo/demo_endpoint.dart' as _i46mxkwc;
 import '../greetings/greeting_endpoint.dart' as _il624ik7;
+import '../rag_endpoints/ask_admin_endpoint.dart' as _ivz46box;
 import '../rag_endpoints/ask_endpoint.dart' as _ijowjyl9;
+import '../rag_endpoints/ask_history_endpoint.dart' as _iqzhl8d4;
 import '../rag_endpoints/document_endpoint.dart' as _iw2avhc4;
 import '../rag_endpoints/model_endpoint.dart' as _i7hb4uwm;
 import '../rag_endpoints/project_endpoint.dart' as _ik8zva9b;
@@ -53,10 +57,22 @@ class Endpoints extends _is.EndpointDispatch {
           'greeting',
           null,
         ),
+      'askAdmin': _ivz46box.AskAdminEndpoint()
+        ..initialize(
+          server,
+          'askAdmin',
+          null,
+        ),
       'ask': _ijowjyl9.AskEndpoint()
         ..initialize(
           server,
           'ask',
+          null,
+        ),
+      'askHistory': _iqzhl8d4.AskHistoryEndpoint()
+        ..initialize(
+          server,
+          'askHistory',
           null,
         ),
       'document': _iw2avhc4.DocumentEndpoint()
@@ -343,6 +359,31 @@ class Endpoints extends _is.EndpointDispatch {
         ),
       },
     );
+    connectors['askAdmin'] = _is.EndpointConnector(
+      name: 'askAdmin',
+      endpoint: endpoints['askAdmin']!,
+      methodConnectors: {
+        'listSessions': _is.MethodConnector(
+          name: 'listSessions',
+          params: {
+            'filter': _is.ParameterDescription(
+              name: 'filter',
+              type: _is.getType<_i72aracs.AskAdminFilter>(),
+              nullable: false,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['askAdmin'] as _ivz46box.AskAdminEndpoint)
+                  .listSessions(
+                    session,
+                    params['filter'],
+                  ),
+        ),
+      },
+    );
     connectors['ask'] = _is.EndpointConnector(
       name: 'ask',
       endpoint: endpoints['ask']!,
@@ -375,6 +416,16 @@ class Endpoints extends _is.EndpointDispatch {
               type: _is.getType<String?>(),
               nullable: true,
             ),
+            'sessionId': _is.ParameterDescription(
+              name: 'sessionId',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+            'visitorKey': _is.ParameterDescription(
+              name: 'visitorKey',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
           },
           streamParams: {},
           returnType: _is.MethodStreamReturnType.streamType,
@@ -390,7 +441,98 @@ class Endpoints extends _is.EndpointDispatch {
                 params['includePersonal'],
                 params['modelId'],
                 params['locale'],
+                params['sessionId'],
+                params['visitorKey'],
               ),
+        ),
+      },
+    );
+    connectors['askHistory'] = _is.EndpointConnector(
+      name: 'askHistory',
+      endpoint: endpoints['askHistory']!,
+      methodConnectors: {
+        'historyStatus': _is.MethodConnector(
+          name: 'historyStatus',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['askHistory'] as _iqzhl8d4.AskHistoryEndpoint)
+                      .historyStatus(session),
+        ),
+        'restore': _is.MethodConnector(
+          name: 'restore',
+          params: {
+            'visitorKey': _is.ParameterDescription(
+              name: 'visitorKey',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['askHistory'] as _iqzhl8d4.AskHistoryEndpoint)
+                      .restore(
+                        session,
+                        params['visitorKey'],
+                      ),
+        ),
+        'open': _is.MethodConnector(
+          name: 'open',
+          params: {
+            'sessionId': _is.ParameterDescription(
+              name: 'sessionId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'visitorKey': _is.ParameterDescription(
+              name: 'visitorKey',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['askHistory'] as _iqzhl8d4.AskHistoryEndpoint)
+                      .open(
+                        session,
+                        params['sessionId'],
+                        params['visitorKey'],
+                      ),
+        ),
+        'hide': _is.MethodConnector(
+          name: 'hide',
+          params: {
+            'sessionId': _is.ParameterDescription(
+              name: 'sessionId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'visitorKey': _is.ParameterDescription(
+              name: 'visitorKey',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['askHistory'] as _iqzhl8d4.AskHistoryEndpoint)
+                      .hide(
+                        session,
+                        params['sessionId'],
+                        params['visitorKey'],
+                      ),
         ),
       },
     );
