@@ -9,7 +9,7 @@ import '../../app/text_wrap.dart';
 import '../../app/theme.dart';
 import '../../app/l10n.dart';
 import '../../client.dart';
-import '../demo/demo.dart' show demoLimitText;
+import '../demo/demo.dart' show demoLimitText, demoStatus;
 import '../viewer/citation_sheet.dart';
 import '../../app/open_item_controller.dart';
 import '../documents/documents_screen.dart' show documentsNotifier;
@@ -1097,13 +1097,17 @@ class AskEmptyHint extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            ValueListenableBuilder<List<Document>>(
-              valueListenable: documentsNotifier,
-              builder: (context, docs, _) => Column(
+            // demoStatus can arrive after this screen is built.
+            ListenableBuilder(
+              listenable: Listenable.merge([documentsNotifier, demoStatus]),
+              builder: (context, _) => Column(
                 children: [
                   for (final s in orderedSuggestions(
                     context.l,
-                    includePersonal ? personalNoteTitles(docs) : const [],
+                    includePersonal
+                        ? personalNoteTitles(documentsNotifier.value)
+                        : const [],
+                    isDemo: demoStatus.value?.isDemo ?? false,
                   ))
                     _SuggestionCard(text: s, onTap: () => onPick(s)),
                 ],

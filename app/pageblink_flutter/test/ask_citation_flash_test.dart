@@ -12,6 +12,7 @@ import 'package:pageblink_flutter/app/theme.dart';
 import 'package:pageblink_flutter/features/ask/ask_markers.dart';
 import 'package:pageblink_flutter/features/ask/ask_screen.dart';
 import 'package:pageblink_flutter/features/ask/ask_sources.dart';
+import 'package:pageblink_flutter/features/demo/demo.dart' show demoStatus;
 
 Citation _c(int i, {String title = 'Doc', String kind = 'pdf'}) => Citation(
   index: i,
@@ -1412,6 +1413,32 @@ void main() {
       for (final q in sent) {
         expect(q.contains(wj), isFalse);
       }
+    });
+
+    testWidgets('demo status arriving late swaps in the demo questions', (
+      t,
+    ) async {
+      addTearDown(() => demoStatus.value = null);
+      demoStatus.value = null;
+      await t.pumpWidget(
+        MaterialApp(
+          theme: buildPbTheme(Brightness.light),
+          locale: const Locale('en'),
+          supportedLocales: supportedLocales,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Scaffold(
+            body: AskEmptyHint(includePersonal: true, onPick: (_) {}),
+          ),
+        ),
+      );
+      expect(find.text(L.en.askSuggestions.first), findsOneWidget);
+      expect(find.text(L.en.demoSuggestions.first), findsNothing);
+      demoStatus.value = DemoStatus(enabled: true, isDemo: true);
+      await t.pump();
+      for (final q in L.en.demoSuggestions) {
+        expect(find.text(q), findsOneWidget);
+      }
+      expect(find.text(L.en.askSuggestions.first), findsNothing);
     });
 
     testWidgets('English questions are untouched', (t) async {

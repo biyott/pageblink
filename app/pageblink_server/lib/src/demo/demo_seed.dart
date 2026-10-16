@@ -98,10 +98,26 @@ class DemoSeed {
     );
   }
 
-  /// Creates what is missing and re-indexes failed or stuck samples.
+  /// Creates what is missing and re-indexes failed or stuck samples. First
+  /// removes samples of earlier releases ([DemoSamples.legacy]) with their
+  /// chunks, pages and PDF file; once they are gone this is a no-op.
   /// [session] must be authenticated as the demo user (seed id).
   static Future<void> run(Session session, UuidValue demoId) async {
     final endpoint = DocumentEndpoint();
+
+    final old = await Document.db.find(
+      session,
+      where: (t) =>
+          t.ownerId.equals(demoId) & t.contentHash.inSet(DemoSamples.legacy),
+    );
+    if (old.isNotEmpty) {
+      await DocumentCleanup.deleteFiles(session, old.map((d) => d.storagePath));
+      await session.db.transaction(
+        (tx) => DocumentCleanup.deleteRows(session, {
+          for (final d in old) d.id!,
+        }, transaction: tx),
+      );
+    }
 
     Future<Document?> existing(String hash) => Document.db.findFirstRow(
       session,

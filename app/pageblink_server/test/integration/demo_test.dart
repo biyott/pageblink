@@ -149,7 +149,7 @@ void main() {
       expect(v.createRemaining, isNull);
 
       await ownRow(age: const Duration(minutes: 1));
-      await sampleRow(DemoSamples.noteEn.hash);
+      await sampleRow(DemoSamples.noteTour.hash);
       final d = await endpoints.demo.status(demo);
       expect(d.isDemo, isTrue);
       expect(d.createRemaining, demoCreateLimit - 1); // sample not counted
@@ -183,7 +183,7 @@ void main() {
         );
       }
       // Samples do not use a slot.
-      await sampleRow(DemoSamples.noteKo.hash);
+      await sampleRow(DemoSamples.noteSync.hash);
 
       await expectLater(
         endpoints.document.saveNote(demo, null, 'six', 'body six', null),
@@ -223,7 +223,7 @@ void main() {
     group('sample protection (4 places)', () {
       late Document sampleNote;
       setUp(() async {
-        sampleNote = await sampleRow(DemoSamples.noteEn.hash);
+        sampleNote = await sampleRow(DemoSamples.noteTour.hash);
       });
 
       Matcher locked() => throwsA(
@@ -291,7 +291,7 @@ void main() {
             demo,
             null,
             'copy',
-            DemoSamples.noteEn.body,
+            DemoSamples.noteTour.body,
             null,
           ),
           locked(),
@@ -302,7 +302,7 @@ void main() {
             demo,
             own.id,
             'copy',
-            DemoSamples.noteEn.body,
+            DemoSamples.noteTour.body,
             null,
           ),
           locked(),
@@ -321,11 +321,11 @@ void main() {
         final doc = await endpoints.document.saveNote(
           seed,
           null,
-          DemoSamples.noteKo.title,
-          DemoSamples.noteKo.body,
+          DemoSamples.noteSync.title,
+          DemoSamples.noteSync.body,
           null,
         );
-        expect(doc.contentHash, DemoSamples.noteKo.hash);
+        expect(doc.contentHash, DemoSamples.noteSync.hash);
       });
     });
 
@@ -338,12 +338,36 @@ void main() {
       await DemoSeed.run(seed.build(), demoId);
       await DemoSeed.run(seed.build(), demoId);
       final rows = await samples();
-      expect(rows, hasLength(3));
+      expect(rows, hasLength(4)); // 3 notes + 1 PDF
       final pdf = rows.singleWhere((d) => d.kind == 'pdf');
       expect(pdf.pageCount, DemoSamples.pdfPages.length);
       expect(pdf.storagePath, 'pdfs/${pdf.id}.pdf');
       // They do not take a visitor slot.
       expect(await DemoGuard.countOwn(sb.build(), demoId), 0);
+    });
+
+    test('seeding deletes legacy samples once and leaves the rest', () async {
+      final legacyRows = [
+        for (final h in DemoSamples.legacy) await sampleRow(h),
+      ];
+      final own = await ownRow(age: const Duration(minutes: 1));
+      expect(await DemoGuard.countOwn(sb.build(), demoId), 3);
+
+      await DemoSeed.run(seed.build(), demoId);
+      await DemoSeed.run(seed.build(), demoId);
+
+      final s = sb.build();
+      for (final d in legacyRows) {
+        expect(await Document.db.findById(s, d.id!), isNull);
+      }
+      expect(await Document.db.findById(s, own.id!), isNotNull);
+      expect(await DemoGuard.countOwn(s, demoId), 1); // only the visitor's own
+      final samples = await Document.db.count(
+        s,
+        where: (t) =>
+            t.ownerId.equals(demoId) & t.contentHash.inSet(DemoSamples.markers),
+      );
+      expect(samples, 4);
     });
 
     test('demo cannot create projects or be invited', () async {
@@ -407,7 +431,7 @@ void main() {
     test('signIn purges documents and tokens older than 24 hours', () async {
       final old = await ownRow(age: const Duration(hours: 25));
       final fresh = await ownRow(age: const Duration(hours: 1));
-      final oldSample = await sampleRow(DemoSamples.noteEn.hash);
+      final oldSample = await sampleRow(DemoSamples.noteTour.hash);
       await Document.db.updateRow(
         sb.build(),
         oldSample.copyWith(
@@ -448,7 +472,7 @@ void main() {
         other,
         null,
         'copy',
-        DemoSamples.noteEn.body,
+        DemoSamples.noteTour.body,
         null,
       );
       expect(copy.ownerId, otherId);

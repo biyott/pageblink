@@ -47,6 +47,36 @@ void main() {
       }
     });
 
+    test('demo account gets only the demo questions', () {
+      expect(L.en.demoSuggestions, [
+        'When is the launch, and what is the budget?',
+        'What is left to do before the launch?',
+        "What changed in this week's decisions?",
+        'How do I upload a PDF?',
+      ]);
+      expect(L.ko.demoSuggestions, [
+        '출시일이 언제고 예산은 얼마야?',
+        '출시 전에 남은 일이 뭐야?',
+        '이번 주 결정에서 바뀐 게 뭐야?',
+        'PDF는 어떻게 올려?',
+      ]);
+      for (final l in [L.en, L.ko]) {
+        final sampleTitle = l.isKorean ? '샘플 · 할 일 목록' : 'Sample · x';
+        expect(
+          orderedSuggestions(l, const [], isDemo: true),
+          l.demoSuggestions,
+        );
+        expect(
+          orderedSuggestions(l, ['Groceries', sampleTitle], isDemo: true),
+          l.demoSuggestions,
+        );
+        expect(
+          orderedSuggestions(l, ['Groceries'], isDemo: false),
+          l.askSuggestions,
+        );
+      }
+    });
+
     test('either language title counts; lookalikes do not', () {
       expect(isSampleTitle('Sample · My to-do list'), isTrue);
       expect(isSampleTitle('샘플 · 할 일 목록'), isTrue);

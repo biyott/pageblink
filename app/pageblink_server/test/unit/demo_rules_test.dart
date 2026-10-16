@@ -15,15 +15,22 @@ void main() {
       }
     });
 
-    test('markers: two notes plus the PDF, all different', () {
-      expect(DemoSamples.markers, hasLength(3));
-      expect(DemoSamples.isSampleHash(DemoSamples.noteEn.hash), isTrue);
-      expect(
-        DemoSamples.isSampleHash(sha256Hex(DemoSamples.noteKo.body)),
-        isTrue,
-      );
+    test('markers: three notes plus the PDF, all different', () {
+      expect(DemoSamples.notes, hasLength(3));
+      expect(DemoSamples.markers, hasLength(4));
+      for (final n in DemoSamples.notes) {
+        expect(DemoSamples.isSampleHash(sha256Hex(n.body)), isTrue);
+      }
       expect(DemoSamples.isSampleHash(DemoSamples.pdfHash), isTrue);
       expect(DemoSamples.isSampleHash(sha256Hex('my own note')), isFalse);
+    });
+
+    test('legacy hashes are not sample markers', () {
+      expect(DemoSamples.legacy, hasLength(2));
+      expect(DemoSamples.legacy.intersection(DemoSamples.markers), isEmpty);
+      for (final h in DemoSamples.legacy) {
+        expect(DemoSamples.isSampleHash(h), isFalse);
+      }
     });
 
     test('the PDF has several pages with different text', () {

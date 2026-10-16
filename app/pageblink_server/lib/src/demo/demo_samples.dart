@@ -17,42 +17,83 @@ class DemoSampleNote {
 /// the Ask screen would show to-do-list example questions (research 026 D6).
 /// Each note body stays under one chunk (900 chars).
 class DemoSamples {
-  static const noteEn = DemoSampleNote('Getting started with PageBlink', r'''
-# Getting started with PageBlink
+  static const noteTour = DemoSampleNote(
+    'PageBlink tour: try it in 5 minutes',
+    r'''
+# PageBlink tour: try it in 5 minutes
 
-PageBlink answers questions from your own notes and PDFs, and shows where every answer came from.
+PageBlink is **Markdown notes + PDFs you can ask questions to**. Every answer links back to its source.
 
-## Write a note
-Tap New note, write in Markdown, and save. A note can be searched a few seconds after you save it.
+## Try these
+- [x] Open this note, you are reading a sample
+- [ ] Ask: *When is the launch, and what is the budget?*
+- [ ] Tap ⚡ on the answer to jump to the exact line
+- [ ] Create your own note with **New note** (up to 5 in the demo)
 
-## Upload a PDF
-Tap Upload PDF and pick a file. PageBlink reads it page by page, so an answer can point to the exact page.
+## What the editor understands
+1. **Bold**, *italic*, ~~strikethrough~~ and `inline code`
+2. Bullet lists, numbered lists and `- [ ]` checklists
+3. Quotes with `>` and rules with `---`
+4. Links, like [PageBlink on GitHub](https://github.com/biyott/pageblink)
 
-## Ask a question
-Open the Ask tab and type a question in plain words. Answers are built only from your own documents.
+---
+Samples are locked. Type these markers in your own note and watch them come alive.
+''',
+  );
 
-## Follow the source
-Tap a ⚡ marker next to an answer to open the note or PDF page it came from.
+  static const notePlan = DemoSampleNote('Q4 launch plan', r'''
+# Q4 launch plan
+
+> Goal: ship the new onboarding before the holiday freeze.
+
+## Numbers
+- **Marketing budget:** ₩12M for Q4
+- **Launch date:** moved to Nov 18
+- **Beta testers:** 20 people
+
+## Timeline
+1. Oct 28: feature freeze
+2. Nov 4: beta invites
+3. Nov 18: public launch
+
+## To do
+- [x] Book the launch-day support rota
+- [ ] Finalize the release notes
+- [ ] Send the beta invite emails
+
+Details: https://github.com/biyott/pageblink
 ''');
 
-  static const noteKo = DemoSampleNote('답변의 출처 따라가기', r'''
-# 답변의 출처 따라가기
+  static const noteSync = DemoSampleNote('Weekly sync: week 3 of October', r'''
+# Weekly sync: week 3 of October
 
-PageBlink는 답변마다 근거가 된 노트나 PDF 페이지를 함께 보여 줍니다.
+Attendees: Mina, Joon, Seoyeon
 
-## 질문하는 법
-질문 탭을 열고 궁금한 것을 평소 말투로 적어 보세요. 답변은 내 노트와 PDF의 내용으로만 만들어집니다.
+## Decisions
+1. Launch date confirmed for **Nov 18**
+2. Limit the beta to 20 testers
+3. ~~Deploy twice a week~~ → deploy once a week
 
-## ⚡ 출처 확인하기
-답변 옆의 ⚡ 표시를 누르면 근거가 된 노트나 PDF 페이지가 바로 열립니다. 답변이 맞는지 직접 확인해 보세요.
+## Action items
+- [ ] Draft the release notes (Mina, by Friday)
+- [ ] Send the beta invite email (Joon)
+- [x] Check staging
 
-## 더 정확한 답을 얻으려면
-- 질문에 문서 이름이나 주제를 넣어 보세요.
-- 노트는 짧은 문단으로 나누어 쓰면 찾기 쉬워요.
-- 새 노트는 저장하고 몇 초 뒤부터 검색됩니다.
+## Notes
+Staging deploy command: `./deploy.sh --env staging`
+More at https://github.com/biyott/pageblink
 ''');
 
-  static const notes = [noteEn, noteKo];
+  static const notes = [noteTour, notePlan, noteSync];
+
+  /// SHA-256 of the bodies of earlier sample notes (`Getting started with
+  /// PageBlink`, `답변의 출처 따라가기`). They are no longer in [markers], so a
+  /// copy seeded in the database would count against the visitor limit;
+  /// `DemoSeed.run` deletes the demo user's documents with these hashes.
+  static const legacy = <String>{
+    '51ca2e449a6443b9eeaa66eaf88845adbb12a890d5b5a1a2a7dd5edc4b4e279b',
+    '491865012632aab48c5b91f1743082933d68c509729aa47e3b4c7f4e47ed576b',
+  };
 
   /// Title of the sample PDF (English; the pages carry both languages).
   static const pdfTitle = 'PageBlink guide';

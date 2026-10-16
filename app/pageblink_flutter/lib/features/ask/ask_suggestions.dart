@@ -14,9 +14,18 @@ List<String> personalNoteTitles(Iterable<Document> docs) => [
     if (d.kind == 'note' && d.projectId == null) d.title,
 ];
 
-/// Example questions: the sample's first while the sample note exists
-/// (otherwise they would only find nothing), then the general ones.
-List<String> orderedSuggestions(L l, Iterable<String> noteTitles) => [
-  if (noteTitles.any(isSampleTitle)) ...l.sampleSuggestions,
-  ...l.askSuggestions,
+/// Example questions. The demo account gets only its own (the general ones
+/// do not match its content); otherwise the sample's first while the sample
+/// note exists (else they would only find nothing), then the general ones.
+List<String> orderedSuggestions(
+  L l,
+  Iterable<String> noteTitles, {
+  bool isDemo = false,
+}) => [
+  if (isDemo)
+    ...l.demoSuggestions
+  else ...[
+    if (noteTitles.any(isSampleTitle)) ...l.sampleSuggestions,
+    ...l.askSuggestions,
+  ],
 ];

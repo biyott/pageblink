@@ -400,6 +400,22 @@ class L {
           'What are the budget and the deadline?',
         ];
 
+  /// The demo account's own content (launch notes, weekly decisions, how-to
+  /// PDF): only these fit it, so they replace the general ones.
+  List<String> get demoSuggestions => _ko
+      ? const [
+          '출시일이 언제고 예산은 얼마야?',
+          '출시 전에 남은 일이 뭐야?',
+          '이번 주 결정에서 바뀐 게 뭐야?',
+          'PDF는 어떻게 올려?',
+        ]
+      : const [
+          'When is the launch, and what is the budget?',
+          'What is left to do before the launch?',
+          "What changed in this week's decisions?",
+          'How do I upload a PDF?',
+        ];
+
   /// Questions the sign-up sample note answers; shown first while it exists.
   List<String> get sampleSuggestions => _ko
       ? const [
