@@ -90,3 +90,13 @@
 - Serverpod Cloud에서 환경 변수 주입이 안 되면 → 플래그를 비밀번호(`password set`)로만 주입하거나 방식을 바꾼다. (일반 변수와 비밀번호 두 경로 모두 코드가 읽으므로 코드 변경은 불필요)
 - Cloud 빌드 이미지가 `web/samples/`를 포함하지 않으면 → 시드를 텍스트 전용으로 전환(원본 뷰어 없음).
 - Future Calls(Growth 플랜)를 쓰게 되면 → 24시간 정리를 예약 작업으로 옮긴다.
+
+## 배포 후 기록 (2026-10-16 10:07 KST)
+
+결정은 바뀌지 않았다(상태 `채택` 유지). 구현·배포 사실만 덧붙인다. 상세는 [plan 014 §12~§13](../plan/014-demo-account.md)·[devlog 010](../devlog/010-demo-account-implementation.md).
+
+- ✅ 7차 배포(`8445f02`)로 나갔다. 빌드 151초·롤아웃 70초, DB 마이그레이션 없음. 테스트: 클라이언트 `flutter test` 1,150개·서버 `dart test` 48개 통과, 두 analyze 이슈 0.
+- ✅ 위 재검토 조건 중 두 가지가 확인됐다: 환경 변수는 `scloud variable set DEMO_ENABLED true` 후 **재배포로 반영**되고, `web/samples/pageblink-guide.pdf`가 번들에 포함됐다(시드 PDF `ready` 3쪽). 따라서 텍스트 전용 전환은 필요 없다.
+- ✅ 라이브 확인: `status()` `enabled:true, createLimit:5, askLimit:50` → `signIn()` 토큰 수령 → `isDemo:true`, 샘플 3개(노트 2 + PDF 1) `ready`, 서버 2회 부팅에도 중복 없음, Ask 1회 성공(`askRemaining` 50→49, 인용이 PDF 3쪽), 인증 없는 `document/list` 401.
+- ⚠️ 남은 것: 브라우저 수동 시나리오(plan 014 §12.2), `.invalid` 수신자에 대한 Cloud 이메일 API 처리(U3), 동시 부팅 시 샘플 중복 가능성. 감수할 점에 적은 항목(메모리 카운터·`signOutAllDevices`·비원자 한도 검사)은 그대로다.
+- 운영 메모: 끄려면 `scloud variable set DEMO_ENABLED false` 후 `scloud deploy --redeploy`. 꺼도 만든 demo 데이터는 남고, 열려 있던 demo 세션에는 한도·보호가 계속 적용된다.

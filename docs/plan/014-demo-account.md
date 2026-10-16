@@ -1,9 +1,9 @@
 # 🎟️ 데모 체험 로그인(Demo account) 설계 명세
 
-> **작성일**: 2026-10-16 09:06 KST · **최종 수정**: 2026-10-16 09:30 KST
-> **관련 문서**: [ADR 020 (공유 demo 사용자)](../adr/020-demo-account-shared-user.md) · [research 026 (API 소스 검증)](../research/026-demo-account-api-verification.md) · [첫 화면 기획 (007)](007-landing-sign-in.md) · [세션 인수인계 (012)](012-session-handoff.md) · [제품 범위 ADR 015](../adr/015-product-scope-notes-and-pdfs.md) · [ACL ADR 010](../adr/010-acl-in-query.md) · [`AGENTS.md`](../../AGENTS.md)
+> **작성일**: 2026-10-16 09:06 KST · **최종 수정**: 2026-10-16 10:07 KST
+> **관련 문서**: [ADR 020 (공유 demo 사용자)](../adr/020-demo-account-shared-user.md) · [research 026 (API 소스 검증)](../research/026-demo-account-api-verification.md) · [devlog 010 (구현·배포 기록)](../devlog/010-demo-account-implementation.md) · [첫 화면 기획 (007)](007-landing-sign-in.md) · [세션 인수인계 (012)](012-session-handoff.md) · [제품 범위 ADR 015](../adr/015-product-scope-notes-and-pdfs.md) · [ACL ADR 010](../adr/010-acl-in-query.md) · [`AGENTS.md`](../../AGENTS.md)
 > **표기**: ✅ 코드·소스로 확인 · ⚠️ 미확인/구현 시 점검 필요
-> **상태**: §11 소스 검증 완료([research 026](../research/026-demo-account-api-verification.md)) · §10 값 확정(2026-10-16) · **서버 구현 중(2026-10-16)**. 이 문서는 설계 명세이며 코드·설정은 여기서 바꾸지 않습니다.
+> **상태**: **배포 완료(7차, 2026-10-16, `8445f02`)** · 라이브 확인 ✅(§13), 브라우저 수동 확인(§12 체크리스트)만 ⚠️ 남음. §11 소스 검증 완료([research 026](../research/026-demo-account-api-verification.md)) · §10 값 확정(2026-10-16). 아래 §0~§10 본문은 구현 전 설계 시점의 서술이며, 배포 결과는 §11 하단·§12·§13·§16에 기록합니다.
 > **범위**: 서버 `app/pageblink_server`, 클라이언트 `app/pageblink_flutter`. 생성 코드(`lib/src/generated/`, `pageblink_client`)는 직접 수정하지 않습니다.
 
 ---
@@ -20,6 +20,7 @@
 | 프로비저닝 | **`await pod.start()` 뒤** 멱등 `DemoUser.ensure()` (사용자 동기, 샘플 시드 백그라운드) |
 | 결정 근거 | [ADR 020](../adr/020-demo-account-shared-user.md) · 소스 검증 [research 026](../research/026-demo-account-api-verification.md) |
 | 확정 현황 | §10 표의 값은 2026-10-16 확정(PM 위임). §11 체크리스트 8개는 검증 완료, 남은 ⚠️는 §11 하단 |
+| 배포 현황 | ✅ 7차 배포 완료(`8445f02`), 운영 플래그 켜짐, 라이브 확인 통과 — §13 · §16. ⚠️ 브라우저 수동 시나리오(U8)는 사용자 확인 대기 |
 
 ---
 
@@ -351,17 +352,22 @@ sequenceDiagram
 | + | 배포 번들 디렉터리 | ✅ `web/` / ⚠️ Cloud 빌드 | 저장소 Dockerfile이 런타임에 복사하는 폴더는 `config/`·`web/`·`migrations/`뿐. ⚠️ Cloud 빌드 이미지가 복사하는 폴더는 확인 못 함 | [026 §10](../research/026-demo-account-api-verification.md) |
 | + | 직렬화 예외(`DemoLimitException`) | ✅ | `exception:` spy.yaml → `throw` → 클라이언트 `on X catch`. 저장소엔 선례 없음 | [026 §11](../research/026-demo-account-api-verification.md) |
 
-### 남은 ⚠️ (구현·배포 중 확인)
+### 구현·배포 중 확인 결과 (U 목록, 2026-10-16 갱신)
 
-| # | 미확인 | 확인 방법 |
-|---|---|---|
-| U1 | Cloud에서 일반 환경 변수(`scloud variable set`)의 **런타임 주입 시점·방식** | `scloud variable set DEMO_ENABLED true` → `scloud deploy --redeploy` → 부팅 로그에 "demo enabled" 남겨 `scloud log`로 확인 (research 026 §5) |
-| U2 | **Cloud 빌드 이미지가 복사하는 폴더**, `web/samples/`가 이미지에 들어가는지 | `cd app/pageblink_server && scloud deploy --wet-run --show-files`, 배포 후 시드 루틴이 `File('web/samples/…').existsSync()`를 로그에 남김 |
-| U3 | `.invalid` 수신자로 **Cloud 이메일 API**를 호출했을 때의 서비스 쪽 처리 | 방문자가 `startPasswordReset`을 호출하면 발생. 발송 실패는 로그만 남고 예외 없음(✅ 소스) |
-| U5 | 생성기가 `lib/src/demo/`를 찾는지 | `serverpod generate` |
-| U6 | 공개 `signOutAllDevices`로 한 방문자가 **모든 demo 세션을 끊을 수 있음** — **허용 위험**(R16) | 막으려면 모듈 `StatusEndpoint` 확장 후 demo 사용자면 거부 |
-| U7 | 한도 검사와 삽입이 원자적이지 않음 | 시연용 허용 |
-| U8 | 서버를 실행한 통합 확인(로그인 → 홈 → Ask → 출처) | §12 수동 시나리오 |
+배포(7차, `8445f02`) 후 라이브 확인 결과를 반영했다. 근거 값은 릴리스 엔지니어 보고(§13).
+
+| # | 항목 | 상태 | 결과 · 남은 일 |
+|---|---|---|---|
+| U1 | Cloud에서 일반 환경 변수(`scloud variable set`)의 **런타임 주입 시점·방식** | ✅ 해소 | `scloud variable set DEMO_ENABLED true` 후 **재배포로 반영**됨. 라이브 `status()`가 `enabled:true`. 변수만 바꿔서는 반영되지 않으므로 `scloud deploy --redeploy`가 필요 |
+| U2 | **Cloud 빌드 이미지가 `web/samples/`를 포함하는지** | ✅ 해소 | `web/samples/pageblink-guide.pdf`가 번들에 포함됨. 시드 PDF가 `ready`(3쪽), Ask 인용이 PDF 3쪽을 가리킴 |
+| U3 | `.invalid` 수신자로 **Cloud 이메일 API**를 호출했을 때의 서비스 쪽 처리 | ⚠️ 잔존 | 확인하지 못함. 방문자가 `startPasswordReset`을 호출할 때만 발생하며 발송 실패는 로그만 남고 예외 없음(✅ 소스) |
+| U5 | 생성기가 `lib/src/demo/`를 찾는지 | ✅ 해소(간접) | 라이브에서 `status()`·`signIn()`이 응답하므로 생성된 엔드포인트가 배포됨 |
+| U6 | 공개 `signOutAllDevices`로 한 방문자가 **모든 demo 세션을 끊을 수 있음** | ⚠️ 허용 위험(R16) | 그대로 둠. 막으려면 모듈 `StatusEndpoint` 확장 후 demo 사용자면 거부 |
+| U7 | 한도 검사와 삽입이 원자적이지 않음 | ⚠️ 허용 | 시연용 허용. 동시 요청이면 한도를 1~2개 넘길 수 있음 |
+| U8 | 서버를 실행한 통합 확인(로그인 → 홈 → Ask → 출처) | 🟡 일부 | **API 수준은 라이브로 ✅**(§13). **브라우저에서 버튼 탭·배너 등 수동 시나리오는 ⚠️ 사용자 확인 대기** — §12 수동 확인 체크리스트 |
+| U9 | `askRemaining` 카운터가 **서버 메모리** — 재시작 시 초기화(L5) | ⚠️ 허용 | 문서화된 한계. 정확한 한도가 필요하면 DB 카운터(후속) |
+| U10 | 다중 인스턴스 **동시 부팅** 시 샘플 문서 중복 가능성 | ⚠️ 잔존 | 서버 2회 부팅에서는 중복 없음 ✅. 동시 부팅 경합은 확인하지 못함 |
+| U11 | 샘플 PDF 본문에 `5개`·`24시간`·`50회`가 **하드코딩** | ⚠️ 유지 필요 | 상수를 바꾸면 샘플 PDF를 다시 만들어야 함(§8: 텍스트와 PDF는 같은 원본) |
 
 (U4 `start()` 앞 DB 접근의 실패 양상은 앞에 두지 않으므로 확인하지 않는다 — research 026.)
 
@@ -390,6 +396,39 @@ sequenceDiagram
 - 순수 로직(해시 표식 판별, 한도 계산, 24시간 판정)은 서버 `test/unit/`에 두어 DB 없이 돌린다 — 기존 `sample_note_test.dart`·`indexing_recovery_test.dart` 패턴 ✅.
 - 클라이언트는 `flutter analyze` 이슈 0, 기존 `flutter test`(작성 시점 1,106개 통과 ✅, 012)가 그대로 통과.
 
+### 12.1 실행 결과 (2026-10-16, 커밋 `8445f02`)
+
+| 구분 | 명령 | 결과 |
+|---|---|---|
+| 클라이언트 | `flutter test` | ✅ 1,150개 통과(기존 1,106 + 신규 44) |
+| 클라이언트 | `flutter analyze` | ✅ 이슈 0 |
+| 서버 | `dart test` | ✅ 48개 통과 (외부 API 키 4종을 해제한 환경에서 실행) |
+| 서버 | `dart analyze` | ✅ 이슈 0 |
+
+### 12.2 수동 확인 체크리스트 (클라이언트 · ⚠️ 사용자 확인 대기, U8)
+
+브라우저(라이브 `https://pageblink.serverpod.space`)에서 직접 확인한다. 아래 11개는 아직 사람이 확인하지 않았다.
+
+| # | 확인 | 기대 | 결과 |
+|---|---|---|---|
+| 1 | 로그인 화면에 `데모 체험하기` 표시 | 플래그를 끄면 **버튼만** 사라지고 나머지는 그대로 | ⚠️ |
+| 2 | 홈 진입 · 배너 · 샘플 목록, 폰 폭 간격 | 배너 `데모 모드 · 새 항목 5/5개 남음`, 샘플 3개 표시, 폰 폭에서 간격 정상 | ⚠️ |
+| 3 | (i) 개인정보 안내 | 안내 문구가 열림 | ⚠️ |
+| 4 | 저장·PDF 추가·삭제 후 남은 수 갱신 | 배너의 남은 개수가 갱신됨 | ⚠️ |
+| 5 | 5개를 채운 뒤 새 노트·PDF 올리기 | 안내 + `가입하기` | ⚠️ |
+| 6 | 슬롯 0 상태에서 노트 저장 | 안내가 뜨고, 한 번 더 닫으면 편집기가 닫힘 | ⚠️ |
+| 7 | 샘플 수정·삭제 시도 | 샘플 잠금 문구(`demoSampleLocked`) | ⚠️ |
+| 8 | 프로젝트 만들기 시도 | 데모 불가 안내 | ⚠️ |
+| 9 | 질문 한도 도달 | 오류 말풍선 | ⚠️ |
+| 10 | 배너 `가입하기` | 로그아웃 후 가입 폼. 취소하면 데모 버튼이 다시 표시됨 | ⚠️ |
+| 11 | 일반 계정 로그아웃 후 데모 진입 | `SignInWhileAuthenticatedException`이 사용자에게 보이지 않음 | ⚠️ |
+
+구현 메모(클라이언트):
+
+- 상태 `demoStatus`는 `boardRefresh` 시점에 갱신된다.
+- 한도에 도달해 편집기를 닫으면 **입력한 텍스트는 버려진다**(단순화 선택).
+- 샘플의 편집·삭제 버튼은 **비활성화하지 않고**, 눌렀을 때 서버 안내(`DemoLimitException(sampleLocked)`)만 쓴다.
+
 ---
 
 ## 13. 구현 순서
@@ -403,7 +442,50 @@ sequenceDiagram
 | 4 | 시드: 샘플 콘텐츠 작성(노트 EN·KO, PDF), 백그라운드 시드·재시도 | 샘플이 목록에 보이고 Ask가 샘플로 답함 |
 | 5 | 배포: `scloud variable set DEMO_ENABLED true`(또는 비밀번호)로 `demoEnabled` 켜기 → 라이브 확인 | 버튼 표시·로그인 확인 |
 
-**진행 상태**: 0단계 완료, **서버 구현 중(2026-10-16)**. 단계별 세부 진행은 구현이 끝나는 대로 갱신한다.
+**진행 상태 (2026-10-16 10:07 KST)**: 0~5단계 **완료**. 커밋 `8445f02`(`feat(app,server): try-the-demo sign-in with sample content (plan 014, ADR 020)`), push `74e1e44..8445f02`, 파일 49개. 남은 것은 §12.2 브라우저 수동 확인(⚠️ U8).
+
+| 단계 | 상태 | 비고 |
+|---|---|---|
+| 0 §11 확인 | ✅ | [research 026](../research/026-demo-account-api-verification.md) |
+| 1 서버 사용자·엔드포인트 | ✅ | `status()`·`signIn()` 라이브 응답 |
+| 2 서버 가드·정리 | ✅ | 서버 `dart test` 48개 통과 |
+| 3 클라이언트 | ✅ | `flutter test` 1,150개 통과. 브라우저 수동 확인은 ⚠️(§12.2) |
+| 4 시드 | ✅ | 샘플 3개(노트 2 + PDF 1) 모두 `ready`, 부팅 2회에도 중복 없음 |
+| 5 배포 | ✅ | 7차 배포, 아래 §13.1 |
+
+### 13.1 배포·라이브 확인 (7차)
+
+| 항목 | 값 |
+|---|---|
+| 빌드 · 롤아웃 | 빌드 151초 · 롤아웃 70초 · **DB 마이그레이션 없음** |
+| 운영 플래그 | `scloud variable set DEMO_ENABLED true` 후 **재배포로 반영**(U1 해소) |
+| API 호스트 | ⚠️ 예상과 달랐음: `https://pageblink.api.serverpod.space`(웹 호스트 `pageblink.serverpod.space`와 다름), 호출은 `POST /<endpoint>/<method>`. `POST /demo {"method":...}` 형식은 405 |
+
+라이브 확인 (✅ 모두 통과):
+
+| # | 확인 | 결과 |
+|---|---|---|
+| 1 | 정적 파일 | 200 + 새 문자열 존재 |
+| 2 | `status()` (비로그인) | `enabled:true, createLimit:5, askLimit:50` |
+| 3 | `signIn()` | 토큰 수령 |
+| 4 | 로그인 후 `status()` | `isDemo:true, createRemaining:5, askRemaining:50` |
+| 5 | 문서 목록 | 샘플 3개(노트 2 + PDF 1) 모두 `ready` |
+| 6 | 서버 2회 부팅 | 중복 없음 |
+| 7 | Ask 1회 | 성공, `askRemaining` 50→49. 인용이 샘플 PDF 3쪽을 가리킴 |
+| 8 | 로그인 화면 · `greeting/hello` | 200 |
+| 9 | 인증 없는 `document/list` | 401 |
+
+- 로그에 무료 모델 OpenRouter 429가 보이나 모델 로테이션으로 처리됨.
+
+### 13.2 되돌리기
+
+```bash
+scloud variable set DEMO_ENABLED false
+scloud deploy --redeploy    # 변수만 바꿔서는 반영되지 않음
+```
+
+- 꺼도 이미 만든 demo 사용자·문서 데이터는 남는다.
+- 끈 뒤에도 **열려 있던 demo 세션**은 한도·보호가 계속 적용된다(PM 판단).
 
 배포·커밋 절차는 [012 §2](012-session-handoff.md)를 따른다(깨끗한 워크트리 검증 → 무접촉 커밋 → `scloud` 배포).
 
@@ -442,14 +524,16 @@ sequenceDiagram
 
 ## 16. 수용 기준
 
-- [ ] 플래그가 꺼진 환경에서 로그인 화면에 데모 버튼이 **없고**, `signIn`이 거부되며, demo 사용자·샘플이 만들어지지 않는다.
-- [ ] 플래그가 켜진 환경에서 버튼 한 번으로 로그인되어 홈에 `Demo mode` 배너와 샘플 노트·PDF가 보인다.
-- [ ] 일반 계정으로 로그인해 있어도 로그아웃을 거쳐 데모로 들어가며 `SignInWhileAuthenticatedException`이 사용자에게 보이지 않는다.
-- [ ] 노트·PDF 합쳐 5개까지(샘플 제외) 만들 수 있고 6번째에서 가입 유도 안내가 나온다(`DemoLimitException`). 샘플은 수정·삭제·재색인할 수 없다.
-- [ ] 실제 Ask가 샘플 노트·PDF를 근거로 답하고 출처가 열린다.
-- [ ] 서버를 두 번 이상 재시작해도 demo 사용자·샘플 문서가 중복되지 않는다.
-- [ ] 일반 계정의 동작(가입·로그인·한도 없음)은 그대로다.
-- [ ] `flutter analyze`·`dart analyze` 이슈 0, 새 서버 테스트와 기존 테스트가 통과한다.
+검증 결과 (2026-10-16, `8445f02`). `[x]`는 완전히 확인, `[ ]`는 일부만 확인 또는 미확인이다.
+
+- [ ] 플래그가 꺼진 환경에서 로그인 화면에 데모 버튼이 **없고**, `signIn`이 거부되며, demo 사용자·샘플이 만들어지지 않는다. — ⚠️ 서버 단위 테스트는 통과했으나 이 항목의 개별 케이스는 확인 필요. 라이브는 플래그가 켜져 있어 확인하지 않음. 버튼만 사라지는지는 §12.2 #1
+- [ ] 플래그가 켜진 환경에서 버튼 한 번으로 로그인되어 홈에 `Demo mode` 배너와 샘플 노트·PDF가 보인다. — 🟡 API ✅(`signIn()` 토큰 수령, `status()` `isDemo:true`, 샘플 3개 `ready`). 버튼·배너 UI는 ⚠️ §12.2 #1·2
+- [ ] 일반 계정으로 로그인해 있어도 로그아웃을 거쳐 데모로 들어가며 `SignInWhileAuthenticatedException`이 사용자에게 보이지 않는다. — ⚠️ §12.2 #11 (수동 확인 대기)
+- [ ] 노트·PDF 합쳐 5개까지(샘플 제외) 만들 수 있고 6번째에서 가입 유도 안내가 나온다(`DemoLimitException`). 샘플은 수정·삭제·재색인할 수 없다. — 🟡 `createLimit:5`·`createRemaining:5` ✅, 서버 단위 테스트 통과(개별 케이스는 확인 필요). 안내 UI는 ⚠️ §12.2 #5·7
+- [ ] 실제 Ask가 샘플 노트·PDF를 근거로 답하고 출처가 열린다. — 🟡 Ask 1회 성공(`askRemaining` 50→49), 인용이 샘플 PDF 3쪽을 가리킴 ✅. 출처 열기 UI는 ⚠️ 미확인
+- [x] 서버를 두 번 이상 재시작해도 demo 사용자·샘플 문서가 중복되지 않는다. — ✅ 2회 부팅 후 중복 없음(동시 부팅 경합은 U10 ⚠️)
+- [ ] 일반 계정의 동작(가입·로그인·한도 없음)은 그대로다. — 🟡 기존 클라이언트 테스트 1,106개 통과 ✅, 인증 없는 `document/list` 401 ✅. 라이브에서 일반 계정 가입·로그인은 ⚠️ 확인 필요
+- [x] `flutter analyze`·`dart analyze` 이슈 0, 새 서버 테스트와 기존 테스트가 통과한다. — ✅ 클라이언트 1,150개·서버 48개 통과, 두 analyze 이슈 0 (§12.1)
 
 ---
 
@@ -459,3 +543,4 @@ sequenceDiagram
 |---|---|
 | 2026-10-16 09:06 | 최초 작성 (구현 전 검토용 명세) |
 | 2026-10-16 09:30 | [research 026](../research/026-demo-account-api-verification.md) 반영: §11 체크리스트 8개 결과 기록, 설계 변경 D1~D6(`ensure()`를 `pod.start()` 뒤로, 플래그를 일반 변수로도 주입, 샘플 보호 4곳, 시드 방식 A, `DemoLimitException`, 샘플 제목 접두 금지), §10을 PM 확정 값으로 갱신, §14 위험 R11~R18 추가(R5·R7·R8 갱신), §13 진행 상태 "서버 구현 중" |
+| 2026-10-16 10:07 | 배포 결과 반영: 상태 "배포 완료(7차, `8445f02`)", §11 U 목록 해소·잔존 구분(U1·U2·U5 해소, U3·U6·U7 잔존, U9~U11 추가), §12.1 테스트 결과·§12.2 수동 확인 체크리스트 11개, §13 진행 상태·§13.1 배포·라이브 확인·§13.2 되돌리기, §16 수용 기준 확인 결과. 설계 본문(§0~§10)은 구현 전 서술 그대로 |
