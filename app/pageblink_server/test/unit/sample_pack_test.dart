@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:pageblink_server/src/demo/demo_config.dart';
 import 'package:pageblink_server/src/rag/chunker.dart';
 import 'package:pageblink_server/src/rag/line_chunker.dart';
+import 'package:pageblink_server/src/rag/preview_text.dart';
 import 'package:pageblink_server/src/rag_endpoints/project_endpoint.dart';
 import 'package:pageblink_server/src/sample/sample_pack.dart';
 import 'package:test/test.dart';
@@ -16,14 +19,16 @@ void main() {
     );
   });
 
-  test('note hashes never collide; only the demo PDF is shared', () {
+  test('note hashes never collide; each demo language has its own PDF', () {
     final noteHashes = [
       for (final p in packs)
         for (final n in p.notes) n.hash,
     ];
     expect(noteHashes.toSet(), hasLength(noteHashes.length));
     final pdfs = {for (final p in packs) ?p.pdf?.hash};
-    expect(pdfs, hasLength(1));
+    expect(pdfs, hasLength(2));
+    expect(SamplePacks.demoEn.pdf, isNot(same(SamplePacks.demoKo.pdf)));
+    expect(SamplePacks.demoPdfHashes, pdfs);
     expect(noteHashes.toSet().intersection(pdfs), isEmpty);
   });
 
@@ -170,21 +175,64 @@ void main() {
     );
   });
 
-  test('the PDF has several pages with different text', () {
-    final pages = SamplePacks.demoEn.pdf!.pages;
-    expect(pages.length, greaterThanOrEqualTo(2));
-    expect(pages.toSet(), hasLength(pages.length));
-    for (final p in pages) {
-      expect(chunkPdfPage(1, p), isNotEmpty);
+  test('the PDFs have several pages with different text', () {
+    for (final p in SamplePacks.demo) {
+      final pages = p.pdf!.pages;
+      expect(pages.length, greaterThanOrEqualTo(2), reason: p.id);
+      expect(pages.toSet(), hasLength(pages.length), reason: p.id);
+      for (final page in pages) {
+        expect(chunkPdfPage(1, page), isNotEmpty, reason: p.id);
+      }
     }
   });
 
-  test('the demo guide states the limits the code enforces', () {
-    final pdf = SamplePacks.demoEn.pdf!.pages.join('\n');
-    expect(pdf, contains('up to $demoCreateLimit notes or PDFs'));
-    expect(pdf, contains('$demoAskDailyLimit per day'));
-    expect(pdf, contains('최대 $demoCreateLimit개'));
-    expect(pdf, contains('하루 $demoAskDailyLimit회'));
+  test('the demo guides state the limits the code enforces', () {
+    final en = SamplePacks.demoEn.pdf!.pages.join('\n');
+    expect(en, contains('up to $demoCreateLimit notes or PDFs'));
+    expect(en, contains('${demoRetention.inHours} hours'));
+    expect(en, contains('$demoAskDailyLimit per day'));
+    // The English PDF is bilingual; the Korean one is Korean only.
+    final ko = SamplePacks.demoKo.pdf!.pages.join('\n');
+    for (final text in [en, ko]) {
+      expect(text, contains('최대 $demoCreateLimit개'));
+      expect(text, contains('${demoRetention.inHours}시간 뒤'));
+      expect(text, contains('하루 $demoAskDailyLimit회'));
+    }
+  });
+
+  /// What `upload` stores as the PDF card preview.
+  String previewOf(SamplePack p) => pdfPreview([
+    for (final (i, t) in p.pdf!.pages.indexed) (page: i + 1, text: t),
+  ]);
+
+  test('the PDF card preview starts in the language of the pack', () {
+    final en = previewOf(SamplePacks.demoEn);
+    final ko = previewOf(SamplePacks.demoKo);
+    expect(en, startsWith('Adding your documents'));
+    expect(ko, startsWith('문서 추가하기'));
+    // No English paragraph in the Korean PDF.
+    final latinRun = RegExp('[A-Za-z]{4,} [A-Za-z]{4,} [A-Za-z]{4,}');
+    expect(latinRun.hasMatch(SamplePacks.demoKo.pdf!.pages.join('\n')), false);
+  });
+
+  test('the English sample PDF stays as deployed (its hash is a marker)', () {
+    expect(
+      SamplePacks.demoEn.pdf!.hash,
+      '4a5d084247372275ba1e7e59da1356b539eb2ef1b0aa8481d1b220ec00528cb0',
+    );
+  });
+
+  test('every sample PDF original ships under web/ and is small', () {
+    final paths = {for (final p in SamplePacks.demo) p.pdf!.assetPath};
+    expect(paths, hasLength(SamplePacks.demo.length));
+    for (final path in paths) {
+      expect(path, startsWith('web/samples/'));
+      final f = File(path);
+      expect(f.existsSync(), isTrue, reason: path);
+      final bytes = f.readAsBytesSync();
+      expect(String.fromCharCodes(bytes.take(5)), '%PDF-', reason: path);
+      expect(bytes.length, lessThan(100 * 1024), reason: path);
+    }
   });
 
   test('the tour note quotes the pack\'s first question', () {

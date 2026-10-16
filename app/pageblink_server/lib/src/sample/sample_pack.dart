@@ -32,7 +32,7 @@ class SampleQuestion {
   const SampleQuestion(this.text, this.evidence);
 }
 
-/// The sample PDF (demo only; both languages share it).
+/// A sample PDF (demo only; one per language, see `SamplePacks.demoPdf`).
 class SamplePdf {
   final String title;
 
@@ -80,10 +80,7 @@ class SamplePack {
   });
 
   /// Marker hashes of the notes and the PDF.
-  late final Set<String> hashes = {
-    for (final n in notes) n.hash,
-    ?pdf?.hash,
-  };
+  late final Set<String> hashes = {for (final n in notes) n.hash, ?pdf?.hash};
 
   /// All text that an answer may come from.
   String get text => [
@@ -171,8 +168,9 @@ abstract final class SamplePacks {
   // Written for PageBlink; no third-party text. Titles must not start with
   // `Sample · ` / `샘플 · `.
 
-  /// The PDF both demo packs share: one page text with English and Korean
-  /// together, so one `pdfHash` and one stored original.
+  /// The English demo pack's PDF: English and Korean together, English first
+  /// (the card preview starts with the first page's text). Its hash is stored
+  /// in production, so keep the pages byte-identical.
   static final demoPdf = SamplePdf(
     title: 'PageBlink guide',
     assetPath: 'web/samples/pageblink-guide.pdf',
@@ -216,6 +214,39 @@ Every answer carries small lightning-bolt markers. Tap one to jump to the note o
 
 About the demo account: everyone who tries the demo shares one account, so please do not enter personal information. You can create up to 5 notes or PDFs of your own, and they are removed after 24 hours. The sample items cannot be edited or deleted. Questions are limited to 50 per day across all demo visitors. Sign up to keep your work.
 
+출처와 데모 계정
+
+답변마다 작은 번개 모양 표시가 붙습니다. 누르면 답변의 근거가 된 노트나 PDF 페이지로 바로 이동하니 직접 확인해 보세요.
+
+데모 계정 안내: 데모를 체험하는 모든 사람이 하나의 계정을 함께 쓰므로 개인정보는 넣지 마세요. 직접 만들 수 있는 노트와 PDF는 최대 5개이며, 24시간 뒤에 삭제됩니다. 샘플 항목은 수정하거나 삭제할 수 없습니다. 질문은 데모 방문자 전체가 하루 50회까지 할 수 있습니다. 가입하면 계속 쓸 수 있어요.''',
+    ],
+  );
+
+  /// The Korean demo pack's PDF: Korean only, built by
+  /// `scripts/build_sample_pdf_ko.sh` from the same text (numbers as in
+  /// `demo_config.dart`). Without it the Korean card preview would start with
+  /// the English half of `demoPdf`.
+  static final demoPdfKo = SamplePdf(
+    title: 'PageBlink 가이드',
+    assetPath: 'web/samples/pageblink-guide-ko.pdf',
+    pages: const [
+      r'''
+문서 추가하기
+
+직접 쓴 노트와 올린 PDF에 질문할 수 있도록 PageBlink가 내용을 정리해 둡니다.
+
+노트 쓰기: 새 노트를 누르고 마크다운으로 쓴 뒤 저장하세요. 저장하고 몇 초 뒤부터 검색됩니다.
+
+PDF 올리기: PDF 올리기를 누르고 파일을 고르세요. 페이지별로 글자를 읽기 때문에 답변이 정확한 페이지를 가리킵니다. 글자가 없는 스캔본 PDF는 검색할 수 없습니다.''',
+      r'''
+질문하기
+
+질문 탭을 열고 평소 말투로 질문을 적어 보세요. 예: 가이드에서 PDF 올리기는 어떻게 설명하나요?
+
+PageBlink는 내 노트와 PDF에서 가장 관련 있는 부분을 찾아 그 내용만으로 답변을 만듭니다. 관련 내용이 없으면 지어내지 않고 못 찾았다고 알려 줍니다.
+
+팁: 질문에 주제나 문서 이름을 넣으면 더 정확한 답변을 받을 수 있습니다.''',
+      r'''
 출처와 데모 계정
 
 답변마다 작은 번개 모양 표시가 붙습니다. 누르면 답변의 근거가 된 노트나 PDF 페이지로 바로 이동하니 직접 확인해 보세요.
@@ -317,7 +348,7 @@ More at https://github.com/biyott/pageblink
     locale: 'ko',
     audience: SampleAudience.demo,
     accountEmail: 'demo-ko@pageblink.invalid',
-    pdf: demoPdf,
+    pdf: demoPdfKo,
     notes: const [
       SampleNote('PageBlink 둘러보기: 5분이면 충분해요', r'''
 # PageBlink 둘러보기: 5분이면 충분해요
@@ -382,18 +413,9 @@ PageBlink는 **마크다운 노트와 PDF에 질문하는 앱**이에요. 답변
 '''),
     ],
     questions: const [
-      SampleQuestion('출시일이 언제고 예산은 얼마야?', [
-        '2026년 11월 18일',
-        '1,200만 원',
-      ]),
-      SampleQuestion('4분기 출시 계획에서 남은 일이 뭐야?', [
-        '릴리스 노트 마무리',
-        '베타 초대 메일 발송',
-      ]),
-      SampleQuestion('이번 주 결정에서 바뀐 게 뭐야?', [
-        '~~배포는 주 2회~~',
-        '주 1회로 변경',
-      ]),
+      SampleQuestion('출시일이 언제고 예산은 얼마야?', ['2026년 11월 18일', '1,200만 원']),
+      SampleQuestion('4분기 출시 계획에서 남은 일이 뭐야?', ['릴리스 노트 마무리', '베타 초대 메일 발송']),
+      SampleQuestion('이번 주 결정에서 바뀐 게 뭐야?', ['~~배포는 주 2회~~', '주 1회로 변경']),
       SampleQuestion('PDF는 어떻게 올려?', ['PDF 올리기: PDF 올리기를 누르고']),
     ],
   );
@@ -430,6 +452,13 @@ PageBlink는 **마크다운 노트와 PDF에 질문하는 앱**이에요. 답변
   /// Hashes of every demo sample (notes and PDF): a demo document with one
   /// of these is protected, not counted, never purged.
   static final demoMarkers = <String>{for (final p in demo) ...p.hashes};
+
+  /// Hashes of the demo sample PDFs, one per language. `DemoSeed.run` removes
+  /// the ones that are not the account's own (the Korean account held the
+  /// English-first PDF until the Korean one replaced it).
+  static final demoPdfHashes = <String>{
+    for (final p in demo) ?p.pdf?.hash,
+  };
 
   /// Hashes of the sign-up sample notes.
   static final signupMarkers = <String>{

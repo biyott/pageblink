@@ -726,12 +726,59 @@ void main() {
           expect(pdf.storagePath, 'pdfs/${pdf.id}.pdf');
           expect(await DemoGuard.countOwn(sb.build(), id), 0);
         }
-        // The shared PDF is one row per account, not one row in total.
-        final pdfRows = await Document.db.count(
-          sb.build(),
-          where: (t) => t.contentHash.equals(pack.pdf!.hash),
+        // Each language has its own PDF, one row in its own account only.
+        for (final p in [pack, koPack]) {
+          final pdfRows = await Document.db.count(
+            sb.build(),
+            where: (t) => t.contentHash.equals(p.pdf!.hash),
+          );
+          expect(pdfRows, 1, reason: p.id);
+        }
+      });
+
+      test('the PDF card preview starts in the account language', () async {
+        await DemoSeed.run(seed.build(), demoId, pack);
+        await DemoSeed.run(seedKo.build(), koId, koPack);
+        Future<String?> previewOf(UuidValue id) async => (await samplesOf(
+          id,
+        )).singleWhere((d) => d.kind == 'pdf').preview;
+        expect(await previewOf(demoId), startsWith('Adding your documents'));
+        expect(await previewOf(koId), startsWith('문서 추가하기'));
+      });
+
+      test('a PDF change re-seeds: the old PDF goes, own documents stay, '
+          'the other account is untouched', () async {
+        // Before this release the Korean account held the English PDF.
+        await DemoSeed.run(seed.build(), demoId, pack);
+        final oldKo = await sampleRow(
+          pack.pdf!.hash,
+          kind: 'pdf',
+          owner: koId,
         );
-        expect(pdfRows, 2);
+        final ownKo = await ownRow(
+          age: const Duration(minutes: 1),
+          owner: koId,
+        );
+        // A visitor's note that merely has another pack's body is not a PDF.
+        final pasted = await sampleRow(pack.notes[0].hash, owner: koId);
+        final enBefore = {for (final d in await samplesOf(demoId)) d.id};
+
+        await DemoSeed.run(seedKo.build(), koId, koPack);
+        await DemoSeed.run(seedKo.build(), koId, koPack); // once only
+
+        final s = sb.build();
+        expect(await Document.db.findById(s, oldKo.id!), isNull);
+        expect(await Document.db.findById(s, ownKo.id!), isNotNull);
+        expect(await Document.db.findById(s, pasted.id!), isNotNull);
+        final pdfs = await Document.db.find(
+          s,
+          where: (t) => t.ownerId.equals(koId) & t.kind.equals('pdf'),
+        );
+        expect(pdfs.map((d) => d.contentHash), [koPack.pdf!.hash]);
+        expect(pdfs.single.title, koPack.pdf!.title);
+        expect(pdfs.single.storagePath, 'pdfs/${pdfs.single.id}.pdf');
+        // The English account keeps exactly its rows.
+        expect({for (final d in await samplesOf(demoId)) d.id}, enBefore);
       });
 
       test('create limits are independent', () async {

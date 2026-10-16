@@ -1,6 +1,6 @@
 # 📋 후속 개선 백로그 — 다른 세션이 이 문서만 읽고 이어가기 위한 인수인계
 
-> **작성일**: 2026-10-16 16:22 KST · **최종 수정**: 2026-10-16 16:22 KST
+> **작성일**: 2026-10-16 16:22 KST · **최종 수정**: 2026-10-16 16:48 KST
 > **관련 문서**: [세션 인수인계 (012)](012-session-handoff.md) · [devlog 012 (10~15차)](../devlog/012-releases-10-to-15.md) · [ADR 023 (OCR 미제품화)](../adr/023-no-scanned-pdf-recovery.md) · [ADR 024 (모델 기본값·로테이션)](../adr/024-ask-model-default-reasoning-off-paid-fallback.md) · [research 033 (지연·로테이션)](../research/033-llm-latency-and-rotation.md) · [research 034 (접근성 점검)](../research/034-accessibility-audit.md) · [상호작용 상태 명세](../design/interaction-states/spec.md) · [Ask 대화 UI 명세](../design/ask-history-ui/spec.md) · [research 030 (Ask 대화 기록)](../research/030-ask-sessions.md) · [`AGENTS.md`](../../AGENTS.md) · [`app/AGENTS.md`](../../app/AGENTS.md)
 > **표기**: ✅ 이 문서를 쓰며 저장소(`main` `686e4aa`의 코드·`git log`)로 확인 · ⚠️ 전달받은 값이거나 미확인(그대로 믿지 말고 직접 재확인) · 확인 필요 = 값을 알지 못함
 > **용도**: CTO가 "후속 개선은 다른 세션에서 하게 md로 정리하라"고 해서 만든 문서입니다. 새로 시작한 Claude 세션은 **이 대화를 전혀 모릅니다.** §1(현재 상태)과 §3(작업 방식)을 먼저 읽고, §2에서 항목을 골라 작업→검증→배포까지 진행할 수 있게 썼습니다. 우선순위·규모는 작성자의 **제안**이며 CTO 결정이 우선합니다.
@@ -148,6 +148,8 @@
 | 완료 기준 | 새 측정으로 `docs/research/`에 다음 일련번호의 조사 문서를 작성, 필요하면 ADR로 순서·기본값 변경 |
 
 ### 2-7. 한국어 계정 샘플 PDF 미리보기가 영어로 시작
+
+> ✅ **구현됨 (미배포)**: 한국어 팩 전용 PDF `web/samples/pageblink-guide-ko.pdf`(한국어만, 3쪽, 약 20KB)와 `SamplePacks.demoPdfKo`를 추가하고 `demoKo.pdf`가 이를 가리킨다. 영어 팩의 `demoPdf`(영·한 병기, 영어 먼저)는 **바이트 단위로 그대로**라 영어 계정은 재시드되지 않는다. 생성 스크립트는 `scripts/build_sample_pdf_ko.sh`(XeLaTeX + Pretendard, 같은 입력이면 같은 바이트). 한국어 계정은 새 해시의 PDF가 새로 시드되고, 옛 영어 먼저 PDF 행은 `DemoSeed.run`이 지운다(PDF 해시만, 방문자 문서·다른 팩 노트는 건드리지 않음). 아래 표는 구현 전 분석이다.
 
 | 항목 | 내용 |
 |---|---|

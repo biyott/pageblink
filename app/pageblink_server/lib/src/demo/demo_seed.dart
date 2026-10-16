@@ -108,8 +108,11 @@ class DemoSeed {
 
   /// Creates what is missing in one demo account and re-indexes failed or
   /// stuck samples. First removes samples of earlier releases
-  /// ([SamplePacks.demoLegacy]) with their chunks, pages and PDF file; once
-  /// they are gone this is a no-op. [session] must be authenticated as
+  /// ([SamplePacks.demoLegacy]) and the sample PDF of another pack (the Korean
+  /// account once held the English-first PDF) with their chunks, pages and PDF
+  /// file; once they are gone this is a no-op. Only rows whose `contentHash`
+  /// is exactly such a marker go, never a visitor's own documents (notes of
+  /// another pack are not touched: a visitor may have pasted one). [session] must be authenticated as
   /// [demoId] with the seed id; [pack] is that account's pack.
   static Future<void> run(
     Session session,
@@ -122,7 +125,10 @@ class DemoSeed {
       session,
       where: (t) =>
           t.ownerId.equals(demoId) &
-          t.contentHash.inSet(SamplePacks.demoLegacy),
+          t.contentHash.inSet({
+            ...SamplePacks.demoLegacy,
+            ...SamplePacks.demoPdfHashes.difference(pack.hashes),
+          }),
     );
     if (old.isNotEmpty) {
       await DocumentCleanup.deleteFiles(session, old.map((d) => d.storagePath));
