@@ -299,41 +299,55 @@ class _AskScreenState extends State<AskScreen> {
               ],
             ),
           ),
-        if (historyOn && _noticeShown)
-          _HistoryNotice(
-            text: l.historyNotice(status!.retentionDays),
-            onClose: () {
-              setState(() => _noticeShown = false);
-              dismissNotice();
+        Expanded(
+          // The notice lives inside the thread's space and takes at most 40%
+          // of it (see _HistoryNotice), so it never squeezes the rest.
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final noticeMax = (box.maxHeight * 0.4).clamp(0.0, 200.0);
+              return Column(
+                children: [
+                  if (historyOn && _noticeShown && noticeMax >= 72)
+                    _HistoryNotice(
+                      text: l.historyNotice(status!.retentionDays),
+                      maxHeight: noticeMax,
+                      onClose: () {
+                        setState(() => _noticeShown = false);
+                        dismissNotice();
+                      },
+                    ),
+                  Expanded(
+                    // A refused question can leave no turn but the limit card.
+                    child: turns.isEmpty && !limitReached
+                        ? AskEmptyHint(
+                            includePersonal: _includePersonal,
+                            onPick: (q) {
+                              _input.text = q;
+                              _ask();
+                            },
+                          )
+                        : ListView.builder(
+                            controller: _scroll,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: turns.length + (limitReached ? 1 : 0),
+                            itemBuilder: (context, i) => i < turns.length
+                                ? AskTurnView(
+                                    turns[i],
+                                    onBlink: _blink,
+                                    onAskAgain: (q) => _input.text = q,
+                                  )
+                                : _LimitBanner(
+                                    text: l.askLimitReached(
+                                      _chat.limit ?? _chat.count ?? 0,
+                                    ),
+                                    onNew: _newChat,
+                                  ),
+                          ),
+                  ),
+                ],
+              );
             },
           ),
-        Expanded(
-          // A refused question can leave no turn but the limit card.
-          child: turns.isEmpty && !limitReached
-              ? AskEmptyHint(
-                  includePersonal: _includePersonal,
-                  onPick: (q) {
-                    _input.text = q;
-                    _ask();
-                  },
-                )
-              : ListView.builder(
-                  controller: _scroll,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: turns.length + (limitReached ? 1 : 0),
-                  itemBuilder: (context, i) => i < turns.length
-                      ? AskTurnView(
-                          turns[i],
-                          onBlink: _blink,
-                          onAskAgain: (q) => _input.text = q,
-                        )
-                      : _LimitBanner(
-                          text: l.askLimitReached(
-                            _chat.limit ?? _chat.count ?? 0,
-                          ),
-                          onNew: _newChat,
-                        ),
-                ),
         ),
         if (_chat.hint != null)
           _HintLine(
@@ -1490,16 +1504,31 @@ class _SuggestionCard extends StatelessWidget {
 }
 
 /// The "kept on the server" notice, shown once until closed.
+///
+/// At large text sizes the text is tall, so the banner is capped at
+/// [maxHeight] (including its margin) and the text scrolls inside. The close
+/// button sits outside the scroll area and is always in view. A screen reader
+/// gets one node with the whole text, not the clipped viewport. The caller
+/// does not show it when there is not room for [maxHeight] >= 72 (a phone with
+/// the keyboard up): it comes back when there is.
 class _HistoryNotice extends StatelessWidget {
-  const _HistoryNotice({required this.text, required this.onClose});
+  const _HistoryNotice({
+    required this.text,
+    required this.maxHeight,
+    required this.onClose,
+  });
 
   final String text;
+  final double maxHeight;
   final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
     final pb = context.pb;
     return Container(
+      key: const ValueKey('history-notice'),
+      // Container adds the 8px top margin on top of the constraint.
+      constraints: BoxConstraints(maxHeight: maxHeight - 8),
       margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
       padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
       decoration: BoxDecoration(
@@ -1512,9 +1541,17 @@ class _HistoryNotice extends StatelessWidget {
           Icon(AppIcons.info, size: 16, color: pb.inkMuted),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontSize: 12, color: pb.inkMuted),
+            child: Semantics(
+              container: true,
+              label: text,
+              child: ExcludeSemantics(
+                child: SingleChildScrollView(
+                  child: Text(
+                    text,
+                    style: TextStyle(fontSize: 12, color: pb.inkMuted),
+                  ),
+                ),
+              ),
             ),
           ),
           IconButton(

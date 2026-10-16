@@ -135,6 +135,12 @@ PbRingPainter _ring(WidgetTester t, Finder within) =>
 
 bool _focused(WidgetTester t, Finder within) => _ring(t, within).visible;
 
+final _notice = find.byKey(const ValueKey('history-notice'));
+final _noticeClose = find.descendant(
+  of: _notice,
+  matching: find.byType(IconButton),
+);
+
 Finder _row(int id) => find.byKey(ValueKey('recent-$id'));
 Finder _pick(int id) =>
     find.descendant(of: _row(id), matching: find.byType(PbInteractive)).first;
@@ -988,6 +994,99 @@ void main() {
         }
       }
     }
+
+    // The "kept on the server" banner VISIBLE (the group above runs with it
+    // dismissed). 320x400 is a phone with the keyboard up.
+    for (final lang in ['en', 'ko']) {
+      for (final scale in [1.0, 2.0]) {
+        for (final (w, h) in [
+          (1280.0, 800.0),
+          (768.0, 1024.0),
+          (390.0, 844.0),
+          (320.0, 700.0),
+          (320.0, 400.0),
+        ]) {
+          testWidgets('$lang x$scale at ${w}x$h: the notice, no overflow', (
+            t,
+          ) async {
+            await _pump(t, size: Size(w, h), lang: lang, scale: scale);
+            expect(t.takeException(), isNull);
+            if (h < 500) {
+              // no room: it waits instead of squeezing the thread
+              expect(_notice, findsNothing);
+              return;
+            }
+            expect(_notice, findsOneWidget);
+            final box = t.getRect(_notice);
+            expect(box.height, lessThanOrEqualTo(200));
+            expect(box.height, lessThanOrEqualTo(h * 0.4));
+            // the close button is whole and on screen
+            final x = t.getRect(_noticeClose);
+            expect(x.top, greaterThanOrEqualTo(box.top));
+            expect(x.bottom, lessThanOrEqualTo(box.bottom));
+            expect(x.right, lessThanOrEqualTo(w));
+          });
+        }
+      }
+    }
+
+    testWidgets('notice: long text scrolls inside, close stays put and works', (
+      t,
+    ) async {
+      await _pump(t, size: const Size(320, 700), scale: 2);
+      expect(t.takeException(), isNull);
+      final inside = find.descendant(
+        of: _notice,
+        matching: find.byType(Scrollable),
+      );
+      final scroll = t.state<ScrollableState>(inside);
+      expect(scroll.position.maxScrollExtent, greaterThan(0));
+      final before = t.getRect(_noticeClose);
+      await t.drag(inside, const Offset(0, -300));
+      await t.pump();
+      expect(scroll.position.pixels, scroll.position.maxScrollExtent);
+      expect(t.getRect(_noticeClose), before);
+      await t.tap(_noticeClose);
+      await _settle(t);
+      expect(_notice, findsNothing);
+      expect(await noticeDismissed(), isTrue);
+    });
+
+    testWidgets('notice: hidden with the keyboard up, back without it', (
+      t,
+    ) async {
+      await _pump(t, size: const Size(320, 400), scale: 2);
+      expect(_notice, findsNothing);
+      expect(await noticeDismissed(), isFalse);
+      await _pump(t, size: const Size(320, 700), scale: 2);
+      expect(_notice, findsOneWidget);
+      expect(t.takeException(), isNull);
+    });
+
+    testWidgets('notice: a screen reader gets the whole text, once', (t) async {
+      final h = t.ensureSemantics();
+      for (final (lang, text) in [
+        (
+          'en',
+          'Conversations are kept on the server for 30 days for '
+              'administration. When you use a free model, earlier answers may '
+              'be sent along with your question.',
+        ),
+        (
+          'ko',
+          '대화 내용은 관리 목적으로 서버에 30일 동안 보관돼요. '
+              '무료 모델을 쓸 때는 이전 답변이 함께 전송될 수 있어요.',
+        ),
+      ]) {
+        await _pump(t, size: const Size(320, 700), lang: lang, scale: 2);
+        // Korean copy carries U+2060 word joiners between characters.
+        final label = RegExp(
+          text.split('').map(RegExp.escape).join('\u2060?'),
+        );
+        expect(find.bySemanticsLabel(label), findsOneWidget);
+      }
+      h.dispose();
+    });
 
     testWidgets('the header fits the 380 column in both languages', (t) async {
       for (final lang in ['en', 'ko']) {
