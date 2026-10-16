@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>PageBlink Ask 대화 선택 UI 시안 (헤더 [최근 대화] + [새 대화])</title>
+<style>
+/* 토큰: lib/app/theme.dart Pb.light / Pb.dark 실제 값 + a11y-design/interaction-states-spec.md §3.1 */
+.theme{--ink:#1F1B16;--muted:#5C5348;--hairline:#E4DDD0;--accent:#6C4CF5;--onAccent:#fff;--accC:#EAE4FD;--onAccC:#2E1F85;
+  --glass:rgba(255,255,255,.62);--strong:rgba(255,255,255,.74);--gborder:rgba(255,255,255,.80);--chip:rgba(255,255,255,.55);
+  --warn:#B45309;--warnText:#92400E;--warnC:#FEF3C7;--warnB:rgba(180,83,9,.55);
+  --ring:#1F1B16;--hover:rgba(31,27,22,.06);--press:rgba(31,27,22,.12);--fh:rgba(0,0,0,.08);--fp:rgba(0,0,0,.14);
+  --dFg:rgba(31,27,22,.38);--dBg:rgba(31,27,22,.08);--edge28:rgba(31,27,22,.28);--sheet:#FEFAF8;--scrim:rgba(30,22,12,.40);
+  --bg:linear-gradient(135deg,#EDE6FA,#F7E8EE,#FFE9DC);--cite:rgba(108,76,245,.12);
+  --grad:linear-gradient(135deg,#6C4CF5,#8F6BFF);--shadow:0 8px 24px rgba(108,76,245,.10);--menuShadow:0 8px 28px rgba(0,0,0,.18)}
+.theme.dark{--ink:#F2EDE3;--muted:#B5AD9F;--hairline:rgba(255,255,255,.14);--accent:#B7A6FF;--onAccent:#251A63;--accC:#3A2F7A;--onAccC:#E9E3FC;
+  --glass:rgba(255,255,255,.078);--strong:rgba(255,255,255,.141);--gborder:rgba(255,255,255,.16);--chip:rgba(255,255,255,.05);
+  --warn:#FBBF24;--warnText:#FBBF24;--warnC:#3A2A0A;--warnB:rgba(251,191,36,.5);
+  --ring:#F2EDE3;--hover:rgba(255,255,255,.06);--press:rgba(255,255,255,.12);
+  --dFg:rgba(242,237,227,.38);--dBg:rgba(255,255,255,.08);--edge28:rgba(242,237,227,.28);--sheet:#282130;--scrim:rgba(0,0,0,.45);
+  --bg:linear-gradient(135deg,#1E1830,#251C27,#2A1F1C);--cite:rgba(183,166,255,.14);
+  --grad:linear-gradient(135deg,#6C4CF5,#7A5CFF);--shadow:0 8px 24px rgba(0,0,0,.30);--menuShadow:0 8px 28px rgba(0,0,0,.45)}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.4 "Pretendard","Inter","Noto Sans KR",-apple-system,sans-serif;background:#d9d4de}
+.theme{width:1240px;margin:0 auto;padding:28px 32px 40px;background:var(--bg);color:var(--ink)}
+h1{font:600 26px/1.2 "Fraunces","Georgia",serif;margin:0 0 4px}
+h2{font:600 16px/1.3 inherit;margin:34px 0 4px}
+.sub{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:1100px}
+.row{display:flex;gap:18px;align-items:flex-start}
+.note{width:330px;font-size:12.5px;color:var(--ink);background:var(--strong);border:1px solid var(--gborder);border-radius:14px;padding:12px 14px}
+.note>b{display:block;margin-bottom:4px;font-size:12.5px}
+.note ul{margin:0;padding-left:16px}.note li{margin:3px 0}
+.cap{font-size:11.5px;color:var(--muted);font-weight:600;margin:0 0 6px}
+svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.s16{width:16px;height:16px}svg.s14{width:14px;height:14px}
+.ring{outline:2px solid var(--ring);outline-offset:2px}
+/* ---- 프레임 ---- */
+.fr{position:relative;overflow:hidden;border:1px solid var(--gborder);display:flex;flex-direction:column}
+.fr.d{width:380px;height:640px;border-radius:24px;background:var(--glass);box-shadow:var(--shadow)}
+.fr.m{width:390px;height:640px;border-radius:24px;background:rgba(255,255,255,.18)}
+.dark .fr.m{background:rgba(255,255,255,.04)}
+.fr.w{width:380px}
+/* ---- 헤더 ---- */
+.hdr{display:flex;align-items:center;gap:8px;flex:none}
+.hdr.d{padding:18px 14px 6px 20px;justify-content:space-between}
+.hdr.m{padding:10px 16px 4px;justify-content:flex-start}
+.ttl{display:flex;align-items:center;gap:6px;font:500 28px/1.1 "Fraunces","Georgia",serif;white-space:nowrap}
+.ttl svg{width:26px;height:26px;color:var(--accent)}
+.acts{display:flex;gap:8px}
+.hbtn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px 0 10px;border-radius:999px;font:600 13px/1 inherit;color:var(--ink);
+  background:var(--chip);border:1px solid var(--hairline);white-space:nowrap;cursor:pointer}
+.hdr.m .hbtn{height:40px;padding:0 14px 0 12px}
+.hbtn svg{width:18px;height:18px}
+.hbtn .chev{width:16px;height:16px;color:var(--muted);margin-left:-2px}
+.hbtn.tonal{background:var(--accC);color:var(--onAccC);border-color:transparent}
+.hbtn.hv{background:linear-gradient(var(--hover),var(--hover)),var(--chip);border-color:var(--edge28)}
+.hbtn.tonal.hv{background:linear-gradient(var(--hover),var(--hover)),var(--accC)}
+.hbtn.open{background:linear-gradient(var(--press),var(--press)),var(--chip);border-color:var(--edge28)}
+.hbtn.open .chev{transform:rotate(180deg)}
+.hbtn.icon{width:36px;padding:0;justify-content:center;border-radius:12px;background:transparent;border-color:transparent}
+.hbtn.dis{color:var(--dFg);background:var(--dBg);border-color:var(--hairline)}
+.hbtn.icon.dis{background:transparent;border-color:transparent}
+.hbtn.ico-only{width:36px;padding:0;justify-content:center}
+/* ---- 스레드 ---- */
+.th{flex:1;min-height:0;overflow:hidden;padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+.fr.m .th{padding:8px 16px}
+.notice{display:flex;gap:8px;align-items:flex-start;background:var(--chip);border:1px solid var(--hairline);border-radius:12px;padding:6px 6px 6px 10px;font-size:11.5px;color:var(--muted)}
+.notice svg{width:14px;height:14px;margin-top:2px}
+.empty{margin:auto;text-align:center;padding:0 6px}
+.empty svg.big{width:44px;height:44px;color:var(--accent);margin-bottom:6px}
+.empty h3{font:500 21px/1.2 "Fraunces","Georgia",serif;margin:0 0 4px}
+.empty p{margin:0 0 12px;color:var(--muted);font-size:12.5px}
+.ex{background:var(--strong);border:1px solid var(--gborder);border-radius:12px;padding:10px;font-size:13px;margin-top:8px}
+.qb{align-self:flex-end;max-width:84%;background:var(--grad);color:#fff;border-radius:18px 18px 6px 18px;padding:9px 13px;font-size:14px}
+.dark .qb{color:#fff}
+.ans{background:var(--strong);border:1px solid var(--gborder);border-radius:6px 18px 18px 18px;padding:11px 14px;font-size:13.5px;line-height:1.5}
+.cm{display:inline-flex;align-items:center;gap:2px;background:var(--accC);color:var(--onAccC);border-radius:9px;padding:0 6px;font-size:11.5px;font-weight:700;vertical-align:1px}
+.cm svg{width:10px;height:10px}
+.srcs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.src{background:var(--cite);border-radius:8px;padding:4px 8px;font-size:11.5px}
+.cut{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;margin-top:8px;color:var(--warnText);font-size:13px}
+.cut svg{width:16px;height:16px}
+.tbtn{display:inline-flex;align-items:center;height:36px;padding:0 12px;border-radius:999px;font:600 13px/1 inherit;color:var(--ink);border:1px solid var(--edge28);background:transparent}
+.fr.m .tbtn{height:44px;padding:0 16px}
+.limit{display:flex;gap:10px;align-items:center;background:var(--warnC);border:1px solid var(--warnB);border-radius:14px;padding:10px 12px;color:var(--warnText);font-size:13px}
+.limit svg{width:18px;height:18px}
+.fbtn{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 14px;border-radius:999px;background:var(--accent);color:var(--onAccent);font:600 13px/1 inherit;white-space:nowrap}
+.fr.m .fbtn{height:44px;padding:0 18px}
+.hint{display:flex;gap:6px;align-items:center;padding:0 16px 4px;font-size:12.5px;color:var(--warnText)}
+.hint svg{width:14px;height:14px}
+/* ---- 컴포저 ---- */
+.cp{margin:4px 12px 8px;background:var(--strong);border:1px solid var(--gborder);border-radius:20px;padding:10px 12px;flex:none}
+.sp{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px;border-radius:16px;font-size:13px;font-weight:500;background:var(--chip);border:1px solid var(--hairline)}
+.sp svg{width:16px;height:16px;color:var(--muted)}
+.inrow{display:flex;align-items:flex-end;gap:8px;margin-top:2px}
+.inp{flex:1;padding:12px 4px;color:var(--muted);font-size:14px}
+.inp.val{color:var(--ink)}.inp.dis{color:var(--dFg)}
+.send{width:40px;height:40px;border-radius:50%;background:var(--accent);color:var(--onAccent);display:flex;align-items:center;justify-content:center;margin-bottom:2px}
+.fr.m .send{width:44px;height:44px}
+.send.dis{background:var(--dBg);color:var(--dFg)}
+.send svg{width:20px;height:20px}
+.brow{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px}
+.mp{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 10px 0 12px;border-radius:16px;font-size:13px;font-weight:500;background:var(--chip);border:1px solid var(--hairline)}
+.mp svg{width:16px;height:16px;color:var(--muted)}
+.cnt{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--muted);white-space:nowrap}
+.cnt.w1{color:var(--warnText);font-weight:700;font-size:13px}
+.cnt svg{width:14px;height:14px}
+.disc{text-align:center;font-size:11px;color:var(--muted);padding:0 0 8px;flex:none}
+/* ---- 팝오버 / 시트 ---- */
+.pop{position:absolute;width:340px;background:var(--sheet);border:1px solid var(--hairline);border-radius:14px;box-shadow:var(--menuShadow);padding:6px;z-index:5}
+.pop.d{right:14px;top:62px}
+.ph{display:flex;justify-content:space-between;align-items:baseline;padding:6px 10px 4px;font-size:12px;font-weight:700;color:var(--muted)}
+.ph span{font-weight:500;font-size:11.5px}
+.crow{display:grid;grid-template-columns:20px 1fr 36px;gap:8px;align-items:center;min-height:56px;padding:8px 6px 8px 10px;border-radius:10px;font-size:14px;position:relative}
+.crow .t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:500;line-height:1.3}
+.crow .mt{font-size:12px;color:var(--muted);margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.crow .mt.w1{color:var(--warnText);font-weight:600}
+.crow .mt svg{width:12px;height:12px}
+.crow .ck{color:var(--onAccC)}
+.crow.cur{background:var(--accC)}
+.crow.cur .t{font-weight:700;color:var(--onAccC)}
+.crow.cur .mt{color:var(--onAccC)}
+.crow.hv{background:var(--hover)}
+.crow.fc{box-shadow:inset 0 0 0 2px var(--ring)}
+.crow .hide{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);visibility:hidden}
+.crow.hv .hide,.crow.fc .hide,.sheet .crow .hide,.crow.cur .hide{visibility:visible}
+.crow.hv .hide.on{background:var(--press)}
+.sheet .crow .hide{width:44px;height:44px}
+.sheet .crow{min-height:64px;grid-template-columns:20px 1fr 44px}
+.crow.cfm{grid-template-columns:1fr;background:var(--warnC);border:1px solid var(--warnB);min-height:0;padding:10px 12px;gap:8px}
+.crow.cfm p{margin:0;color:var(--warnText);font-size:13px;line-height:1.35}
+.crow.cfm .bt{display:flex;gap:8px;justify-content:flex-end}
+.cbtn{display:inline-flex;align-items:center;height:36px;padding:0 14px;border-radius:999px;font:600 13px/1 inherit;border:1px solid var(--edge28);color:var(--ink)}
+.sheet .cbtn{height:44px}
+.cbtn.dg{background:var(--warn);border-color:transparent;color:#fff}
+.dark .cbtn.dg{color:#251A06}
+.pf{border-top:1px solid var(--hairline);margin-top:4px;padding:8px 10px 6px;font-size:11.5px;color:var(--muted);line-height:1.4}
+.emptyl{padding:16px 12px 12px;text-align:center;color:var(--muted);font-size:13px}
+.emptyl svg{width:28px;height:28px;margin-bottom:4px}
+.emptyl b{display:block;color:var(--ink);font-size:14px;margin-bottom:2px}
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:4}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--sheet);border-radius:24px 24px 0 0;padding:8px 12px 18px;z-index:5;box-shadow:var(--menuShadow)}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--edge28);margin:0 auto 8px}
+.sheet .ph{font-size:15px;color:var(--ink);padding:4px 10px 6px}
+/* ---- 폰 AppBar/탭 ---- */
+.appb{display:flex;align-items:center;justify-content:space-between;padding:6px 14px;height:44px;font:600 19px/1 "Fraunces","Georgia",serif;flex:none}
+.appb i{font-style:normal;display:flex;gap:14px;color:var(--ink)}
+.nav{display:flex;justify-content:space-around;height:60px;align-items:center;background:var(--glass);border-top:1px solid var(--gborder);font-size:11px;flex:none}
+.nav div{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 14px;border-radius:14px}
+.nav .on{background:var(--accC);color:var(--onAccC);font-weight:700}
+/* ---- 현재(문제) 표시 ---- */
+.bad{outline:2px dashed #D92D20;outline-offset:2px;border-radius:12px}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;background:#D92D20;color:#fff;border-radius:8px;padding:1px 6px;margin-left:4px}
+.tag.ok{background:#2E7D4F}
+.chipold{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px 0 8px;border-radius:8px;font-size:13px;font-weight:500;border:1px solid var(--hairline);color:var(--ink);background:transparent}
+.chipold.dis{color:var(--dFg);border-color:var(--hairline);opacity:.8}
+.chipold svg{width:18px;height:18px}
+.cntold{display:inline-flex;align-items:center;height:32px;padding:0 10px;border:1px solid var(--hairline);border-radius:16px;font-size:13px;color:var(--muted);font-weight:500}
+.wrapold{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+/* ---- 반응형 와이어 ---- */
+.wire{position:relative;border:1px solid var(--gborder);border-radius:18px;background:rgba(255,255,255,.25);overflow:hidden}
+.dark .wire{background:rgba(255,255,255,.03)}
+.blk{position:absolute;border-radius:14px;background:var(--glass);border:1px solid var(--gborder);font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:center;text-align:center}
+.blk.strong{background:var(--strong)}
+.alt{width:380px;height:300px;position:relative;overflow:hidden;border-radius:18px;background:var(--glass);border:1px solid var(--gborder)}
+.altn{font-size:12px;color:var(--muted);margin-top:6px;max-width:380px}
+table.cmp{border-collapse:collapse;font-size:12.5px;width:100%;background:var(--strong);border-radius:12px;overflow:hidden}
+.cmp th,.cmp td{border:1px solid var(--hairline);padding:6px 9px;text-align:left;vertical-align:top}
+.cmp th{background:var(--chip)}
+</style>
+</head>
+<body>
+<div class="theme" id="root">
+<h1>Ask 대화 선택 UI 시안</h1>
+<p class="sub">헤더에 <b>[최근 대화 ▾]</b> + <b>[새 대화]</b>를 두고, 입력창 위의 대화 바를 없앤다. 색은 <code>theme.dart</code> Pb 토큰 hex(라이트·다크 같은 파일, <code>?t=dark</code>)와 상호작용 기준안(링 2px ink, hover 6%, pressed 12%) 값이다.
+데스크톱 프레임은 실제 Ask 열 폭 <b>380</b>(<code>main.dart</code> 고정), 폰 프레임은 <b>390</b>. <b>스레드 안의 답변·한도·끊김 상태는 캡처가 아니라 코드와 위젯 테스트(<code>ask_history_test.dart</code>)에서 유도한 시안</b>이다(운영에서 질문을 보내지 않음).</p>
+<div id="out"></div>
+</div>
+<script>
+const q=new URLSearchParams(location.search);
+if(q.get('t')==='dark')document.getElementById('root').classList.add('dark');
+const I={
+ chev:'<path d="m6 9 6 6 6-6"/>',check:'<path d="M20 6 9 17l-5-5"/>',plus:'<path d="M5 12h14M12 5v14"/>',
+ hist:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+ eyeoff:'<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+ newq:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 7v6M9 10h6"/>',
+ warn:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+ up:'<path d="m5 12 7-7 7 7M12 19V5"/>',
+ info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>',
+ ask:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+ scope:'<path d="M21 6H3M10 12H3M10 18H3"/><circle cx="17" cy="15" r="3"/><path d="m21 19-1.9-1.9"/>',
+ bolt:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',user:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/>',
+ note:'<path d="M15 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h6"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/>',
+ out:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>'
+};
+const ic=(n,c='')=>`<svg class="${c}" viewBox="0 0 24 24">${I[n]}</svg>`;
+const T={ko:{ask:'질문',recent:'최근 대화',nw:'새 대화',popT:'최근 대화',popN:'최대 5개',cur:'현재',q:(n,m)=>`질문 ${n}/${m}`,left:n=>`${n}개 남음`,
+  foot:'마지막 질문 후 30분 동안 보여요. 목록에서 숨겨도 서버에는 7일 보관돼요.',empty1:'최근 30분 안의 대화가 없어요',empty2:'마지막 질문 후 30분 동안 보여요.',
+  hideQ:'이 대화를 목록에서 숨길까요?',hideCur:'지금 보고 있는 대화예요. 숨기면 새 대화로 바뀌어요.',hide:'숨기기',cancel:'취소',hideLbl:'목록에서 숨기기',
+  ph:'노트와 문서에 질문하기…',scope:'출처: 내 문서만',model:'자동',disc:'AI는 틀릴 수 있어요. ⚡ 출처를 확인하세요.',
+  full:'이 대화에서 질문 10개를 모두 사용했어요. 새 대화를 시작해 계속 질문하세요.',fullH:'새 대화를 시작하세요',
+  cut:'답변이 중간에 끊겼어요.',again:'다시 질문',notice:'대화 내용은 관리 목적으로 서버에 7일 동안 보관돼요. 무료 모델을 쓸 때는 이전 답변이 함께 전송될 수 있어요.',
+  hello:'노트와 문서에 질문하세요',hello2:'모든 답변은 ⚡ 출처로 연결됩니다',e1:'출시일이 언제고 예산은 얼마야?',e2:'4분기 출시 계획에서 남은 일이 뭐야?'},
+ en:{ask:'Ask',recent:'Recent',nw:'New chat',popT:'Recent chats',popN:'up to 5',cur:'Current',q:(n,m)=>`Question ${n}/${m}`,left:n=>`${n} left`,
+  foot:'Shown for 30 minutes after your last question. Hidden chats are still kept on the server for 7 days.',empty1:'No chats in the last 30 minutes',empty2:'Shown for 30 minutes after your last question.',
+  hideQ:'Hide this chat from the list?',hideCur:'This is the chat you are viewing. Hiding it starts a new chat.',hide:'Hide',cancel:'Cancel',hideLbl:'Hide from list',
+  ph:'Ask your notes and documents…',scope:'Scope: My docs only',model:'Auto',disc:'AI can make mistakes. Check the ⚡ sources.',
+  full:'You have asked 10 questions in this chat. Start a new chat to keep asking.',fullH:'Start a new chat',cut:'This answer was cut off.',again:'Ask again',
+  notice:'Conversations are kept on the server for 7 days for administration.',hello:'Ask your notes and documents',hello2:'Every answer links to its ⚡ source',e1:'When is launch and what is the budget?',e2:'What is left in the Q4 plan?'}};
+const ROWS=(L)=>L==='ko'?[
+ {t:'4분기 출시 계획에서 남은 일이 뭐야?',n:3,ago:'방금',cur:true},
+ {t:'PDF는 어떻게 올려? 한 번에 여러 개도 돼?',n:1,ago:'12분 전'},
+ {t:'이번 주 결정에서 바뀐 게 뭐야? 예산도 같이 알려줘',n:8,ago:'21분 전',w:true}]:[
+ {t:'What is left in the Q4 plan?',n:3,ago:'just now',cur:true},
+ {t:'How do I upload a PDF? Can I add several?',n:1,ago:'12 min ago'},
+ {t:'What changed in this week’s decisions? Include the budget too',n:8,ago:'21 min ago',w:true}];
+function row(r,L,o={}){const t=T[L];const st=(r.cur?' cur':'')+(o.hv?' hv':'')+(o.fc?' fc':'');
+ if(o.cfm)return `<div class="crow cfm"><p><b>${r.t}</b><br>${r.cur?t.hideCur:t.hideQ}</p><div class="bt"><span class="cbtn">${t.cancel}</span><span class="cbtn dg">${t.hide}</span></div></div>`;
+ const w=r.n>=8;
+ return `<div class="crow${st}"><span class="ck">${r.cur?ic('check','s16'):''}</span><div><div class="t">${r.t}</div><div class="mt${w?' w1':''}">${w?ic('warn'):''}${r.cur?`<b>${t.cur}</b> · `:''}${t.q(r.n,10)} · ${r.ago}</div></div><span class="hide${o.hideOn?' on':''}" aria-label="${t.hideLbl}">${ic('eyeoff')}</span></div>`}
+function popBody(L,rows,o={}){const t=T[L];let h=`<div class="ph">${t.popT}</div>`;
+ if(!rows.length)h+=`<div class="emptyl">${ic('hist')}<b>${t.empty1}</b>${t.empty2}</div>`;
+ rows.forEach((r,i)=>h+=row(r,L,(o.per||{})[i]||{}));
+ h+=`<div class="pf">${t.foot}</div>`;return h}
+function hdr(kind,L,o={}){const t=T[L];
+ if(o.off){return kind==='d'?`<div class="hdr d"><div class="ttl">${ic('ask')}${t.ask}</div><span class="hbtn icon${o.offDis?' dis':''}">${ic('newq')}</span></div>`:''}
+ const rec=`<span class="hbtn${o.open?' open':''}${o.recFc?' ring':''}${o.recHv?' hv':''}">${ic('hist')}${t.recent}${ic('chev','chev')}</span>`;
+ const nw=`<span class="hbtn tonal${o.nwFc?' ring':''}${o.nwHv?' hv':''}${o.iconNew?' ico-only':''}">${ic('newq')}${o.iconNew?'':t.nw}</span>`;
+ if(kind==='d')return `<div class="hdr d"><div class="ttl">${ic('ask')}${t.ask}</div><div class="acts">${rec}${nw}</div></div>`;
+ return `<div class="hdr m"><div class="acts">${rec}${nw}</div></div>`}
+function thread(L,o){const t=T[L];let h='';
+ if(o.notice)h+=`<div class="notice">${ic('info')}<div>${t.notice}</div><span style="margin-left:auto">${ic('x','s14')}</span></div>`;
+ if(o.empty)h+=`<div class="empty">${ic('ask','big')}<h3>${t.hello}</h3><p>${t.hello2}</p><div class="ex">${t.e1}</div><div class="ex">${t.e2}</div></div>`;
+ else{const a=ROWS(L)[0].t;
+  h+=`<div class="qb">${o.q||a}</div>`;
+  h+=`<div class="ans">${o.cut?(L==='ko'?'4분기 출시 계획에서 남은 일은 세 가지예요. 첫째, 온보딩 문서 정리':'Three things are left in the Q4 plan. First, the onboarding doc'):(L==='ko'?'남은 일은 온보딩 정리와 배포 동결 확인이에요 <span class="cm">'+ic('bolt')+'1</span> 출시일은 11월 18일이에요 <span class="cm">'+ic('bolt')+'2</span>':'Left: onboarding cleanup and the deploy freeze <span class="cm">'+ic('bolt')+'1</span> Launch is Nov 18 <span class="cm">'+ic('bolt')+'2</span>')}
+   ${o.cut?`<div class="cut">${ic('warn')}<span>${t.cut}</span><span class="tbtn">${t.again}</span></div>`:`<div class="srcs"><span class="src">${L==='ko'?'4분기 출시 계획':'Q4 launch plan'}</span><span class="src">PageBlink guide · p.2</span></div>`}</div>`;
+  if(o.limit)h+=`<div class="limit">${ic('warn')}<div style="flex:1">${t.full}</div></div><div style="align-self:flex-end"><span class="fbtn">${ic('newq','s16')}&nbsp;${t.nw}</span></div>`}
+ return `<div class="th">${h}</div>`}
+function comp(L,o){const t=T[L];
+ let cnt='';
+ if(o.n){const w=o.n>=8;cnt=`<span class="cnt${w?' w1':''}">${w?ic('warn'):''}${t.q(o.n,10)}${w&&o.n<10?' · '+t.left(10-o.n):''}</span>`}
+ return `<div class="cp"><span class="sp">${ic('scope')}${t.scope}${ic('chev','s16')}</span>
+  <div class="inrow"><div class="inp${o.val?' val':''}${o.dis?' dis':''}">${o.dis?t.fullH:(o.val||t.ph)}</div><span class="send${o.dis||!o.val?' dis':''}">${ic('up')}</span></div>
+  <div class="brow"><span class="mp">${t.model}${ic('chev','s16')}</span>${cnt}</div></div>`}
+function desk(L,o){const t=T[L];
+ return `<div class="fr d">${hdr('d',L,o.h||{})}${thread(L,o.th||{})}${o.hint?`<div class="hint">${ic('warn')}${o.hint}</div>`:''}${comp(L,o.cp||{})}<div class="disc">${t.disc}</div>
+ ${o.pop?`<div class="pop d">${popBody(L,o.pop.rows,o.pop)}</div>`:''}</div>`}
+function phone(L,o){const t=T[L];
+ let ov='';
+ if(o.pop)ov=`<div class="scrim"></div><div class="sheet"><div class="grab"></div>${popBody(L,o.pop.rows,o.pop)}</div>`;
+ return `<div class="fr m">${hdr('m',L,o.h||{})}${thread(L,o.th||{})}${o.hint?`<div class="hint">${ic('warn')}${o.hint}</div>`:''}${comp(L,o.cp||{})}<div class="disc">${t.disc}</div>${ov}</div>`}
+function sec(id,title,sub,o,notes,L='ko'){
+ return `<h2 id="${id}">${title}</h2><p class="sub">${sub}</p><div class="row" data-sec="${id}"><div><p class="cap">데스크톱 · Ask 열 380</p>${desk(L,o.d||o)}</div><div><p class="cap">모바일 390 (&lt;600: 최근 대화는 바텀시트)</p>${phone(L,o.m||o)}</div><div class="note"><b>규칙</b><ul>${notes.map(n=>`<li>${n}</li>`).join('')}</ul></div></div>`}
+const R=ROWS('ko'),RE=ROWS('en');
+let h='';
+/* 0 현재 */
+h+=`<h2 id="s0">① 현재 구현의 모습 (코드·라이브 캡처 기준 재현)</h2><p class="sub">운영 캡처(<code>current-desktop.png</code>, <code>current-mobile.png</code>)와 같은 구조. 빨간 점선이 문제 위치다. 질문을 보내야 나타나는 <code>질문 n/10</code> 칩은 코드(<code>_ChatBar</code>)에서 재현했다.</p>
+<div class="row" data-sec="s0"><div><p class="cap">데스크톱 · 현재</p><div class="fr d"><div class="hdr d"><div class="ttl">${ic('ask')}질문</div><span class="hbtn icon">${ic('newq')}</span></div>
+${thread('ko',{q:R[0].t,notice:true})}
+<div class="cp"><div class="wrapold bad"><span class="cntold">질문 3/10</span><span class="chipold">${ic('chev')}최근 대화</span><span class="chipold dis">${ic('plus')}새 대화</span></div>
+<span class="sp">${ic('scope')}출처: 내 문서만${ic('chev','s16')}</span><div class="inrow"><div class="inp">노트와 문서에 질문하기…</div><span class="send dis">${ic('up')}</span></div><div class="brow"><span class="mp">자동${ic('chev','s16')}</span></div></div><div class="disc">AI는 틀릴 수 있어요. ⚡ 출처를 확인하세요.</div></div></div>
+<div><p class="cap">모바일 · 현재 (Ask 화면에 헤더 자체가 없음)</p><div class="fr m"><div class="appb"><span>✦ PageBlink</span><i>${ic('gear')}${ic('out')}</i></div>${thread('ko',{q:R[0].t})}
+<div class="cp"><div class="wrapold bad"><span class="cntold">질문 3/10</span><span class="chipold">${ic('chev')}최근 대화</span><span class="chipold dis">${ic('plus')}새 대화</span></div><span class="sp">${ic('scope')}출처: 내 문서만${ic('chev','s16')}</span><div class="inrow"><div class="inp">노트와 문서에 질문하기…</div><span class="send dis">${ic('up')}</span></div><div class="brow"><span class="mp">자동${ic('chev','s16')}</span></div></div><div class="disc">AI는 틀릴 수 있어요. ⚡ 출처를 확인하세요.</div><div class="nav"><div class="on">질문</div><div>노트</div><div>프로젝트</div></div></div></div>
+<div class="note"><b>문제 (진단 요약)</b><ul><li>드물게 쓰는 대화 관리가 <b>자주 쓰는 입력창 패널 안</b>, 칩 줄로 들어가 있다(<code>_ChatBar</code>). 입력창 위에 칩 줄이 3겹(대화 줄 → 출처 → 입력 → 모델).</li><li>같은 동작이 <b>"새 질문"(헤더 아이콘)과 "새 대화"(칩)</b> 두 이름, 두 비활성 조건. 칩은 흐려져 고장처럼 보인다.</li><li>"최근 대화" 칩은 ▾ 모양인데 <b>가운데 모달</b>(≥600 다이얼로그, &lt;600 시트)이 열린다.</li><li>목록 항목마다 <b>휴지통</b> 상시 노출. 실제로는 서버가 보관하는 "숨김"이다.</li><li><code>질문 n/10</code>이 버튼 모양 칩이라 눌러지는 것처럼 보인다. 첫 질문 뒤 칩 줄이 나타나며 레이아웃이 밀린다.</li><li>원래 헤더(새 질문 아이콘)는 <b>≥1024에만</b> 있어서 폰·태블릿엔 새 질문 버튼이 없었다.</li></ul></div></div>`;
+/* 1 기본 */
+h+=sec('s1','② 기본 — 새 대화(빈 상태)','헤더: 데스크톱은 [제목 | 최근 대화 ▾ · 새 대화], 폰·태블릿은 제목 없이 두 버튼. 카운터는 아직 없음. 새 대화 버튼은 비활성이 아니라 "입력창으로 포커스 이동".',
+ {th:{empty:true,notice:true},cp:{}},['버튼 높이 데스크톱 36 / 터치 40(터치 영역 44).','새 대화는 빈 대화에서도 활성: 누르면 입력창에 포커스(죽은 버튼을 없앰).','고지 배너는 현행 그대로(닫으면 사라짐). 위치는 결정 항목.']);
+/* 2 대화 중 */
+h+=sec('s2','③ 대화 중 — 질문 3/10','카운터는 입력창 아래 줄의 오른쪽(모델 pill 맞은편). 새 줄이 생기지 않고, 버튼 모양이 아닌 12px 보조 글자.',
+ {th:{},cp:{n:3,val:''}},['<code>ask-count</code> 키 유지. 1~7은 muted 12px, 첫 질문 후 표시.','스크린리더: "이 대화에서 질문 10개 중 3개를 사용했어요"(기존 라벨).','모델 pill이 없으면(목록 실패) 카운터 혼자 줄을 쓰므로 줄 높이 32 고정.']);
+/* 3 최근 대화 열림 */
+h+=sec('s3','④ 최근 대화 열림 · 현재 대화 강조 · hover 시 숨기기','데스크톱: 버튼 아래 앵커 팝오버 340. 모바일: 바텀시트. 행 = 제목(첫 질문 2줄) + 메타(질문 n/10 · 마지막 활동). 현재 행은 accentContainer 면 + ✓ + "현재" 글자(색만으로 전달 안 함).',
+ {d:{h:{open:true},th:{},cp:{n:3},pop:{rows:R,per:{1:{hv:true,hideOn:true}}}},m:{h:{open:true},th:{},cp:{n:3},pop:{rows:R}}},
+ ['데스크톱 행 2: hover 6% 면 + 숨기기 버튼 노출(포인터 전용). 행 1(현재)과 포커스 행은 항상 노출.','터치(시트): 숨기기 버튼 44×44 상시 노출.','8개 이상 대화는 메타가 warnText + ⚠ (카운터와 같은 규칙).','푸터: 30분 규칙과 서버 보관 사실을 한 줄로.','목록 항목에는 "끊김" 상태가 없음: <code>AskSessionSummary</code>에 상태 필드가 없다(API 불변).']);
+/* 4 숨기기 확인 */
+h+=sec('s4','⑤ 숨기기 — 행 안에서 한 번 더 확인','숨기기는 서버에서 되돌릴 방법이 없다(unhide 없음). 그래서 스낵바 실행 취소가 아니라 <b>행 안 확인</b>: 아이콘을 누르면 같은 행이 확인 상태로 바뀐다.',
+ {d:{h:{open:true},th:{},cp:{n:3},pop:{rows:R,per:{1:{cfm:true}}}},m:{h:{open:true},th:{},cp:{n:3},pop:{rows:[R[0],R[1],R[2]],per:{0:{cfm:true}}}}},
+ ['확인 행에 <b>무엇을</b> 숨기는지 제목을 다시 보여 준다.','현재 대화를 숨기면 새 대화로 바뀐다는 문구(모바일 예시).','Esc·바깥 터치·다른 행 포커스 = 취소. 확인 버튼 36/44.']);
+/* 5 빈 목록 */
+h+=sec('s5','⑥ 빈 목록','버튼은 비활성이 아니라 항상 열린다. 비어 있으면 이유(30분 규칙)를 말해 준다.',
+ {d:{h:{open:true},th:{empty:true},cp:{},pop:{rows:[]}},m:{h:{open:true},th:{empty:true},cp:{},pop:{rows:[]}}},['빈 목록에도 푸터는 유지(고지 일관성).','열릴 때마다 <code>refreshRecent()</code>: 이전 목록을 먼저 보이고 조용히 갱신.']);
+/* 6 8개 이상 */
+h+=sec('s6','⑦ 8개 이상 — 2개 남음','level 1: 카운터가 warnText + ⚠ + "2개 남음". 입력은 막지 않는다. 포커스를 훔치지 않는 라이브 안내(기존 <code>SemanticsService</code>)는 그대로.',
+ {th:{},cp:{n:8}},['색만으로 전달하지 않음: ⚠ 아이콘 + 글자.','warnText 라이트 <code>#92400E</code> / 다크 <code>#FBBF24</code>.']);
+/* 7 한도 */
+h+=sec('s7','⑧ 한도 도달 — 10/10','<b>스레드 끝</b>에 카드(대화가 끝났다는 자리) + 새 대화 CTA. 입력창은 비활성 + 힌트 "새 대화를 시작하세요". 헤더의 새 대화도 같은 동작이므로 CTA는 카드의 하나만 채움 버튼.',
+ {th:{limit:true},cp:{n:10,dis:true}},['<code>ask-limit-banner</code> 키는 카드에 유지. 카드가 스레드 안에 있어 입력창 위 칸이 비지 않는다.','CTA 클릭 = 헤더 [새 대화]와 같은 <code>newChat()</code>, 이후 입력창 포커스.','보라 채움은 이 화면에서 전송 버튼(비활성)과 CTA뿐.']);
+/* 8 끊김 */
+h+=sec('s8','⑨ 끊긴 답변','스레드 안 해당 답변 아래에 한 줄(현행 위치 유지). "다시 질문"은 입력창을 채우기만 하고 보내지 않는다 — 버튼 힌트에 그 사실을 적는다.',
+ {th:{cut:true},cp:{n:3,val:R[0].t}},['목록 행에는 끊김 표시를 못 한다(요약에 상태 없음). 현재 대화에서만 보인다.','"다시 질문" 터치 44 / 데스크톱 36, 힌트: "질문을 입력창에 채워 줘요".']);
+/* 9 꺼짐 */
+h+=sec('s9','⑩ 기록 기능 꺼짐 — 현행과 동일','<code>historyStatus</code> 꺼짐·실패 시: 새 헤더·카운터·대화 바 없음. 데스크톱은 원래 헤더(제목 + 새 질문 아이콘, 빈 화면에서 비활성), 폰·태블릿은 헤더 자체가 없음.',
+ {d:{h:{off:true,offDis:true},th:{empty:true},cp:{}},m:{h:{off:true},th:{empty:true},cp:{}}},['이 상태에서만 "새 질문"이라는 원래 이름을 유지한다(대화·문맥 개념이 없고 화면만 비움).','회귀 테스트: <code>flag off</code>, <code>status fails</code> 두 케이스.']);
+/* 10 포커스 */
+h+=sec('s10','⑪ 키보드 포커스 · hover (기준안 적용)','링 = 2px ink + 간격 2px, 키보드에서만. 왼쪽: 최근 대화 버튼에 링. 오른쪽(폰 프레임): 팝오버 행 포커스(시트 안 행 inset 링) — 포커스 순서 최근 대화 → 새 대화 → 목록 행 → 숨기기.',
+ {d:{h:{recFc:true,nwHv:true},th:{},cp:{n:3}},m:{h:{open:true},th:{},cp:{n:3},pop:{rows:R,per:{0:{fc:true}}}}},['hover 6%, pressed 12%, 열린 상태는 pressed 면 + ▾ 회전.','행 안 두 정지점: 선택(행) → 숨기기 버튼. 좌우 화살표로 행 안 이동은 ⚠️ 위젯 테스트로 확인 필요.']);
+/* 11 영어 */
+h+=sec('s11','⑫ 영어 폭 확인 (380)','영어는 "Recent chats / New conversation"이 길어 380 열에서 제목과 못 들어간다 → 헤더 전용 짧은 라벨 "Recent" / "New chat". 팝오버 제목·접근성 라벨은 긴 이름.',
+ {d:{h:{open:true},th:{},cp:{n:3},pop:{rows:RE}},m:{h:{},th:{},cp:{n:8},}},['공간이 모자라면(텍스트 배율 1.3 등) 새 대화 버튼이 아이콘만 남는다(툴팁·시맨틱 라벨 유지).','영어도 같은 동작 이름: "New chat"(현재 "New conversation"과 "New question"이 섞여 있음).'],'en');
+/* 12 아이콘만 */
+h+=`<h2 id="s12">⑬ 폭이 모자랄 때 — 새 대화 아이콘 전용</h2><p class="sub">LayoutBuilder로 헤더 가용 폭을 재어 새 대화 라벨을 접는다. 최근 대화는 라벨 유지(핵심 진입점).</p><div class="row" data-sec="s12"><div><p class="cap">320폭 / 텍스트 배율 1.3 가정</p><div class="fr w" style="height:70px;width:320px;border-radius:18px">${hdr('m','ko',{iconNew:true})}</div></div></div>`;
+h+=`<h2 id="s13">⑭ 안내 줄(hint) — 입력창 위 한 줄, 패널 밖</h2><p class="sub">현재는 입력 패널 안 칩 줄 위에 끼어 있다. 새 설계는 스레드와 컴포저 사이 한 줄(aria-live polite, 다음 행동 때 사라짐).</p><div class="row" data-sec="s13" style="flex-direction:column;gap:8px;width:600px">
+<div class="hint" style="padding:0">${ic('warn')}아직 답변을 쓰는 중이에요. 잠시만 기다려 주세요. <i style="color:var(--muted)">(busy — 질문은 입력창으로 돌아옴)</i></div>
+<div class="hint" style="padding:0">${ic('warn')}대화가 만료되어 새 대화로 시작해요. <i style="color:var(--muted)">(expired)</i></div>
+<div class="hint" style="padding:0">${ic('warn')}그 대화는 더 이상 볼 수 없어요. <i style="color:var(--muted)">(notFound — 목록도 갱신)</i></div>
+<div class="hint" style="padding:0">${ic('warn')}최근 대화를 불러오지 못했어요. <i style="color:var(--muted)">(loadFailed — 질문은 계속 가능)</i></div></div>`;
+/* 반응형 */
+const tb=(t,s='')=>`<span class="hbtn tonal" style="${s}">${ic('newq')}${t}</span>`;
+h+=`<h2 id="s14">⑮ 반응형 헤더 배치</h2><p class="sub">1200: Ask는 오른쪽 380 고정 열. 768: 레일 + 한 화면(Ask가 본문 전체, 헤더 없었던 곳에 한 줄 추가). 390: AppBar 아래 한 줄 추가(하단 내비 유지). 팝오버 ≥600, 바텀시트 &lt;600.</p>
+<div class="row" data-sec="s14">
+<div><p class="cap">1200 · 데스크톱</p><div class="wire" style="width:480px;height:330px">
+<div class="blk" style="left:10px;top:10px;width:64px;height:310px">사이드바</div><div class="blk" style="left:82px;top:10px;width:190px;height:310px">노트 보드 / 열린 노트</div>
+<div class="blk strong" style="left:280px;top:10px;width:190px;height:310px;align-items:flex-start;padding:8px;flex-direction:column;gap:6px;justify-content:flex-start"><div style="display:flex;gap:4px;align-items:center;font-size:12px;color:var(--ink);font-weight:600">${ic('ask','s16')}질문</div><div style="display:flex;gap:4px"><span class="hbtn" style="height:24px;font-size:10px;padding:0 6px">${ic('hist','s14')}최근 ▾</span><span class="hbtn tonal" style="height:24px;font-size:10px;padding:0 6px">${ic('newq','s14')}새 대화</span></div><span style="margin-top:auto;color:var(--muted)">Ask 열 380 (축소 표시)</span></div></div>
+<div class="altn">제목 좌 / 버튼 우(원래 새 질문 아이콘 자리). 팝오버는 버튼 아래 오른쪽 정렬, 폭 340 → 열(380) 밖으로 안 나감. 높이 36.</div></div>
+<div><p class="cap">768 · 태블릿</p><div class="wire" style="width:380px;height:330px"><div class="blk" style="left:8px;top:40px;width:44px;height:280px">레일</div>
+<div class="blk" style="left:0;right:0;top:0;height:30px;border-radius:0;font-size:10px">PageBlink AppBar</div>
+<div class="blk strong" style="left:60px;right:8px;top:40px;height:280px;align-items:flex-start;justify-content:flex-start;padding:8px;flex-direction:column;gap:6px"><div style="display:flex;gap:6px"><span class="hbtn" style="height:30px;font-size:11px">${ic('hist','s14')}최근 대화 ▾</span><span class="hbtn tonal" style="height:30px;font-size:11px">${ic('newq','s14')}새 대화</span></div><div style="margin:auto;color:var(--muted)">Ask 본문 (폭 ~590)</div></div></div>
+<div class="altn">제목 없이 두 버튼 좌측 정렬. 높이 40(터치 44). 팝오버 폭 360, 다이얼로그는 폐기(앵커 없이 떠서 어디서 열렸는지 끊김).</div></div>
+<div><p class="cap">390 · 모바일</p><div class="wire" style="width:240px;height:330px"><div class="blk" style="left:0;right:0;top:0;height:28px;border-radius:0;font-size:10px">PageBlink AppBar</div>
+<div style="position:absolute;left:10px;top:36px;display:flex;gap:6px"><span class="hbtn" style="height:28px;font-size:10px;padding:0 8px">${ic('hist','s14')}최근 대화 ▾</span><span class="hbtn tonal" style="height:28px;font-size:10px;padding:0 8px">${ic('newq','s14')}새 대화</span></div>
+<div class="blk strong" style="left:8px;right:8px;top:72px;bottom:70px">스레드</div><div class="blk strong" style="left:8px;right:8px;bottom:30px;height:36px">입력 패널(칩 줄 2개로 감소)</div><div class="blk" style="left:0;right:0;bottom:0;height:26px;border-radius:0;font-size:10px">하단 내비</div></div>
+<div class="altn">세로 +52 (헤더 한 줄), 입력 패널은 칩 줄 1개 감소로 상쇄. 탭 순서 위→아래.</div></div></div>`;
+/* 대안 */
+h+=`<h2 id="s15">⑯ 대안 스케치</h2><p class="sub">추천안(A)과 비교한 세 가지.</p><div class="row" data-sec="s15" style="flex-wrap:wrap">
+<div><p class="cap">B. 현재 대화 제목 칩 + 메뉴</p><div class="alt"><div class="hdr d" style="padding:14px 12px 4px"><span class="hbtn" style="max-width:230px;overflow:hidden">${ic('hist')}<span style="overflow:hidden;text-overflow:ellipsis">4분기 출시 계획에서 남은 일이…</span>${ic('chev','chev')}</span><span class="hbtn icon">${ic('newq')}</span></div>
+<div class="pop" style="right:12px;top:56px;width:330px"><div class="crow" style="min-height:44px;grid-template-columns:20px 1fr"><span>${ic('plus','s16')}</span><div class="t" style="font-weight:700">새 대화</div></div><div style="border-top:1px solid var(--hairline);margin:2px 0"></div>${row(R[0],'ko')}</div></div><div class="altn">제목이 항상 보이지만, 가장 자주 쓰는 "새 대화"가 메뉴 한 단계 뒤로 숨는다. 제목이 길면 폭을 먹는다.</div></div>
+<div><p class="cap">C. 좌측 대화 목록 패널 (부적합)</p><div class="alt"><div class="blk" style="left:8px;top:10px;width:96px;bottom:10px;align-items:flex-start;justify-content:flex-start;padding:6px;font-size:10px">대화 5개 · 폭 96?</div><div class="blk strong" style="left:112px;right:8px;top:10px;bottom:10px;padding:6px">스레드 폭 ${380-112-8}px 남음</div></div><div class="altn">데스크톱 Ask 열은 380 고정. 목록 패널을 넣으면 스레드가 ~260이라 인용 카드·칩이 무너진다. 최대 5개·30분만 사는 목록에 상시 면적은 과하다. 태블릿(본문 ~590)에서만 가능하나 폰은 결국 시트가 필요해 구현이 두 갈래.</div></div>
+<div><p class="cap">D. 대화 바를 한 줄로 축소(입력창 위 유지)</p><div class="alt"><div class="cp" style="position:absolute;left:12px;right:12px;bottom:12px"><div class="brow" style="margin-bottom:6px"><span class="cnt">질문 3/10</span><span style="display:flex;gap:6px"><span class="tbtn" style="height:28px;font-size:12px">최근 ▾</span><span class="tbtn" style="height:28px;font-size:12px">＋</span></span></div><span class="sp">${ic('scope')}출처: 내 문서만</span><div class="inrow"><div class="inp">노트와 문서에 질문하기…</div><span class="send dis">${ic('up')}</span></div></div></div><div class="altn">구현은 가장 작지만 CTO 피드백("쓰고 보기 힘들다")의 원인인 입력창 근처 혼잡·헤더 부재는 그대로. 임시방편.</div></div></div>`;
+/* 비교표 */
+h+=`<h2 id="s16">⑰ 비교</h2><table class="cmp"><tr><th></th><th>A 헤더 두 버튼 (추천)</th><th>B 제목 칩 + 메뉴</th><th>C 좌측 패널</th><th>D 입력창 위 한 줄</th></tr>
+<tr><th>새 대화 접근</th><td>1탭, 항상 보임</td><td>2탭(메뉴 안)</td><td>1탭</td><td>1탭</td></tr>
+<tr><th>입력창 혼잡</th><td>칩 줄 1개 감소</td><td>감소</td><td>감소</td><td>변화 적음</td></tr>
+<tr><th>380 열 적합</th><td>적합(ko 312/344 · en 314/344, 렌더 실측; 영어는 짧은 라벨)</td><td>적합</td><td><b>부적합</b></td><td>적합</td></tr>
+<tr><th>폰</th><td>헤더 1줄 +52</td><td>동일</td><td>드로어 필요</td><td>변화 없음</td></tr>
+<tr><th>CTO 제안 일치</th><td>예</td><td>부분</td><td>아니오</td><td>아니오</td></tr></table>`;
+document.getElementById('out').innerHTML=h;
+</script>
+</body>
+</html>
