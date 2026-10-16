@@ -1,6 +1,6 @@
 # 🤝 세션 인수인계 — 작업 방식·하네스·현재 상태
 
-> **작성일**: 2026-10-15 16:00 KST · **최종 수정**: 2026-10-16 10:07 KST
+> **작성일**: 2026-10-15 16:00 KST · **최종 수정**: 2026-10-16 10:32 KST
 > **관련 문서**: [검색 컬럼 계획 (010)](010-pdf-search-column.md) · [폼 입력란 폴백 (011)](011-pdf-form-field-fallback.md) · [후속 기능 명세 (005)](005-follow-up-spec.md) · [기술 스택 (003)](003-tech-stack-and-prep.md) · [UI polish 명세](../design/ui-polish/spec.md) · [research 025 (PDF 업로드)](../research/025-pdf-drag-drop-upload.md) · [ADR 019](../adr/019-pdf-drag-drop-desktop-drop-shell-web-first.md) · [`AGENTS.md`](../../AGENTS.md) · [`CLAUDE.md`](../../CLAUDE.md) · [`app/AGENTS.md`](../../app/AGENTS.md)
 > **표기**: ✅ 확인 · ⚠️ 미확인/확인 필요
 > **용도**: 새 세션이 **이 문서만 읽고** 이어서 작업할 수 있게 한 인수인계 문서입니다. 상태 값은 작성 시점(위 KST) 스냅샷이므로, 시작할 때 §6 점검 명령으로 다시 확인하세요.
@@ -13,10 +13,10 @@
 |---|---|
 | 제품 | PageBlink — Flutter + Serverpod 하이브리드 문서 RAG 앱 (Serverpod 해커톤 2026) |
 | 라이브 | https://pageblink.serverpod.space |
-| Git | `main` = `origin/main`, 마지막 코드 커밋 `8445f02`(demo 계정). 이전 NFC 수정은 `5a2b7d9` ✅ |
-| 배포 | 7회 완료, 마지막(7차) = `8445f02`, 롤아웃 성공·라이브 확인 ✅ ([plan 014 §13.1](014-demo-account.md)) |
+| Git | `main` = `origin/main`, 마지막 코드 커밋 `c99822f`(데모 샘플 노트·Ask 예시 보강). 그 앞 demo 계정 `8445f02`, NFC 수정은 `5a2b7d9` ✅ |
+| 배포 | 8회 완료, 마지막(8차) = `c99822f`, 롤아웃 성공·라이브 확인 ✅ ([plan 014 §13.3](014-demo-account.md)) |
 | demo 계정 | 배포·운영 플래그 켜짐(`DEMO_ENABLED=true`) ✅. 브라우저 수동 확인 11개는 ⚠️ 사용자 확인 대기 ([plan 014 §12.2](014-demo-account.md)) |
-| 테스트 | 클라이언트 `flutter test` 1,150개, 서버 `dart test` 48개 통과, analyze 이슈 0 ✅ (§2-3·§3-1의 1,106은 6차 시점 값) |
+| 테스트 | 클라이언트 `flutter test` 1,152개, 서버 `dart test` 50개 통과, analyze 이슈 0 ✅ (§2-3·§3-1의 1,106은 6차 시점 값) |
 | 미커밋 작업 | 없음 (README·run-locally는 사용자 개인 수정) ✅ |
 | 다음 1순위 | ② 노트별 색 변경 + 상단 고정 (§3-2) — demo 계정은 §3 체크리스트 밖에서 끝났고 ②는 여전히 미착수 ✅ |
 | 버전 | Flutter 3.47.7 (`.fvmrc`), Serverpod 4.0.4 (모든 `serverpod*` 동일) |
@@ -215,7 +215,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 
 **작업 트리 (커밋 후 `git status` ✅):** 사용자 개인 수정 `README.md`, `README.ko.md`, `docs/reference/002-run-locally.md`만 남음 (**건드리지 말 것**).
 
-### 4-2. 배포 이력 (7회)
+### 4-2. 배포 이력 (8회)
 
 | 차수 | 내용 |
 |---|---|
@@ -223,6 +223,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 | 5차 (`85de144`) | 툴바 블록 서식 적용 후 캐럿이 마커 뒤에 위치, 링크 팝오버 기본값 `https://` |
 | 6차 (`5a2b7d9`) | 한글 NFC 정규화: 제목·검색이 macOS NFD 파일명을 찾도록 (클라이언트 검색 양쪽 정규화, 업로드·saveNote 저장 시 NFC). DB 마이그레이션 없음 |
 | 7차 (`8445f02`) | **demo 계정**(데모 체험 로그인, [plan 014](014-demo-account.md) · [ADR 020](../adr/020-demo-account-shared-user.md) · [devlog 010](../devlog/010-demo-account-implementation.md)). 빌드 151초·롤아웃 70초, DB 마이그레이션 없음. 운영 플래그 `scloud variable set DEMO_ENABLED true` + 재배포. 클라이언트 테스트 1,150개·서버 48개 통과 |
+| 8차 (`c99822f`) | **데모 샘플 보강**: 샘플 노트를 영어 3개로 교체, 옛 샘플 2개는 `legacy` 해시로 1회 정리, 데모 계정 Ask 예시를 데모 전용 4개로 제한 ([plan 014 §8.1·§13.3](014-demo-account.md) · [devlog 010](../devlog/010-demo-account-implementation.md)). 빌드 139초·롤아웃 82초, DB 마이그레이션 없음. 클라이언트 테스트 1,152개·서버 50개 통과 |
 | 1~3차 | 이 문서에 기록 없음 (확인 필요 ⚠️) — `docs/devlog/`와 `git log` 참조 |
 
 ### 4-3. 앱 스택
