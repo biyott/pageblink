@@ -1,6 +1,6 @@
 # 📋 후속 개선 백로그 — 다른 세션이 이 문서만 읽고 이어가기 위한 인수인계
 
-> **작성일**: 2026-10-16 16:22 KST · **최종 수정**: 2026-10-16 16:53 KST
+> **작성일**: 2026-10-16 16:22 KST · **최종 수정**: 2026-10-16 17:02 KST
 > **관련 문서**: [세션 인수인계 (012)](012-session-handoff.md) · [devlog 012 (10~15차)](../devlog/012-releases-10-to-15.md) · [ADR 023 (OCR 미제품화)](../adr/023-no-scanned-pdf-recovery.md) · [ADR 024 (모델 기본값·로테이션)](../adr/024-ask-model-default-reasoning-off-paid-fallback.md) · [research 033 (지연·로테이션)](../research/033-llm-latency-and-rotation.md) · [research 034 (접근성 점검)](../research/034-accessibility-audit.md) · [상호작용 상태 명세](../design/interaction-states/spec.md) · [Ask 대화 UI 명세](../design/ask-history-ui/spec.md) · [research 030 (Ask 대화 기록)](../research/030-ask-sessions.md) · [`AGENTS.md`](../../AGENTS.md) · [`app/AGENTS.md`](../../app/AGENTS.md)
 > **표기**: ✅ 이 문서를 쓰며 저장소(`main` `686e4aa`의 코드·`git log`)로 확인 · ⚠️ 전달받은 값이거나 미확인(그대로 믿지 말고 직접 재확인) · 확인 필요 = 값을 알지 못함
 > **용도**: CTO가 "후속 개선은 다른 세션에서 하게 md로 정리하라"고 해서 만든 문서입니다. 새로 시작한 Claude 세션은 **이 대화를 전혀 모릅니다.** §1(현재 상태)과 §3(작업 방식)을 먼저 읽고, §2에서 항목을 골라 작업→검증→배포까지 진행할 수 있게 썼습니다. 우선순위·규모는 작성자의 **제안**이며 CTO 결정이 우선합니다.
@@ -62,7 +62,7 @@
 
 ## 2. 후속 개선 항목
 
-> **16차 반영** (배포 후 기록 예정 ⚠️ — 배포 ID · 성공 시각은 [devlog 013](../devlog/013-release-16-ux-round2-backlog.md)에서 채움): 2-1 · 2-2 · 2-5 · 2-7 완료, 2-10 일부 확인. 검증 수치(서버 341 · Flutter 1,512, 클린 워크트리)는 devlog 013.
+> **16차 반영** (배포 ID `d85174e4-98de-4a24-8beb-84711110a212`, 성공 17:01 KST, `main` `481c486` — [devlog 013](../devlog/013-release-16-ux-round2-backlog.md)): 2-1 · 2-2 · 2-5 · 2-7 완료, 2-10 일부 확인. 검증 수치(서버 341 · Flutter 1,512, 클린 워크트리)는 devlog 013.
 
 범례: 규모 S ≤ 0.5일 / M 1~2일 / L 3일+ (plan 013과 같은 기준). 우선순위 P1 먼저 · P2 · P3 나중 (제안).
 
@@ -322,4 +322,4 @@ PATH="$HOME/Library/Application Support/Dart/install/bin:$PATH" scloud --non-int
 ## 5. 변경 이력
 
 - `2026-10-16 16:22` 최초 작성 (후속 개선 11개 항목, 작업 방식, 진행 순서)
-- `2026-10-16 16:53` 16차 반영: 2-1 · 2-2 · 2-5 · 2-7 완료 표시(배포 후 기록 예정 ⚠️), 2-8 i 잔여(Ask 카드 · 인용 하이라이트 위 `inkMuted`) 메모, 2-10의 1 · 3 · 4 · 5번 확인 결과 반영(2 · 6번은 그대로)
+- `2026-10-16 16:53` 16차 반영: 2-1 · 2-2 · 2-5 · 2-7 완료 표시(16차 배포 성공 17:01), 2-8 i 잔여(Ask 카드 · 인용 하이라이트 위 `inkMuted`) 메모, 2-10의 1 · 3 · 4 · 5번 확인 결과 반영(2 · 6번은 그대로)
