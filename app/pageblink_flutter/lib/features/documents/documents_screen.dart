@@ -598,12 +598,12 @@ class _CardMenuState extends State<_CardMenu> {
   final _popover = MenuController();
 
   void _color() {
-    final pick = widget.onSetColor!;
-    if (MediaQuery.sizeOf(context).width < noteColorSheetBreakpoint) {
-      showNoteColorSheet(context, widget.document.colorIndex, pick);
-    } else {
-      _popover.open();
-    }
+    showNoteColor(
+      context,
+      _popover,
+      widget.document.colorIndex,
+      widget.onSetColor!,
+    );
   }
 
   @override
@@ -613,6 +613,7 @@ class _CardMenuState extends State<_CardMenu> {
     return MenuAnchor(
       controller: _popover,
       style: noteColorMenuStyle(pb),
+      alignmentOffset: noteColorAnchorOffset,
       menuChildren: [
         NoteColorPopover(
           current: widget.document.colorIndex,
