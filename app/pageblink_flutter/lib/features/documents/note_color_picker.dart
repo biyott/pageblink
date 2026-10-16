@@ -19,6 +19,25 @@ const _order = <List<int?>>[
 
 const _fade = Duration(milliseconds: 120);
 
+/// Gap between the anchor and the popover.
+const noteColorAnchorOffset = Offset(0, 4);
+
+/// Opens the picker: a bottom sheet below [noteColorSheetBreakpoint], else the
+/// popover of [anchor] (a `MenuAnchor` that has [NoteColorPopover] as its menu,
+/// styled with [noteColorMenuStyle], offset by [noteColorAnchorOffset]).
+void showNoteColor(
+  BuildContext context,
+  MenuController anchor,
+  int? current,
+  ValueChanged<int?> onPick,
+) {
+  if (MediaQuery.sizeOf(context).width < noteColorSheetBreakpoint) {
+    showNoteColorSheet(context, current, onPick);
+  } else {
+    anchor.open();
+  }
+}
+
 /// Bottom sheet for phones. Tapping a swatch applies it at once ([onPick]);
 /// the sheet stays open until dismissed.
 Future<void> showNoteColorSheet(
@@ -60,7 +79,8 @@ class NoteColorPopover extends StatelessWidget {
       NoteColorGrid(current: current, onPick: onPick, sheet: false);
 }
 
-/// Popover surface: the same sheet color as popup menus, r14, 272 wide.
+/// Popover surface: the sheet color of popup menus, r14, 1dp hairline. No fixed
+/// width: the 256 grid + 16 padding decide it (288), so nothing is clipped.
 MenuStyle noteColorMenuStyle(Pb pb) => MenuStyle(
   backgroundColor: WidgetStatePropertyAll(
     Color.alphaBlend(pb.sheet, pb.pdfPaper),
@@ -68,8 +88,8 @@ MenuStyle noteColorMenuStyle(Pb pb) => MenuStyle(
   surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
   shadowColor: WidgetStatePropertyAll(pb.glassShadow),
   elevation: const WidgetStatePropertyAll(8),
-  padding: const WidgetStatePropertyAll(EdgeInsets.all(14)),
-  fixedSize: const WidgetStatePropertyAll(Size.fromWidth(272)),
+  padding: const WidgetStatePropertyAll(EdgeInsets.all(16)),
+  side: WidgetStatePropertyAll(BorderSide(color: pb.hairline)),
   shape: WidgetStatePropertyAll(
     RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
   ),
@@ -111,57 +131,59 @@ class _NoteColorGridState extends State<NoteColorGrid> {
     final caption = _selected == null
         ? l.noteColorAuto
         : l.noteColorName(_selected!);
+    final content = FocusTraversalGroup(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.noteColor,
+            style: widget.sheet
+                ? theme.textTheme.titleLarge
+                : theme.textTheme.labelMedium?.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: pb.ink,
+                  ),
+          ),
+          SizedBox(height: widget.sheet ? 12 : 8),
+          for (var r = 0; r < _order.length; r++) ...[
+            if (r > 0) SizedBox(height: gap),
+            Row(
+              mainAxisAlignment: widget.sheet
+                  ? MainAxisAlignment.spaceBetween
+                  : MainAxisAlignment.start,
+              mainAxisSize: MainAxisSize.max,
+              spacing: widget.sheet ? 0 : 4,
+              children: [
+                for (final i in _order[r])
+                  _Swatch(
+                    index: i,
+                    selected: i == _selected,
+                    onTap: () => _pick(i),
+                  ),
+              ],
+            ),
+          ],
+          if (widget.sheet) ...[
+            const SizedBox(height: 12),
+            Text(
+              caption,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: pb.inkMuted,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
     return Semantics(
       container: true,
       label: l.noteColor,
-      child: FocusTraversalGroup(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l.noteColor,
-              style: widget.sheet
-                  ? theme.textTheme.titleLarge
-                  : theme.textTheme.labelMedium?.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: pb.ink,
-                    ),
-            ),
-            SizedBox(height: widget.sheet ? 12 : 8),
-            for (var r = 0; r < _order.length; r++) ...[
-              if (r > 0) SizedBox(height: gap),
-              Row(
-                mainAxisAlignment: widget.sheet
-                    ? MainAxisAlignment.spaceBetween
-                    : MainAxisAlignment.start,
-                mainAxisSize: MainAxisSize.max,
-                spacing: widget.sheet ? 0 : 4,
-                children: [
-                  for (final i in _order[r])
-                    _Swatch(
-                      index: i,
-                      selected: i == _selected,
-                      onTap: () => _pick(i),
-                    ),
-                ],
-              ),
-            ],
-            if (widget.sheet) ...[
-              const SizedBox(height: 12),
-              Text(
-                caption,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: pb.inkMuted,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+      // 5 cells of 48 + 4 gaps of 4; the sheet takes the width it is given.
+      child: widget.sheet ? content : SizedBox(width: 256, child: content),
     );
   }
 }
@@ -194,19 +216,6 @@ class _SwatchState extends State<_Swatch> {
     final reduced = MediaQuery.disableAnimationsOf(context);
     final d = reduced ? Duration.zero : _fade;
     final ringWidth = MediaQuery.highContrastOf(context) ? 3.0 : 2.0;
-
-    final isRainbow = i == Pb.rainbowIndex;
-    final fill = isRainbow
-        ? null
-        : i == null
-        ? pb.pdfPaper
-        : pb.noteColor(null, colorIndex: i);
-    final sweep = isRainbow
-        ? SweepGradient(
-            colors: [...pb.noteRainbow, pb.noteRainbow.first],
-            transform: const GradientRotation(-math.pi / 2),
-          )
-        : null;
 
     return Semantics(
       button: true,
@@ -251,33 +260,10 @@ class _SwatchState extends State<_Swatch> {
                   width: 48,
                   height: 48,
                   child: Center(
-                    child: AnimatedContainer(
-                      duration: d,
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: fill,
-                        gradient: sweep,
-                        border: Border.all(
-                          color: widget.selected ? pb.ink : pb.controlEdge,
-                          width: widget.selected ? 2 : 1,
-                        ),
-                      ),
-                      child: i == null
-                          ? ExcludeSemantics(
-                              child: Text(
-                                'A',
-                                style: Theme.of(context).textTheme.titleLarge
-                                    ?.copyWith(
-                                      fontSize: 18,
-                                      color: pb.inkMuted,
-                                      height: 1,
-                                    ),
-                              ),
-                            )
-                          : null,
+                    child: NoteColorDot(
+                      index: i,
+                      size: 40,
+                      selected: widget.selected,
                     ),
                   ),
                 ),
@@ -293,6 +279,69 @@ class _SwatchState extends State<_Swatch> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// A round color chip: the picker swatch, and the editor button's icon.
+/// [index] is a `colorIndex` (null = Auto). Auto shows the color the note gets
+/// automatically (`notes[noteId % 5]`), or paper with a serif "A" when
+/// [noteId] is null. [selected] swaps the 1dp edge for a 2dp ink ring.
+class NoteColorDot extends StatelessWidget {
+  const NoteColorDot({
+    super.key,
+    required this.index,
+    this.noteId,
+    this.size = 40,
+    this.selected = false,
+  });
+
+  final int? index;
+  final int? noteId;
+  final double size;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    final i = index;
+    final paper = i == null && noteId == null;
+    final rainbow = i == Pb.rainbowIndex;
+    return AnimatedContainer(
+      duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : _fade,
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: rainbow
+            ? null
+            : paper
+            ? pb.pdfPaper
+            : pb.noteColor(noteId, colorIndex: i),
+        gradient: rainbow
+            ? SweepGradient(
+                colors: [...pb.noteRainbow, pb.noteRainbow.first],
+                transform: const GradientRotation(-math.pi / 2),
+              )
+            : null,
+        border: Border.all(
+          color: selected ? pb.ink : pb.controlEdge,
+          width: selected ? 2 : 1,
+        ),
+      ),
+      child: paper
+          ? ExcludeSemantics(
+              child: Text(
+                'A',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontSize: size * 0.45,
+                  color: pb.inkMuted,
+                  height: 1,
+                ),
+              ),
+            )
+          : null,
     );
   }
 }
