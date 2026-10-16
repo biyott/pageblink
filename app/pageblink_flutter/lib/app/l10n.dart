@@ -324,6 +324,8 @@ class L {
   // Note color.
   String get noteColor => _t('Color', '색상');
   String get noteColorAuto => _t('Auto', '자동');
+  String noteColorOf(String name) => _t('Note color: $name', '노트 색: $name');
+  String noteColorAutoOf(String name) => _t('Auto ($name)', '자동 ($name)');
   String get colorFailed =>
       _t("Couldn't change the color. Try again.", '색을 바꾸지 못했어요. 다시 시도해 주세요.');
 
@@ -783,8 +785,41 @@ class L {
   );
 
   // ── Settings: account id and the admin conversation list ──────────────
-  String get copyAccountId => _t('Copy my account ID', '내 계정 ID 복사');
+  String get copyAccountId => _t('Copy account ID', '계정 ID 복사');
   String get accountIdCopied => _t('Copied account ID', '계정 ID를 복사했어요');
+
+  // ── UX round 2: account ───────────────────────────────────────────────
+  String get accountSignedInAs => _t('Signed in as', '로그인한 계정');
+  String get account => _t('Account', '계정');
+  String get myAccount => _t('My account', '내 계정');
+  String get demoAccount => _t('Demo account', '데모 계정');
+  String get sharedAccount => _t('Shared account', '공유 계정');
+  String get accountId => _t('Account ID', '계정 ID');
+  String get accountIdHint => _k(
+    'Share your account ID when you contact support or need admin access to '
+        'conversation history.',
+    '대화 기록 관리나 문의가 필요할 때 계정 ID를 알려 주세요.',
+  );
+  String appVersionLabel(String v) => 'PageBlink v$v';
+  String accountMenuSemantics(String email) =>
+      _t('Account: $email', '계정: $email');
+
+  // ── UX round 2: projects overview ─────────────────────────────────────
+  String projectsSummary(int projects, int notes, int pdfs) => _t(
+    '$projects projects · $notes notes, $pdfs PDFs',
+    '프로젝트 $projects개 · 노트 $notes개, PDF $pdfs개',
+  );
+  String projectCounts(int notes, int pdfs) =>
+      _t('$notes notes · $pdfs PDFs', '노트 $notes개 · PDF $pdfs개');
+  String get projectOwner => _t('Owner', '소유자');
+  String get projectMember => _t('Member', '멤버');
+  String get projectsEmptyTitle => _t('Projects, together', '함께 쓰는 프로젝트');
+  String get projectsLoadFailed =>
+      _t("Couldn't load projects", '프로젝트를 불러오지 못했어요');
+  String get projectsLoadFailedHint => _k(
+    'Check your connection and try again.',
+    '연결을 확인하고 다시 시도해 주세요.',
+  );
   String get adminHistory => _t('Conversation history', '대화 기록');
   String get adminHistoryNote => _k(
     'May contain personal note content. Access is logged.',
