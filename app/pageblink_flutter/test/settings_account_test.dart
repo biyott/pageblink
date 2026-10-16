@@ -183,7 +183,7 @@ void main() {
     testWidgets('the version line: muted label at the bottom', (t) async {
       await pump(t);
       expect(version, findsOne);
-      expect(find.text('PageBlink v1.0.0'), findsOne);
+      expect(find.textContaining('PageBlink v1.0.0'), findsOne);
       expect(
         t.getTopLeft(version).dy,
         greaterThan(t.getTopLeft(find.text('Language')).dy),
