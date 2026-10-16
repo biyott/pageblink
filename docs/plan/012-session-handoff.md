@@ -1,6 +1,6 @@
 # 🤝 세션 인수인계 — 작업 방식·하네스·현재 상태
 
-> **작성일**: 2026-10-15 16:00 KST · **최종 수정**: 2026-10-16 17:02 KST
+> **작성일**: 2026-10-15 16:00 KST · **최종 수정**: 2026-10-16 17:10 KST
 > **관련 문서**: [검색 컬럼 계획 (010)](010-pdf-search-column.md) · [폼 입력란 폴백 (011)](011-pdf-form-field-fallback.md) · [후속 기능 명세 (005)](005-follow-up-spec.md) · [기술 스택 (003)](003-tech-stack-and-prep.md) · [UI polish 명세](../design/ui-polish/spec.md) · [research 025 (PDF 업로드)](../research/025-pdf-drag-drop-upload.md) · [ADR 019](../adr/019-pdf-drag-drop-desktop-drop-shell-web-first.md) · [`AGENTS.md`](../../AGENTS.md) · [`CLAUDE.md`](../../CLAUDE.md) · [`app/AGENTS.md`](../../app/AGENTS.md)
 > **표기**: ✅ 확인 · ⚠️ 미확인/확인 필요
 > **용도**: 새 세션이 **이 문서만 읽고** 이어서 작업할 수 있게 한 인수인계 문서입니다. 상태 값은 작성 시점(위 KST) 스냅샷이므로, 시작할 때 §6 점검 명령으로 다시 확인하세요.
@@ -245,6 +245,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 | 14차 (`b64747f`) | **접근성 상태**(`PbInteractive`·`PbFocusRing`·전역 테마, [interaction-states 명세](../design/interaction-states/spec.md)), 서버 후속(역방향 보정 인용, `AskAdminException`), **PDF 카드 미리보기 서버**(`Document.preview` · 백필), 로컬 OCR 모듈(**한시적 서빙**, 15차에 제거 — [ADR 023](../adr/023-no-scanned-pdf-recovery.md)) + 마이그레이션 `20261016062428206-pdf-recovery-and-preview`. 배포 ID `d0ce83cf-5a48-4f18-9bc2-47a6870b4fe3`. 서버 319개 · 클라이언트 1,366개 통과 |
 | 15차 (`686e4aa`) | 배포 ID `6e96b5eb-1d97-4ddb-a3d5-2664a4a207ea`, 성공 16:13. 서버 316개 · 클라이언트 1,369개 통과. 내용: OCR 코드 제거, PDF 카드 미리보기 표시 · 검색, Ask 대화 헤더 · 최근 대화 메뉴 |
 | 16차 (`481c486`, 배포 ID `d85174e4-98de-4a24-8beb-84711110a212`, 성공 17:01, 빌드 141초 · 롤아웃 68초) | **UX 라운드 2 + 후속 백로그 4건**을 한 번에 배포. 기준 `88cd1b7` 위 커밋 14개, 충돌 0건, **DB 마이그레이션 없음**(`serverpod create-migration` = No changes detected ✅). 서버 341개 · 클라이언트 1,512개 통과 ✅ ([devlog 013](../devlog/013-release-16-ux-round2-backlog.md)). 아래 "16차 내용" 참조 |
+| 16차 후 운영 설정 (코드 변경 없음) | 2026-10-16 17:09 KST: 운영 변수 `ADMIN_USER_IDS`를 소유자 계정으로 설정(`scloud variable set`) 후 `scloud deploy --redeploy`(실행 중인 빌드 `481c486` 그대로, 새 배포 ID 없음 · `deployment list`에 기록 안 됨). 새 파드 부팅 로그 정상 ✅, 라이브 번들 `PageBlink v1.0.0 · 481c486` 유지 ✅, 비로그인 `askHistory` 401 ✅. 다른 변수 변경 없음 |
 | 1~3차 | 이 문서에 기록 없음 (확인 필요 ⚠️) — `docs/devlog/`와 `git log` 참조 |
 
 **16차 내용 (UX 라운드 2 + 백로그)** — 배포 후 반영 ⚠️, 눈 확인 7개는 [devlog 013](../devlog/013-release-16-ux-round2-backlog.md)
