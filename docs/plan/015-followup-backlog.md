@@ -1,6 +1,6 @@
 # 📋 후속 개선 백로그 — 다른 세션이 이 문서만 읽고 이어가기 위한 인수인계
 
-> **작성일**: 2026-10-16 16:22 KST · **최종 수정**: 2026-10-16 16:48 KST
+> **작성일**: 2026-10-16 16:22 KST · **최종 수정**: 2026-10-16 16:53 KST
 > **관련 문서**: [세션 인수인계 (012)](012-session-handoff.md) · [devlog 012 (10~15차)](../devlog/012-releases-10-to-15.md) · [ADR 023 (OCR 미제품화)](../adr/023-no-scanned-pdf-recovery.md) · [ADR 024 (모델 기본값·로테이션)](../adr/024-ask-model-default-reasoning-off-paid-fallback.md) · [research 033 (지연·로테이션)](../research/033-llm-latency-and-rotation.md) · [research 034 (접근성 점검)](../research/034-accessibility-audit.md) · [상호작용 상태 명세](../design/interaction-states/spec.md) · [Ask 대화 UI 명세](../design/ask-history-ui/spec.md) · [research 030 (Ask 대화 기록)](../research/030-ask-sessions.md) · [`AGENTS.md`](../../AGENTS.md) · [`app/AGENTS.md`](../../app/AGENTS.md)
 > **표기**: ✅ 이 문서를 쓰며 저장소(`main` `686e4aa`의 코드·`git log`)로 확인 · ⚠️ 전달받은 값이거나 미확인(그대로 믿지 말고 직접 재확인) · 확인 필요 = 값을 알지 못함
 > **용도**: CTO가 "후속 개선은 다른 세션에서 하게 md로 정리하라"고 해서 만든 문서입니다. 새로 시작한 Claude 세션은 **이 대화를 전혀 모릅니다.** §1(현재 상태)과 §3(작업 방식)을 먼저 읽고, §2에서 항목을 골라 작업→검증→배포까지 진행할 수 있게 썼습니다. 우선순위·규모는 작성자의 **제안**이며 CTO 결정이 우선합니다.
@@ -62,23 +62,27 @@
 
 ## 2. 후속 개선 항목
 
+> **16차 반영** (배포 후 기록 예정 ⚠️ — 배포 ID · 성공 시각은 [devlog 013](../devlog/013-release-16-ux-round2-backlog.md)에서 채움): 2-1 · 2-2 · 2-5 · 2-7 완료, 2-10 일부 확인. 검증 수치(서버 341 · Flutter 1,512, 클린 워크트리)는 devlog 013.
+
 범례: 규모 S ≤ 0.5일 / M 1~2일 / L 3일+ (plan 013과 같은 기준). 우선순위 P1 먼저 · P2 · P3 나중 (제안).
 
 | # | 항목 | 우선순위 | 규모 | DB 마이그레이션 |
 |---|---|---|---|---|
-| 1 | 안내 배너 오버플로 | P1 | S | 없음 |
-| 2 | 다크 노트 카드 hover 보조 글자 대비 | P2 | S | 없음 |
+| 1 | 안내 배너 오버플로 — ✅ 완료(16차) | P1 | S | 없음 |
+| 2 | 다크 노트 카드 hover 보조 글자 대비 — ✅ 완료(16차, 잔여는 8-i) | P2 | S | 없음 |
 | 3 | 권한·검증 오류 정식화 (HTTP 500 → 직렬화 예외) | P1 | M | 없음 |
 | 4 | 편집기 키보드 전용 서식 경로 | P2 | L | 없음 |
-| 5 | 서술형 짧은 답변 인용 보정 확대 | P2 | M | 없음 |
+| 5 | 서술형 짧은 답변 인용 보정 확대 — ✅ 완료(16차) | P2 | M | 없음 |
 | 6 | 모델 로테이션 재평가 | P3 | S | 없음 |
-| 7 | 한국어 계정 샘플 PDF 미리보기가 영어로 시작 | P3 | S | 없음 |
+| 7 | 한국어 계정 샘플 PDF 미리보기가 영어로 시작 — ✅ 완료(16차) | P3 | S | 없음 |
 | 8 | 접근성 잔여 | P3 | M | 없음 |
 | 9 | 대화 기록 후속 | P3 | M | 없음(비테이블 모델 기준) |
-| 10 | 운영 확인·정리 | P1 | S | 없음 |
+| 10 | 운영 확인·정리 — 1·3·4·5번 확인함(16차), 2·6번 남음 | P1 | S | 없음 |
 | 11 | 보류·폐기된 것 | – | – | – |
 
 ### 2-1. 안내 배너 오버플로
+
+> ✅ **완료 (16차, `ae262b7`, 배포 후 반영 ⚠️)**: `_HistoryNotice`가 큰 글자(시스템 글자 2배)에서 오버플로 없이 표시된다. 오버플로 매트릭스 테스트를 배너 표시 상태로 확장했다. 아래는 구현 전 분석이다.
 
 | 항목 | 내용 |
 |---|---|
@@ -91,6 +95,8 @@
 | 필요한 테스트 | 기존 오버플로 매트릭스를 **배너 표시 상태**로 확장. 현재 `test/ask_header_test.dart`가 `textScaler`로 크기를 바꾸며(`_pump(..., scale: 2)`, 320×1500 ·320×700 등) 돌지만 **닫은 상태**로 실행한다 ✅. 배너를 닫지 않은 `status`로 같은 매트릭스를 돌리는 케이스를 추가 |
 
 ### 2-2. 다크 노트 카드 hover 보조 글자 대비
+
+> ✅ **완료 (16차, `5b23005`, 배포 후 반영 ⚠️)**: 노트 · PDF 카드 메타 글자가 다크 hover에서도 AA(4.5:1)를 유지한다. **남은 것**: 다크 `inkMuted`가 Ask 답변 카드 · 인용 하이라이트 위에서 **2.1~3.9:1** — 이번에 고치지 않았다 → §2-8 i의 잔여. 아래는 구현 전 분석이다.
 
 | 항목 | 내용 |
 |---|---|
@@ -126,6 +132,8 @@
 
 ### 2-5. 서술형 짧은 답변 인용 보정 확대
 
+> ✅ **완료 (16차, `af76003`, 배포 후 반영 ⚠️)**: 구별 토큰(날짜 · 숫자+단위 등) 기반 서버 보정을 `citation_infer.dart`에 추가하고 테스트 케이스를 `citation_infer_cases.dart`에 두었다. 운영에서의 오연결 빈도는 서버 로그 `ask: inferred citations n=…`로 확인 필요 ⚠️. 아래는 구현 전 분석이다.
+
 | 항목 | 내용 |
 |---|---|
 | 문제와 증거 | 모델이 `[n]` 마커를 하나도 안 쓴 답변에 서버가 보정 인용을 붙인다(`Citation.inferred`). `lib/src/rag/citation_infer.dart` ✅: **정방향**(근거 줄이 답변에 포함, 정규화 후 6자 이상) + **역방향**(답변 구절 6~80자가 근거 줄에 포함, 같은 구절이 **근거 4줄 이상**에 있으면 모호로 무시, 최대 3개). "출시일은 2026년 11월 18일입니다."처럼 어미·주어가 붙은 답변은 구절 전체가 근거 줄에 없어서 못 잡는다 |
@@ -149,7 +157,7 @@
 
 ### 2-7. 한국어 계정 샘플 PDF 미리보기가 영어로 시작
 
-> ✅ **구현됨 (미배포)**: 한국어 팩 전용 PDF `web/samples/pageblink-guide-ko.pdf`(한국어만, 3쪽, 약 20KB)와 `SamplePacks.demoPdfKo`를 추가하고 `demoKo.pdf`가 이를 가리킨다. 영어 팩의 `demoPdf`(영·한 병기, 영어 먼저)는 **바이트 단위로 그대로**라 영어 계정은 재시드되지 않는다. 생성 스크립트는 `scripts/build_sample_pdf_ko.sh`(XeLaTeX + Pretendard, 같은 입력이면 같은 바이트). 한국어 계정은 새 해시의 PDF가 새로 시드되고, 옛 영어 먼저 PDF 행은 `DemoSeed.run`이 지운다(PDF 해시만, 방문자 문서·다른 팩 노트는 건드리지 않음). 아래 표는 구현 전 분석이다.
+> ✅ **완료 (16차, `3c18216`, 배포 후 반영 ⚠️)** — 구현 내용: 한국어 팩 전용 PDF `web/samples/pageblink-guide-ko.pdf`(한국어만, 3쪽, 약 20KB)와 `SamplePacks.demoPdfKo`를 추가하고 `demoKo.pdf`가 이를 가리킨다. 영어 팩의 `demoPdf`(영·한 병기, 영어 먼저)는 **바이트 단위로 그대로**라 영어 계정은 재시드되지 않는다. 생성 스크립트는 `scripts/build_sample_pdf_ko.sh`(XeLaTeX + Pretendard, 같은 입력이면 같은 바이트). 한국어 계정은 새 해시의 PDF가 새로 시드되고, 옛 영어 먼저 PDF 행은 `DemoSeed.run`이 지운다(PDF 해시만, 방문자 문서·다른 팩 노트는 건드리지 않음). 아래 표는 구현 전 분석이다.
 
 | 항목 | 내용 |
 |---|---|
@@ -173,7 +181,7 @@
 | f | PDF `tabindex` (점검 #42) | |
 | g | 칩이 `checkbox` 역할로 노출 (#12 · #18) | 원인(Flutter 웹 시맨틱 매핑 vs 앱 설정)은 034 §7에서도 미확인 |
 | h | 전역 `focusColor` 12% 틴트 **투명화 시점** | 리스트 타일·메뉴 행·내비게이션 바는 링 경로가 없어 현재 유지 중([interaction-states §8-7](../design/interaction-states/spec.md)) |
-| i | 다크에서 `inkMuted`가 hover 면 위 **2.6:1**까지 내려감 | 명세 §8-5(별도 이슈 권장). §2-2와 연계 |
+| i | 다크에서 `inkMuted`가 hover 면 위 **2.6:1**까지 내려감 | 명세 §8-5(별도 이슈 권장). §2-2와 연계. **16차 잔여**: 카드 메타 글자는 고쳤지만(`5b23005`) 다크 `inkMuted`가 **Ask 답변 카드 · 인용 하이라이트 위에서 2.1~3.9:1**로 남아 있다 ⚠️ (전달값) |
 
 완료 기준은 항목별로 정하되, 각 항목에 **키보드로 재현하는 위젯 테스트**를 붙인다. 실제 스크린리더(VoiceOver/TalkBack) 확인은 아직 한 적 없음 ⚠️.
 
@@ -193,11 +201,11 @@
 
 | # | 확인 | 방법 |
 |---|---|---|
-| 1 | 정리 타이머가 실제로 지움 | `scloud log --since 15m --limit 400`에서 `maintenance: demo-tokens ran deleted=N`(작업 이름 `demo-tokens` · `auth-tokens` · `demo-documents` · `ask-history` ✅ `maintenance_timer.dart`). 1시간에 한 번 또는 삭제가 있을 때 즉시 찍힘 |
+| 1 | 정리 타이머가 실제로 지움 — ✅ **동작 확인(16차, PM 전달)** | `scloud log --since 15m --limit 400`에서 `maintenance: demo-tokens ran deleted=N`(작업 이름 `demo-tokens` · `auth-tokens` · `demo-documents` · `ask-history` ✅ `maintenance_timer.dart`). 1시간에 한 번 또는 삭제가 있을 때 즉시 찍힘 |
 | 2 | demo 세션 만료(유휴 60분 · 절대 240분) 실사용 | 데모 로그인 후 방치/장시간 뒤 열린 탭이 로그인 화면(안내 문구)으로 가는지 |
-| 3 | `ADMIN_USER_IDS` 설정 | 사용자가 설정 화면 "내 계정 ID 복사"로 ID를 주면 `scloud variable set ADMIN_USER_IDS <ID>`(DEMO_ENABLED를 켠 방식과 같음, [plan 012 §4-2](012-session-handoff.md) 7차 행; 정확한 사용법은 `scloud help`로 확인) 후 재배포 |
-| 4 | 운영 비밀값 `llmModel` 미설정 | 설정돼 있으면 코드의 기본 모델(`nemotron-3-super`)을 덮어씀 ✅ `rag_services.dart` |
-| 5 | `SERVERPOD_WEB_SERVER_FLUTTER_CACHE_CONTROL` 정리 | 15차에서 코드가 사라져 미사용. 운영 변수에 남았으면 삭제할지 결정 |
+| 3 | `ADMIN_USER_IDS` 설정 — **확인(16차): 운영 미설정, 관리자 계정 아직 없음 ✅.** 설정은 대기 | 사용자가 설정 화면 "내 계정 ID 복사"로 ID를 주면 `scloud variable set ADMIN_USER_IDS <ID>`(DEMO_ENABLED를 켠 방식과 같음, [plan 012 §4-2](012-session-handoff.md) 7차 행; 정확한 사용법은 `scloud help`로 확인) 후 재배포 |
+| 4 | 운영 비밀값 `llmModel` 미설정 — ✅ **미설정 확인(16차)** | 설정돼 있으면 코드의 기본 모델(`nemotron-3-super`)을 덮어씀 ✅ `rag_services.dart` |
+| 5 | `SERVERPOD_WEB_SERVER_FLUTTER_CACHE_CONTROL` 정리 — **확인(16차): 변수가 아직 남아 있음(미사용). 삭제 여부 결정 필요** | 15차에서 코드가 사라져 미사용. 운영 변수에 남았으면 삭제할지 결정 |
 | 6 | "스캔 PDF 지원 안 함" 안내 문구 | 14·15차에서 보류. 빈 `preview` 카드(글자 없는 PDF)에 안내를 둘지 CTO 결정 — [ADR 023](../adr/023-no-scanned-pdf-recovery.md)의 감수할 점 |
 
 ### 2-11. 보류·폐기된 것
@@ -314,3 +322,4 @@ PATH="$HOME/Library/Application Support/Dart/install/bin:$PATH" scloud --non-int
 ## 5. 변경 이력
 
 - `2026-10-16 16:22` 최초 작성 (후속 개선 11개 항목, 작업 방식, 진행 순서)
+- `2026-10-16 16:53` 16차 반영: 2-1 · 2-2 · 2-5 · 2-7 완료 표시(배포 후 기록 예정 ⚠️), 2-8 i 잔여(Ask 카드 · 인용 하이라이트 위 `inkMuted`) 메모, 2-10의 1 · 3 · 4 · 5번 확인 결과 반영(2 · 6번은 그대로)
