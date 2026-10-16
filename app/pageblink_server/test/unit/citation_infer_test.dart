@@ -5,6 +5,8 @@ import 'package:pageblink_server/src/providers/llm_provider.dart';
 import 'package:pageblink_server/src/providers/openrouter_llm_provider.dart';
 import 'package:test/test.dart';
 
+import 'citation_infer_cases.dart';
+
 /// The six sources of the measured question "4분기 출시 계획에서 남은 일이
 /// 뭐야?" (demo-ko pack): evidence lines, in source order [1]..[6].
 const _evidence = [
@@ -206,6 +208,138 @@ void main() {
 
     test('markers the model left (out of range) are not part of a phrase', () {
       expect(inferCitations('Nov 18, 2026 [9]', en), hasLength(3));
+    });
+  });
+
+  group(
+    'token match: a narrative sentence that repeats a date or an amount',
+    () {
+      List<int> on(String pack, String answer) =>
+          inferCitations(answer, packs[pack]!);
+
+      test('"출시일은 2026년 11월 18일입니다." finds the line with the date', () {
+        expect(on('koA', '출시일은 2026년 11월 18일입니다.'), [0]);
+        expect(on('enA', 'The launch date is November 18, 2026.'), [0]);
+        // other spellings of the same day
+        expect(on('koA', '출시일이 2026-11-18로 확정됐습니다.'), [0]);
+        expect(on('enA', 'The launch was moved to 18th November 2026.'), [0]);
+      });
+
+      test('Korean particles and endings do not matter', () {
+        expect(on('koA', '4분기 마케팅 예산은 1,200만원이에요.'), [1]);
+        expect(on('koA', '예산은 4분기에 1,200만 원이 책정됐습니다.'), [1]);
+        expect(on('koA', '이해관계자와의 커뮤니케이션은 법무팀이 검토합니다.'), [6]);
+        expect(on('koA', '구독료는 월 9,900원, 연간 결제 시 99,000원입니다.'), [8]);
+      });
+
+      test('two sentences, two sources', () {
+        expect(
+          on('koA', '출시일은 2026년 11월 18일입니다. 마케팅 예산은 4분기 1,200만 원입니다.'),
+          [0, 1],
+        );
+      });
+
+      test('a date on two lines tells them apart no better: ignored', () {
+        expect(on('koB', '출시일은 2026년 11월 18일입니다.'), isEmpty);
+        expect(on('enB', 'The launch date is November 18, 2026.'), isEmpty);
+        expect(on('koB', '프레스 킷은 11월 18일에 배포됩니다.'), isEmpty);
+        expect(on('koC', '커뮤니케이션 계획을 세웠습니다.'), isEmpty);
+      });
+
+      test('a number or unit that only looks the same is rejected', () {
+        expect(on('koA', '이번 설문에는 8명이 응답했습니다.'), isEmpty); // 8명 alone
+        expect(on('koA', '회의 안건은 3개 항목입니다.'), isEmpty);
+        expect(on('koA', '지난달 로딩 시간은 300ms였습니다.'), isEmpty); // 1 shared word
+        expect(on('enA', 'Page load takes 300 ms on mobile.'), isEmpty);
+        expect(on('enA', 'Only 250 days passed since then.'), isEmpty); // unit
+        expect(
+          on('enA', 'The Q4 budget is \$12 million.'),
+          isEmpty,
+        ); // currency
+      });
+
+      test('a near-miss day or amount is another token', () {
+        expect(on('koA', '출시일은 2026년 11월 19일입니다.'), isEmpty);
+        expect(on('koA', '출시일은 2025년 11월 18일입니다.'), isEmpty);
+        expect(on('koA', '마케팅 예산은 1,500만 원입니다.'), isEmpty);
+        // right date, but of another subject: no word in common
+        expect(on('koA', '앱스토어 심사는 2026년 11월 18일에 제출합니다.'), isEmpty);
+        expect(
+          on('enA', 'App Store review submission is on Nov 18, 2026.'),
+          isEmpty,
+        );
+      });
+
+      test(
+        'a month-day answer finds a dated line; a dated answer needs the year',
+        () {
+          expect(on('koA', '11월 28일에 앱스토어 심사를 제출합니다.'), [4]);
+          final ev = ['- 출시일: 11월 18일 예정', '- 심사 제출: 2026년 11월 28일'];
+          expect(inferCitations('출시일은 2026년 11월 18일입니다.', ev), isEmpty);
+          expect(inferCitations('심사 제출일은 11월 28일입니다.', ev), [1]);
+        },
+      );
+
+      test('"not found" sentences link nothing even with a date in them', () {
+        expect(
+          on('koA', '2026년 11월 18일 출시일 정보는 문서에서 찾을 수 없습니다.'),
+          isEmpty,
+        );
+        expect(
+          on(
+            'enA',
+            'I could not find a launch on Nov 18, 2026 in the documents.',
+          ),
+          isEmpty,
+        );
+      });
+
+      test('a long word is enough, with one more word of the sentence', () {
+        expect(on('enA', 'Stakeholder communications are reviewed by legal.'), [
+          6,
+        ]);
+        expect(on('enA', 'The communications team is large.'), isEmpty);
+      });
+
+      test('it never takes the place of a forward or reverse match', () {
+        final ev = [
+          '- 날짜 2026년 11월 18일',
+          '- 항목 하나 정말 길게',
+          '- 항목 둘 정말 길게',
+          '- 항목 셋 정말 길게',
+        ];
+        const base = '항목 하나 정말 길게, 항목 둘 정말 길게, 항목 셋 정말 길게';
+        expect(inferCitations(base, ev), [1, 2, 3]);
+        // full of old links already: the date's source is not added
+        expect(inferCitations('$base\n날짜는 2026년 11월 18일입니다.', ev), [1, 2, 3]);
+        // room left: it is added
+        expect(
+          inferCitations('항목 하나 정말 길게\n날짜는 2026년 11월 18일입니다.', ev),
+          [0, 1],
+        );
+      });
+    },
+  );
+
+  group('labeled synthetic cases (citation_infer_cases.dart)', () {
+    test('no mis-link, and nothing the old behavior linked is lost', () {
+      var gained = 0;
+      for (final (id, _, pack, answer, truth) in cases) {
+        final got = inferCitations(answer, packs[pack]!);
+        expect(got.where((i) => !truth.contains(i)), isEmpty, reason: id);
+        expect(got, containsAll(oldLinks[id]!), reason: id);
+        gained += got.length - oldLinks[id]!.length;
+      }
+      expect(cases.length, greaterThanOrEqualTo(40));
+      expect(gained, 34); // new correct links on the set
+    });
+
+    test('the cases that must stay silent do', () {
+      for (final (id, _, pack, answer, truth) in cases) {
+        if (truth.isEmpty) {
+          expect(inferCitations(answer, packs[pack]!), isEmpty, reason: id);
+        }
+      }
     });
   });
 
