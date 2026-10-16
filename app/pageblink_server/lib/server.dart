@@ -12,7 +12,6 @@ import 'src/sample/sample_seed.dart';
 import 'src/services/chunk_migration.dart';
 import 'src/services/maintenance_timer.dart';
 import 'src/services/preview_backfill.dart';
-import 'src/web/flutter_cache_control.dart';
 import 'src/web/routes/app_config_route.dart';
 
 /// The starting point of the Serverpod server.
@@ -69,9 +68,6 @@ void run(List<String> args) async {
         // If building the Flutter app with WASM, set the below parameter to
         // true and add the --wasm flag to the flutter build command.
         enableWasmHeaders: false,
-        // The recovery engines under pdf_recovery/vendor/ are versioned by
-        // folder name and cached long; the rest of the app revalidates.
-        cacheControlFactory: flutterCacheControl,
       ),
       '/',
     );
