@@ -375,6 +375,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   // and is sent when the save is done.
   late int? _colorIndex = widget.note?.colorIndex;
   ({int? index})? _pendingColor;
+  int _colorCall = 0; // newest setNoteColor call; older ones are stale
   final _colorMenu = MenuController();
   bool _colorSheetOpen = false;
 
@@ -667,14 +668,17 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   Future<void> _sendColor(int id, int? c) async {
     final l = context.l;
     final messenger = ScaffoldMessenger.of(context);
+    final call = ++_colorCall;
     try {
       final d = await client.document.setNoteColor(id, c);
       _doc = d;
       boardRefresh.value++;
-      if (mounted && _pendingColor == null) {
+      if (mounted && _pendingColor == null && call == _colorCall) {
         setState(() => _colorIndex = d.colorIndex);
       }
     } catch (e) {
+      // A newer pick is on its way: it decides what the dot shows.
+      if (call != _colorCall) return;
       debugPrint('set note color failed: $e');
       if (mounted) {
         setState(() => _colorIndex = _doc?.colorIndex);

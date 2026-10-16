@@ -28,6 +28,10 @@ bool _failColor = false;
 Completer<void>? _saveGate;
 Completer<void>? _colorGate;
 
+/// When set, every setNoteColor waits for its own release (in call order).
+bool _holdEachColor = false;
+final _colorHolds = <Completer<void>>[];
+
 Document _doc({int id = 7, int? colorIndex, String body = 'milk'}) => Document(
   id: id,
   ownerId: UuidValue.fromString('00000000-0000-4000-8000-000000000001'),
@@ -64,6 +68,11 @@ Future<http.Response> _server(http.Request r) async {
       );
     case 'setNoteColor':
       await _colorGate?.future;
+      if (_holdEachColor) {
+        final hold = Completer<void>();
+        _colorHolds.add(hold);
+        await hold.future;
+      }
       if (_failColor) return http.Response('secret detail', 500);
       return _json(
         _doc(
@@ -168,6 +177,8 @@ void main() {
     _failColor = false;
     _saveGate = null;
     _colorGate = null;
+    _holdEachColor = false;
+    _colorHolds.clear();
   });
 
   group('button', () {
@@ -407,6 +418,57 @@ void main() {
       expect(find.byType(NoteColorGrid), findsNothing);
       expect(find.text(_l.colorFailed), findsOneWidget);
       expect(find.textContaining('secret'), findsNothing);
+    });
+
+    testWidgets('the dot recolors at once, before the server answers', (
+      t,
+    ) async {
+      _colorGate = Completer<void>();
+      await _pump(t, note: _doc(colorIndex: 1));
+      await _openPicker(t);
+      await _pick(t, 6);
+      expect(_methods, ['setNoteColor']);
+      expect(_dotWidget(t).index, 6);
+      expect(_dotDeco(t).color, _pb.notesExtra[1]);
+      _colorGate!.complete();
+      await t.pumpAndSettle();
+      expect(_dotWidget(t).index, 6);
+    });
+
+    testWidgets('two quick picks: an older answer arriving last is ignored', (
+      t,
+    ) async {
+      _holdEachColor = true;
+      await _pump(t, note: _doc(colorIndex: 1));
+      await _openPicker(t);
+      await _pick(t, 2);
+      await _pick(t, 4);
+      expect(_colorHolds, hasLength(2));
+      expect(_dotWidget(t).index, 4);
+      _colorHolds[1].complete(); // the newer answers first
+      await t.pump(const Duration(milliseconds: 50));
+      expect(_dotWidget(t).index, 4);
+      _colorHolds[0].complete(); // the older one comes late
+      await t.pump(const Duration(milliseconds: 50));
+      expect(_dotWidget(t).index, 4);
+    });
+
+    testWidgets('an older pick failing late does not revert the newer', (
+      t,
+    ) async {
+      _holdEachColor = true;
+      await _pump(t, note: _doc(colorIndex: 1));
+      await _openPicker(t);
+      await _pick(t, 2);
+      await _pick(t, 4);
+      _colorHolds[1].complete();
+      await t.pump(const Duration(milliseconds: 50));
+      _failColor = true;
+      _colorHolds[0].complete();
+      await t.pumpAndSettle();
+      expect(_dotWidget(t).index, 4);
+      expect(find.text(_l.colorFailed), findsNothing);
+      expect(find.byType(NoteColorGrid), findsOneWidget); // still open
     });
 
     testWidgets('failure on a phone closes the sheet', (t) async {

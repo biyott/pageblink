@@ -79,6 +79,15 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   /// Cards that just arrived from an upload (they flash).
   static final _noFlash = ValueNotifier<Set<int>>(const {});
 
+  /// Color picks the server has not confirmed yet, by document id. They are
+  /// shown at once and laid over every list that arrives meanwhile.
+  final _pendingColors = <int, _PendingColor>{};
+  int _colorToken = 0;
+
+  /// Bumps when a pick starts or settles (or its note is deleted): a list
+  /// fetched across such a moment may predate the change and is fetched again.
+  int _colorEpoch = 0;
+
   BoardApi get _api => widget.boardApi ?? BoardApi.live();
 
   @override
@@ -95,15 +104,26 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 
   Future<void> _refresh() async {
+    final epoch = _colorEpoch;
     try {
-      final docs = await _api.list();
-      if (mounted) {
-        setState(() {
-          _documents = docs;
-          documentsNotifier.value = docs;
-          _error = null;
-        });
+      final fetched = await _api.list();
+      if (!mounted) return;
+      if (epoch != _colorEpoch) {
+        await _refresh();
+        return;
       }
+      final docs = [
+        for (final d in fetched)
+          switch (_pendingColors[d.id]) {
+            final p? => d.copyWith(colorIndex: p.target),
+            null => d,
+          },
+      ];
+      setState(() {
+        _documents = docs;
+        documentsNotifier.value = docs;
+        _error = null;
+      });
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     }
@@ -217,6 +237,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       ),
     );
     if (ok != true) return;
+    if (_pendingColors.remove(document.id) != null) _colorEpoch++;
     try {
       await _api.delete(document.id!);
     } catch (e) {
@@ -230,18 +251,54 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     await _refresh();
   }
 
+  /// Recolors the card in [_documents] and the shared notifier right away.
+  void _patchColor(int id, int? colorIndex) {
+    final docs = _documents;
+    if (docs == null || !mounted) return;
+    setState(() {
+      _documents = documentsNotifier.value = [
+        for (final d in docs)
+          d.id == id ? d.copyWith(colorIndex: colorIndex) : d,
+      ];
+    });
+  }
+
+  /// Optimistic: the card changes in the tapping frame, the call follows. Only
+  /// the newest pick of a note settles it (older ones are stale); a failure
+  /// puts back the last color the server confirmed.
   Future<void> _setNoteColor(Document document, int? colorIndex) async {
     final l = context.l;
+    final id = document.id!;
+    final shown = _documents?.where((d) => d.id == id).firstOrNull;
+    final p = _pendingColors[id] ??= _PendingColor(
+      (shown ?? document).colorIndex,
+    );
+    final token = p.token = ++_colorToken;
+    p.target = colorIndex;
+    _colorEpoch++;
+    _patchColor(id, colorIndex);
     try {
-      await _api.setNoteColor(document.id!, colorIndex);
+      final saved = await _api.setNoteColor(id, colorIndex);
+      if (_pendingColors[id] != p || p.token != token) {
+        if (_pendingColors[id] == p) p.confirmed = saved.colorIndex;
+        return;
+      }
     } catch (e) {
+      if (_pendingColors[id] != p || p.token != token) return;
       debugPrint('set note color failed: $e');
+      _pendingColors.remove(id);
+      _colorEpoch++;
+      _patchColor(id, p.confirmed);
       if (e is DemoLimitException) {
         _demoLimit(l, e);
       } else {
         _snack(l.colorFailed);
       }
+      await _refresh();
+      return;
     }
+    _pendingColors.remove(id);
+    _colorEpoch++;
     await _refresh();
   }
 
@@ -566,6 +623,16 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 }
 
+/// A color pick on its way to the server.
+class _PendingColor {
+  _PendingColor(this.confirmed);
+
+  /// Last color the server confirmed: what a failed pick falls back to.
+  int? confirmed;
+  int? target;
+  int token = 0;
+}
+
 enum _Filter { all, notes, pdfs, attention }
 
 /// Latest board contents, shared so the desktop sidebar can show tier counts.
@@ -696,15 +763,6 @@ class DocumentCard extends StatelessWidget {
   /// Clock for the indexing wording phases; tests replace it.
   final DateTime Function()? now;
 
-  /// Paints [gradient] under the ink so splashes stay visible; the card's
-  /// flat color shows through when there is none.
-  static Widget _gradient(Gradient? gradient, Widget child) => gradient == null
-      ? child
-      : Ink(
-          decoration: BoxDecoration(gradient: gradient),
-          child: child,
-        );
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -748,122 +806,148 @@ class DocumentCard extends StatelessWidget {
     } else {
       body = const SizedBox.shrink();
     }
-    final gradient = isNote ? pb.noteGradient(document.colorIndex) : null;
-    final card = Card(
+    Widget cardWith(Color color, Widget child) => Card(
       clipBehavior: Clip.antiAlias,
       // The card keeps its own color in every state (§2.1).
-      color: !isNote
-          ? pb.pdfPaper
-          : gradient != null
-          ? Colors.transparent
-          : pb.noteColor(document.id, colorIndex: document.colorIndex),
+      color: color,
       shadowColor: pb.ink.withValues(alpha: 0.06),
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: pb.ink.withValues(alpha: 0.10)),
       ),
-      child: _gradient(
-        gradient,
-        InkWell(
-          onTap: onTap,
-          // The ring is the keyboard one around the card; the tint is the
-          // hover/press ink only.
-          focusColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: child,
+    );
+    final inkWell = InkWell(
+      onTap: onTap,
+      // The ring is the keyboard one around the card; the tint is the
+      // hover/press ink only.
+      focusColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: pb.tile,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        isNote ? AppIcons.note : AppIcons.pdf,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontSize: 12,
-                          color: pb.cardMeta,
-                        ),
-                      ),
-                    ),
-                    _CardMenu(
-                      document: document,
-                      onReindex: onReindex,
-                      onDelete: onDelete,
-                      onSetColor: isNote ? onSetColor : null,
-                    ),
-                  ],
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: pb.tile,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(isNote ? AppIcons.note : AppIcons.pdf, size: 18),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  document.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontSize: 12,
+                      color: pb.cardMeta,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Expanded(child: body),
-                if (line != null)
-                  _StatusLine(
-                    document: document,
-                    reindexing: reindexing,
-                    showReasonTip: isNote,
-                    onRetry: onRetry,
-                    now: now,
-                  ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: pb.chipBg,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(tierIcon, size: 14),
-                          const SizedBox(width: 4),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 110),
-                            child: Text(
-                              tier,
-                              style: theme.textTheme.labelSmall,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                _CardMenu(
+                  document: document,
+                  onReindex: onReindex,
+                  onDelete: onDelete,
+                  onSetColor: isNote ? onSetColor : null,
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 4),
+            Text(
+              document.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Expanded(child: body),
+            if (line != null)
+              _StatusLine(
+                document: document,
+                reindexing: reindexing,
+                showReasonTip: isNote,
+                onRetry: onRetry,
+                now: now,
+              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: pb.chipBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(tierIcon, size: 14),
+                      const SizedBox(width: 4),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 110),
+                        child: Text(
+                          tier,
+                          style: theme.textTheme.labelSmall,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
+    // Notes fade between colors (200 ms, spec 5.5): the flat color is
+    // interpolated, the rainbow gradient fades in over it (always painted
+    // under the ink so splashes stay visible). Solid <-> rainbow stays opaque
+    // all the way; at rest a rainbow card is transparent over its gradient.
+    final Widget card;
+    if (!isNote) {
+      card = cardWith(pb.pdfPaper, inkWell);
+    } else {
+      final d = MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 200);
+      final rainbow = pb.noteGradient(Pb.rainbowIndex)! as LinearGradient;
+      card = TweenAnimationBuilder<Color?>(
+        tween: ColorTween(
+          end: pb.noteColor(document.id, colorIndex: document.colorIndex),
+        ),
+        duration: d,
+        curve: Curves.easeOutCubic,
+        child: inkWell,
+        builder: (context, flat, child) => TweenAnimationBuilder<double>(
+          tween: Tween(end: document.colorIndex == Pb.rainbowIndex ? 1 : 0),
+          duration: d,
+          curve: Curves.easeOutCubic,
+          child: child,
+          builder: (context, t, child) => cardWith(
+            t >= 1 ? Colors.transparent : flat!,
+            Ink(
+              decoration: BoxDecoration(
+                gradient: t > 0 ? rainbow.scale(t) : null,
+              ),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    }
     // Long press = delete only for a finger or a pen: a mouse press held for
     // half a second used to open the delete dialog (the ⋯ menu and the Delete
     // button are the mouse's paths). InkWell's own onLongPress takes any
