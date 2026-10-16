@@ -1,0 +1,9 @@
+### Who is signed in, for the account line in Settings. Never about anyone
+### but the caller.
+class: AccountInfo
+fields:
+  ### Sign-in email of a regular account. Null for a demo account (shared,
+  ### nothing personal to show) and when no email account is found.
+  email: String?
+  ### The caller is signed in as a shared demo account.
+  isDemo: bool

@@ -12,6 +12,7 @@
 // ignore_for_file: no_leading_underscores_for_library_prefixes
 import 'dart:async' as _ida;
 import 'package:http/http.dart' as _i85jenna;
+import 'package:pageblink_client/src/protocol/account_info.dart' as _i2muzn8t;
 import 'package:pageblink_client/src/protocol/answer_event.dart' as _iv9ukj64;
 import 'package:pageblink_client/src/protocol/ask_admin_filter.dart'
     as _ihxjv8go;
@@ -36,6 +37,26 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'protocol.dart' as _il2as5qe;
+
+/// The signed-in user's own account line. The standard
+/// `serverpod_auth_core.userProfileInfo.get` is not used: demo accounts have
+/// no profile (it would throw an error that is not serializable, a 500).
+/// {@category Endpoint}
+class EndpointAccount extends _isc.EndpointRef {
+  EndpointAccount(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'account';
+
+  /// Email (null for demo / unknown) and demo flag of the caller. The email is
+  /// not logged.
+  _ida.Future<_i2muzn8t.AccountInfo> me() =>
+      caller.callServerEndpoint<_i2muzn8t.AccountInfo>(
+        'account',
+        'me',
+        {},
+      );
+}
 
 /// By extending [EmailIdpBaseEndpoint], the email identity provider endpoints
 /// are made available on the server and enable the corresponding sign-in widget
@@ -724,6 +745,7 @@ class Client extends _isc.ServerpodClientShared {
              disconnectStreamsOnLostInternetConnection,
          httpClientOverride: httpClientOverride,
        ) {
+    account = EndpointAccount(this);
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
     demo = EndpointDemo(this);
@@ -736,6 +758,8 @@ class Client extends _isc.ServerpodClientShared {
     project = EndpointProject(this);
     modules = Modules(this);
   }
+
+  late final EndpointAccount account;
 
   late final EndpointEmailIdp emailIdp;
 
@@ -761,6 +785,7 @@ class Client extends _isc.ServerpodClientShared {
 
   @override
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
+    'account': account,
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
     'demo': demo,
