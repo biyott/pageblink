@@ -13,6 +13,21 @@ void main() {
     expect(L.ko.scopeSummary(false, 0), '검색할 곳이 없어요');
   });
 
+  test('UX round 2 strings (account, projects, note color)', () {
+    expect(L.ko.projectsSummary(2, 5, 3), '프로젝트 2개 · 노트 5개, PDF 3개');
+    expect(L.en.projectsSummary(2, 5, 3), '2 projects · 5 notes, 3 PDFs');
+    expect(L.ko.projectCounts(5, 3), '노트 5개 · PDF 3개');
+    expect(L.en.projectCounts(5, 3), '5 notes · 3 PDFs');
+    expect(L.ko.noteColorOf('로즈'), '노트 색: 로즈');
+    expect(L.en.noteColorAutoOf('Rose'), 'Auto (Rose)');
+    expect(L.ko.accountMenuSemantics('a@b.c'), '계정: a@b.c');
+    expect(L.en.appVersionLabel('1.2'), 'PageBlink v1.2');
+    expect(L.ko.copyAccountId, '계정 ID 복사');
+    expect(L.en.copyAccountId, 'Copy account ID');
+    expect(L.en.projectOwner, 'Owner');
+    expect(L.ko.projectMember, '멤버');
+  });
+
   test('modelNote drops free/price parts, translates known, keeps unknown', () {
     const free = 'free · recommended · multilingual · fast';
     expect(L.en.modelNote(free), 'recommended · multilingual · fast');
