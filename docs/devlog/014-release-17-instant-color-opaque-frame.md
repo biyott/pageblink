@@ -2,11 +2,11 @@
 
 | 항목 | 값 |
 |---|---|
-| 상태 | 🚧 배포 진행 중 (배포 ID · 결과 · 스모크는 배포 후 아래에 채움) |
+| 상태 | ✅ 배포 성공 (배포 ID `e262e7a4-4a4b-4339-a723-c5d9ca52da4f`, 17:24 KST). 라이브 스모크 통과 ✅. 눈으로 확인할 3개는 사용자 확인 대기 ⚠️ |
 | 단계 | 수정 · 운영 · 앱 (17차, 클라이언트 전용) |
 | 시작 | 2026-10-16 17:15 KST (두 수정 커밋 작성 시각 ✅ git) |
-| 완료 | – |
-| 소요 | – |
+| 완료 | 2026-10-16 17:24 KST (배포 성공) |
+| 소요 | 약 9분 (수정 커밋 17:15 ~ 배포 성공 17:24) |
 | 최종 수정 | 2026-10-16 17:20 KST |
 
 ## 목표
@@ -42,6 +42,13 @@
 | `serverpod create-migration` | 재실행 후 `git status` 변경 없음 ✅ (마이그레이션 체인 끝 `20261016062428206-pdf-recovery-and-preview`) |
 | `serverpod run flutter_build` | 성공 ✅. `main.dart.js`에 `PageBlink v1.0.0 \xb7 6f6c28b`(검증 빌드의 HEAD) 포함 |
 
+### 배포와 라이브 스모크 (✅ 실제 출력)
+- 배포한 `main` = `6b9b5dd`(문서 커밋, 코드는 `13657b2` `6f6c28b`). 깨끗한 새 워크트리에서 `scloud --non-interactive --yes deploy`. 배포 전 `scloud deployment list`에 진행 중 배포 없음(직전 `d85174e4` SUCCESS).
+- 배포 ID `e262e7a4-4a4b-4339-a723-c5d9ca52da4f`, SUCCESS (시작 17:21:28 ~ 17:24:47, 클라우드 빌드 127초 · 롤아웃 68초). 부팅 로그: `Latest database migration already applied`(새 마이그레이션 없음, 체인 끝 `20261016062428206-pdf-recovery-and-preview`), `maintenance: timer started jobs=demo-tokens,auth-tokens,demo-documents,ask-history`, `chunk-migration: done ok=0 skipped=0 failed=0`.
+- 웹 루트 200. 라이브 `main.dart.js`에 `PageBlink v1.0.0 \xb7 6b9b5dd` 포함(`\xb7`은 `·`의 JS 이스케이프).
+- API(demo 영어 계정, Ask 질문은 쓰지 않음): 노트 생성 200 → `setNoteColor` 5 → 5, null → null → 목록에서 null → 삭제 200 → 목록에서 사라짐.
+- 배포 후 10분 로그의 ERROR 8줄은 모두 스모크 도중 내가 잘못 보낸 요청(깨진 `Content-Type` 헤더, `Error reading request. HttpException: Failed to parse header value`)이고 앱 오류가 아니다. 그 밖의 ERROR · WARN 없음.
+
 ## 문제와 해결
 - 충돌 없음. 해시가 달라진 것은 cherry-pick 때문(원본 `1b33c47` → `13657b2`, `f54ad3c` → `6f6c28b`).
 
@@ -53,3 +60,4 @@
 
 ## 변경 이력
 - `2026-10-16 17:20` 최초 작성 (배포 전 기록: 커밋, 검증 수치). 배포 ID · 스모크는 배포 후 채움
+- `2026-10-16 17:26` 배포 성공 · 라이브 스모크 기록, 상태를 ✅로
