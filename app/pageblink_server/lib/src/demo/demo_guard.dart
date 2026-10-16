@@ -2,46 +2,12 @@ import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 
 import '../generated/protocol.dart';
+import '../services/daily_counter.dart';
 import '../services/document_cleanup.dart';
 import 'demo_config.dart';
 import 'demo_user.dart';
 
-/// Counts uses per KST day (resets at 00:00 KST). In memory only: a restart
-/// or a second instance starts from zero again, so the real daily total can
-/// exceed [limit] (plan 014 L5). Needs a DB counter if that ever matters.
-class DailyCounter {
-  final int limit;
-  final DateTime Function() _now;
-  String _day = '';
-  int _used = 0;
-
-  DailyCounter(this.limit, {DateTime Function()? now})
-    : _now = now ?? DateTime.now;
-
-  void _roll() {
-    final kst = _now().toUtc().add(const Duration(hours: 9));
-    final day = '${kst.year}-${kst.month}-${kst.day}';
-    if (day != _day) {
-      _day = day;
-      _used = 0;
-    }
-  }
-
-  int get used {
-    _roll();
-    return _used;
-  }
-
-  int get remaining => (limit - used).clamp(0, limit);
-
-  /// Takes one use; false when the day's limit is already reached.
-  bool tryConsume() {
-    _roll();
-    if (_used >= limit) return false;
-    _used++;
-    return true;
-  }
-}
+export '../services/daily_counter.dart';
 
 /// The rules that only apply to the demo account (plan 014 §6.4). Every check
 /// is a no-op for other users and for the internal seeding session.
@@ -136,10 +102,17 @@ class DemoGuard {
     }
   }
 
-  /// Deletes expired non-sample documents of every demo account (with their
-  /// files) and demo refresh tokens older than [demoRetention] (research 026
-  /// §8, §9.2). No-op while no demo account is known or the feature is off.
+  /// Both cleanups below. Cheap enough to run opportunistically (sign-in,
+  /// create gate, boot); the maintenance timer runs them on its own cadence.
   static Future<void> purgeExpired(Session session) async {
+    await purgeExpiredDocuments(session);
+    await purgeExpiredTokens(session);
+  }
+
+  /// Deletes expired non-sample documents of every demo account (with their
+  /// files) (research 026 §8, §9.2). No-op while no demo account is known or
+  /// the feature is off.
+  static Future<void> purgeExpiredDocuments(Session session) async {
     if (DemoUser.accounts.isEmpty || !DemoConfig.enabled(session)) return;
     final limit = cutoff();
 
@@ -163,10 +136,31 @@ class DemoGuard {
         }, transaction: tx),
       );
     }
+  }
 
-    await RefreshToken.db.deleteWhere(
+  /// Ends demo sign-ins: deletes `method == 'demo'` refresh tokens unused for
+  /// [DemoSessionConfig.idle] (`lastUpdatedAt`, moved by every token rotation)
+  /// or issued longer than [DemoSessionConfig.max] ago (`createdAt`, written
+  /// once). Other methods are never touched. Idempotent, so several instances
+  /// may run it at once. Returns how many were deleted. No-op while no demo
+  /// account is known or the feature is off.
+  ///
+  /// An already issued access token keeps working until it expires (up to 10
+  /// minutes; JWTs are not checked against the table).
+  static Future<int> purgeExpiredTokens(
+    Session session, {
+    DateTime? now,
+  }) async {
+    if (DemoUser.accounts.isEmpty || !DemoConfig.enabled(session)) return 0;
+    final t0 = (now ?? DateTime.now()).toUtc();
+    final idleCutoff = t0.subtract(DemoSessionConfig.idle(session));
+    final maxCutoff = t0.subtract(DemoSessionConfig.max(session));
+    final gone = await RefreshToken.db.deleteWhere(
       session,
-      where: (t) => t.method.equals('demo') & (t.createdAt < limit),
+      where: (t) =>
+          t.method.equals('demo') &
+          ((t.lastUpdatedAt < idleCutoff) | (t.createdAt < maxCutoff)),
     );
+    return gone.length;
   }
 }

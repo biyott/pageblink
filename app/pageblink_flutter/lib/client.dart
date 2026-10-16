@@ -4,6 +4,9 @@ import 'package:pageblink_client/pageblink_client.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import 'package:serverpod_flutter/serverpod_flutter.dart';
 
+import 'features/auth/session_end.dart';
+import 'features/demo/demo.dart';
+
 // When you are running the app on a physical device, you need to set the
 // server URL to the IP address of your computer. You can find the IP
 // address by running `ipconfig` on Windows or `ifconfig` on Mac/Linux.
@@ -32,9 +35,82 @@ late final Client client;
 /// hangs now fails after 120 s instead of 20 s.
 const unaryCallTimeout = Duration(seconds: 120);
 
+/// The generated client, telling [onUnauthorized] about every call that was
+/// sent with credentials and still got a 401 (the library has already tried
+/// refreshing the token and repeating the call once). The stream of a
+/// streaming call (`ask`) is watched the same way.
+class AppClient extends Client {
+  AppClient(
+    super.host, {
+    super.connectionTimeout,
+    super.httpClientOverride,
+    this.onUnauthorized,
+  });
+
+  final void Function()? onUnauthorized;
+
+  @override
+  Future<T> callServerEndpoint<T>(
+    String endpoint,
+    String method,
+    Map<String, dynamic> args, {
+    bool authenticated = true,
+  }) async {
+    try {
+      return await super.callServerEndpoint<T>(
+        endpoint,
+        method,
+        args,
+        authenticated: authenticated,
+      );
+    } on ServerpodClientUnauthorized {
+      if (authenticated) onUnauthorized?.call();
+      rethrow;
+    }
+  }
+
+  @override
+  dynamic callStreamingServerEndpoint<T, G>(
+    String endpoint,
+    String method,
+    Map<String, dynamic> args,
+    Map<String, Stream> streams, {
+    bool authenticated = true,
+  }) {
+    final result = super.callStreamingServerEndpoint<T, G>(
+      endpoint,
+      method,
+      args,
+      streams,
+      authenticated: authenticated,
+    );
+    if (!authenticated || result is! Stream<G>) return result;
+    return result.transform(
+      StreamTransformer<G, G>.fromHandlers(
+        handleError: (error, stack, sink) {
+          if (error is ServerpodClientUnauthorized) onUnauthorized?.call();
+          sink.addError(error, stack);
+        },
+      ),
+    );
+  }
+}
+
 Future<void> initializeClient() async {
-  client = Client(await serverUrl, connectionTimeout: unaryCallTimeout)
-    ..connectivityMonitor = FlutterConnectivityMonitor()
-    ..authSessionManager = FlutterAuthSessionManager();
+  final guard = SessionGuard(
+    isSignedIn: () => client.auth.isAuthenticated,
+    validate: () => client.auth.validateAuthentication(
+      timeout: const Duration(seconds: 10),
+    ),
+    isDemo: () => demoStatus.value?.isDemo ?? false,
+  );
+  client =
+      AppClient(
+          await serverUrl,
+          connectionTimeout: unaryCallTimeout,
+          onUnauthorized: () => unawaited(guard.onUnauthorized()),
+        )
+        ..connectivityMonitor = FlutterConnectivityMonitor()
+        ..authSessionManager = FlutterAuthSessionManager();
   unawaited(client.auth.initialize());
 }

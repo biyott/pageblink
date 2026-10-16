@@ -10,6 +10,7 @@ import 'src/demo/demo_seed.dart';
 import 'src/generated/serverpod.dart';
 import 'src/sample/sample_seed.dart';
 import 'src/services/chunk_migration.dart';
+import 'src/services/maintenance_timer.dart';
 import 'src/web/routes/app_config_route.dart';
 
 /// The starting point of the Serverpod server.
@@ -116,4 +117,8 @@ void run(List<String> args) async {
   // Re-indexes documents on older chunk rules or an older embedding model in
   // the background. Does nothing unless `REINDEX_ON_BOOT` is set.
   unawaited(ChunkMigration.start(pod));
+
+  // Periodic cleanup: demo sign-ins (5 min), expired refresh tokens and demo
+  // documents (hourly). Not started for the `maintenance` role.
+  MaintenanceTimer.start(pod);
 }

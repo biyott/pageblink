@@ -7,6 +7,7 @@ import 'package:pageblink_server/src/demo/demo_user.dart';
 import 'package:pageblink_server/src/generated/protocol.dart';
 import 'package:pageblink_server/src/rag/chunker.dart';
 import 'package:pageblink_server/src/sample/sample_pack.dart';
+import 'package:pageblink_server/src/services/maintenance_timer.dart';
 import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/core.dart';
 import 'package:serverpod_auth_idp_server/providers/email.dart';
@@ -471,7 +472,8 @@ void main() {
       expect(await Document.db.findById(sb.build(), expired.id!), isNotNull);
     });
 
-    test('signIn purges documents and tokens older than 24 hours', () async {
+    test('signIn purges documents older than 24 hours and tokens past the '
+        'absolute limit', () async {
       final old = await ownRow(age: const Duration(hours: 25));
       final fresh = await ownRow(age: const Duration(hours: 1));
       final oldSample = await sampleRow(pack.notes[0].hash);
@@ -505,6 +507,137 @@ void main() {
       expect(await Document.db.findById(s, oldSample.id!), isNotNull);
       expect(await RefreshToken.db.findById(s, oldToken.id!), isNull);
       expect(await RefreshToken.db.findById(s, keepEmail.id!), isNotNull);
+    });
+
+    group('demo token expiry (idle 60 min, absolute 240 min)', () {
+      late UuidValue regularId; // a real AuthUser: the token table has an FK
+      setUp(() async {
+        regularId = (await AuthServices.instance.authUsers.create(
+          sb.build(),
+        )).id;
+      });
+
+      Future<RefreshToken> token(
+        UuidValue user,
+        String method, {
+        required Duration created,
+        required Duration updated,
+      }) {
+        final now = DateTime.now().toUtc();
+        return RefreshToken.db.insertRow(
+          sb.build(),
+          RefreshToken(
+            authUserId: user,
+            scopeNames: {},
+            method: method,
+            fixedSecret: ByteData(16),
+            rotatingSecretHash: 'x',
+            createdAt: now.subtract(created),
+            lastUpdatedAt: now.subtract(updated),
+          ),
+        );
+      }
+
+      Future<bool> alive(RefreshToken t) async =>
+          await RefreshToken.db.findById(sb.build(), t.id!) != null;
+
+      Future<Map<String, RefreshToken>> fixture() async => {
+        'idle61': await token(
+          demoId,
+          'demo',
+          created: const Duration(minutes: 90),
+          updated: const Duration(minutes: 61),
+        ),
+        'max241': await token(
+          koId,
+          'demo',
+          created: const Duration(minutes: 241),
+          updated: const Duration(minutes: 1),
+        ),
+        'both': await token(
+          demoId,
+          'demo',
+          created: const Duration(days: 2),
+          updated: const Duration(days: 1),
+        ),
+        'active': await token(
+          demoId,
+          'demo',
+          created: const Duration(minutes: 239),
+          updated: const Duration(minutes: 59),
+        ),
+        'fresh': await token(
+          koId,
+          'demo',
+          created: const Duration(minutes: 1),
+          updated: const Duration(minutes: 1),
+        ),
+        'emailOld': await token(
+          regularId,
+          'email',
+          created: const Duration(days: 9),
+          updated: const Duration(days: 9),
+        ),
+        // Only method 'demo' is ever touched, whoever owns the row.
+        'emailOnDemoUser': await token(
+          demoId,
+          'email',
+          created: const Duration(days: 9),
+          updated: const Duration(days: 9),
+        ),
+      };
+
+      test('only the idle and the over-age demo tokens go', () async {
+        final t = await fixture();
+        final gone = await DemoGuard.purgeExpiredTokens(sb.build());
+        expect(gone, 3);
+        for (final k in ['idle61', 'max241', 'both']) {
+          expect(await alive(t[k]!), isFalse, reason: k);
+        }
+        for (final k in ['active', 'fresh', 'emailOld', 'emailOnDemoUser']) {
+          expect(await alive(t[k]!), isTrue, reason: k);
+        }
+      });
+
+      test('running it again deletes nothing more', () async {
+        await fixture();
+        expect(await DemoGuard.purgeExpiredTokens(sb.build()), 3);
+        expect(await DemoGuard.purgeExpiredTokens(sb.build()), 0);
+      });
+
+      test('flag off: nothing is deleted', () async {
+        final t = await fixture();
+        DemoConfig.debugOverride = false;
+        expect(await DemoGuard.purgeExpiredTokens(sb.build()), 0);
+        await MaintenanceTimer.demoTokens.run(sb.build());
+        expect(await alive(t['idle61']!), isTrue);
+      });
+
+      test('the timer job deletes them and finds accounts by itself', () async {
+        final t = await fixture();
+        DemoUser.debugReset(); // as after a boot that could not load them
+        await MaintenanceTimer.demoTokens.run(sb.build());
+        expect(await alive(t['idle61']!), isFalse);
+        expect(await alive(t['active']!), isTrue);
+      });
+
+      test('the auth job removes expired tokens of every method', () async {
+        final old = await token(
+          regularId,
+          'email',
+          created: const Duration(days: 30),
+          updated: const Duration(days: 15),
+        );
+        final recent = await token(
+          regularId,
+          'email',
+          created: const Duration(days: 30),
+          updated: const Duration(days: 13),
+        );
+        await MaintenanceTimer.authTokens.run(sb.build());
+        expect(await alive(old), isFalse);
+        expect(await alive(recent), isTrue);
+      });
     });
 
     group('one account per language', () {

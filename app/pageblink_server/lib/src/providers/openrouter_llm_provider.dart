@@ -14,6 +14,7 @@ class OpenRouterLlmProvider implements LlmProvider {
     this._apiKey, {
     this.model = 'anthropic/claude-haiku-5.5',
     this.denyDataCollection = true,
+    this.reasoning,
     http.Client? client,
   }) : _client = client ?? http.Client();
 
@@ -24,17 +25,26 @@ class OpenRouterLlmProvider implements LlmProvider {
   /// Free (`:free`) models are often served only by such providers, so the
   /// catalog turns this off for them (demo with public documents only).
   final bool denyDataCollection;
+
+  /// The OpenRouter `reasoning` request field (e.g. `{'effort': 'none'}`);
+  /// null sends none and leaves the model's default. See
+  /// `LlmCatalog.reasoningFor`.
+  final Map<String, Object>? reasoning;
   final http.Client _client;
 
   static final _endpoint = Uri.parse(
     'https://openrouter.ai/api/v1/chat/completions',
   );
-  static final _marker = RegExp(r'\[(\d{1,2})\]');
+  // `[3]`; models sometimes write full-width `【3】` or `［3］` instead.
+  static final _marker = RegExp(
+    r'\[(\d{1,2})\]|【(\d{1,2})】|［(\d{1,2})］',
+  );
 
   static const _system =
       'You answer questions using only the numbered sources provided, '
       'which are excerpts from the user\'s own files. After each sentence that uses a source, '
       'cite it with its number in square brackets, like [1] or [2][3]. '
+      'Always use plain half-width brackets [n] for citations, never full-width ones such as 【1】. '
       'Each source has an EVIDENCE line (the passage to cite) and, when available, its '
       'surrounding CONTEXT. Cite only the number of the source whose EVIDENCE supports '
       'the sentence; use CONTEXT only to understand it. '
@@ -69,6 +79,7 @@ class OpenRouterLlmProvider implements LlmProvider {
         'model': model,
         'stream': true,
         if (denyDataCollection) 'provider': {'data_collection': 'deny'},
+        if (reasoning != null) 'reasoning': reasoning,
         'messages': [
           {'role': 'system', 'content': _system},
           {
@@ -84,6 +95,7 @@ class OpenRouterLlmProvider implements LlmProvider {
       throw LlmException(
         'OpenRouter ${response.statusCode} ($model): $body',
         retryable: _retryableStatus(response.statusCode),
+        statusCode: response.statusCode,
       );
     }
 
@@ -107,6 +119,7 @@ class OpenRouterLlmProvider implements LlmProvider {
         throw LlmException(
           'OpenRouter stream error ($model): $error',
           retryable: text.isEmpty && (code is! int || _retryableStatus(code)),
+          statusCode: code is int ? code : null,
         );
       }
       final choices = chunk['choices'] as List? ?? const [];
@@ -122,7 +135,7 @@ class OpenRouterLlmProvider implements LlmProvider {
       // Markers can be split across chunks, so scan the accumulated text.
       text.write(delta);
       for (final m in _marker.allMatches(text.toString())) {
-        final index = int.parse(m.group(1)!) - 1;
+        final index = int.parse((m[1] ?? m[2] ?? m[3])!) - 1;
         if (index >= 0 && index < sources.length && cited.add(index)) {
           yield LlmCitation(index, '');
         }

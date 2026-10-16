@@ -586,6 +586,10 @@ class L {
     'may be slow': '느릴 수 있음',
     'reasoning': '추론형',
     'slower first token': '첫 글자가 느림',
+    'slower first token (~5s)': '첫 글자가 느림(약 5초)',
+    'unstable': '불안정',
+    'upstream limits': '제공처 한도 있음',
+    'may not respond': '응답이 없을 수 있음',
     'quality': '고품질',
   };
   String get aiDisclaimer => _k(
@@ -648,6 +652,15 @@ class L {
     limit == null
         ? '오늘 데모 질문 한도에 도달했어요. 가입하면 계속 물어볼 수 있어요.'
         : '오늘 데모 질문 한도($limit회)에 도달했어요. 가입하면 계속 물어볼 수 있어요.',
+  );
+  // Shown on the sign-in screen after the server ended the session.
+  String get sessionEndedDemo => _k(
+    'The demo session has ended. Try it again.',
+    '데모 세션이 끝났어요. 다시 체험해 보세요',
+  );
+  String get sessionExpired => _k(
+    'Your session has expired. Please sign in again.',
+    '세션이 만료되어 다시 로그인이 필요해요',
   );
   String get demoSampleLocked => _k(
     "Sample items can't be edited or deleted. Notes you create yourself can.",

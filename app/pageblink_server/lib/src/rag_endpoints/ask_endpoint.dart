@@ -207,9 +207,13 @@ class AskEndpoint extends Endpoint {
       );
       yield AnswerEvent(
         type: 'error',
-        text: ko
-            ? '답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.'
-            : 'Could not generate an answer. Please try again shortly.',
+        text: e is LlmBusyException
+            ? (ko
+                  ? '답변 모델이 일시적으로 바쁩니다. 잠시 후 다시 시도해 주세요.'
+                  : 'The answer models are busy right now. Please try again shortly.')
+            : (ko
+                  ? '답변을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.'
+                  : 'Could not generate an answer. Please try again shortly.'),
       );
     }
   }

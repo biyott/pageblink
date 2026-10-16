@@ -7,6 +7,7 @@ import '../app/l10n.dart';
 import '../app/locale_controller.dart';
 import '../app/theme.dart';
 import '../client.dart';
+import '../features/auth/session_end.dart';
 import '../features/demo/demo.dart';
 import '../features/demo/demo_widgets.dart';
 import '../app/app_icons.dart';
@@ -104,6 +105,7 @@ class _SignInScreenState extends State<SignInScreen> {
       _loadDemo();
     }
     if (_isSignedIn) {
+      sessionEnded.value = null; // signed in again: the notice is stale
       // After the frame: the form's widgets must be unmounted first.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!_isSignedIn) return;
@@ -182,17 +184,35 @@ class _SignInScreenState extends State<SignInScreen> {
             final mobile = w < 600;
             final row = w >= 840 && eff >= 560;
             final pad = mobile ? 16.0 : (desktop ? 32.0 : 24.0);
-            final card = SignInCard(
-              key: _cardKey,
-              compact: mobile,
-              signIn: signIn,
-              demo: _demoEnabled
-                  ? DemoSignInButton(
-                      busy: _demoBusy,
-                      failed: _demoFailed,
-                      onPressed: _startDemo,
-                    )
-                  : null,
+            // The notice (the server ended the session) sits above the card.
+            final card = Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ValueListenableBuilder<SessionEnd?>(
+                  valueListenable: sessionEnded,
+                  builder: (context, reason, _) => reason == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(
+                            bottom: AuthSpacing.field,
+                          ),
+                          child: SessionEndNotice(reason: reason),
+                        ),
+                ),
+                SignInCard(
+                  key: _cardKey,
+                  compact: mobile,
+                  signIn: signIn,
+                  demo: _demoEnabled
+                      ? DemoSignInButton(
+                          busy: _demoBusy,
+                          failed: _demoFailed,
+                          onPressed: _startDemo,
+                        )
+                      : null,
+                ),
+              ],
             );
             // Priority: form > headline > pitch > preview (spec R4).
             final size = mobile

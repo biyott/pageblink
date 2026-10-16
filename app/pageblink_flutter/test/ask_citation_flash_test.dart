@@ -103,6 +103,13 @@ void main() {
       expect(renderMarkers('x [1] y'), 'x  [1] y');
       expect(renderMarkers('no markers [x] [123]'), 'no markers [x] [123]');
     });
+
+    test('full-width 【n】 and ［n］ become the same [n] marker', () {
+      expect(renderMarkers('a【1】다음'), 'a [1] 다음');
+      expect(renderMarkers('끝［2］.'), '끝 [2].');
+      expect(renderMarkers('【1】【2】'), ' [1]  [2]');
+      expect(renderMarkers('【x】 [1】 【123】'), '【x】 [1】 【123】');
+    });
   });
 
   group('citation flash', () {
@@ -182,6 +189,20 @@ void main() {
       await t.pump(const Duration(seconds: 30));
       expect(_glow(t, 1), isNotNull);
       expect(_ring(t, 1)!.strength, 1);
+    });
+
+    testWidgets('a model that writes 【1】 and ［2］ still gets its chips', (
+      t,
+    ) async {
+      await pump(t, answer: '첫째【1】 그리고 둘째［2］.');
+      expect(_glow(t, 1), isNull);
+      await _tapMarker(t, 1);
+      await t.pumpAndSettle();
+      expect(_ring(t, 1), isNotNull);
+      expect(_ring(t, 2), isNull);
+      await _tapMarker(t, 2);
+      await t.pumpAndSettle();
+      expect(_ring(t, 2), isNotNull);
     });
 
     testWidgets('resting ring: 12 pastel hues closed, one neutral shadow', (

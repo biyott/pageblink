@@ -517,5 +517,33 @@ void main() {
         expect(s.context == null, s.contextOf != null);
       }
     });
+
+    test('ask: a busy-models failure gets its own message', () async {
+      final user = sb.copyWith(
+        authentication: AuthenticationOverride.authenticationInfo(
+          owner.toString(),
+          {},
+        ),
+      );
+      await endpoints.document.saveNote(user, null, 'Plan', _note, null);
+      RagServices.debugLlm = _BusyLlm();
+      addTearDown(() => RagServices.debugLlm = null);
+
+      final ko = await endpoints.ask
+          .ask(user, 'When is the launch date?', [], true, null, 'ko')
+          .toList();
+      expect(ko.last.type, 'error');
+      expect(ko.last.text, contains('답변 모델이 일시적으로 바쁩니다'));
+      final en = await endpoints.ask
+          .ask(user, 'When is the launch date?', [], true, null)
+          .toList();
+      expect(en.last.text, contains('busy'));
+    });
   });
+}
+
+class _BusyLlm implements LlmProvider {
+  @override
+  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) =>
+      Stream.error(LlmBusyException('cap'));
 }

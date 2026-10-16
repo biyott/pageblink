@@ -51,11 +51,21 @@ class LlmModelUsed extends LlmEvent {
 class LlmException implements Exception {
   /// [retryable]: failed before any output for a reason another model may not
   /// have (rate limit, quota, provider unavailable) — safe to rotate.
-  LlmException(this.message, {this.retryable = false});
+  LlmException(this.message, {this.retryable = false, this.statusCode});
   final String message;
   final bool retryable;
+
+  /// HTTP status (or provider error code) when there was one. Safe to log,
+  /// unlike [message], which may carry the provider's response body.
+  final int? statusCode;
   @override
   String toString() => 'LlmException: $message';
+}
+
+/// Every model that may answer is unavailable or over its budget: the user is
+/// told the answer models are busy (not a generic failure).
+class LlmBusyException extends LlmException {
+  LlmBusyException(super.message);
 }
 
 /// Streams grounded answers. Implementations are swappable (ADR 004).
