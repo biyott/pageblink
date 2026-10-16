@@ -166,8 +166,15 @@ void main() {
     test('H4-H6 report their own level, never body', () {
       expect(headingLevel(_v('#### x', 0)), 4);
       expect(headingLevel(_v('##### x', 0)), 5);
-      expect(setHeading(_v('#### x', 0), 4).text, 'x');
-      expect(setHeading(_v('x', 0), 6).text, '###### x');
+    });
+
+    test('setHeading clamps to 0..3; legacy #### is replaced, not kept', () {
+      expect(setHeading(_v('x', 0), 6).text, '### x');
+      expect(setHeading(_v('x', 0), 4).text, '### x');
+      expect(setHeading(_v('x', 0), -1).text, 'x');
+      expect(setHeading(_v('#### x', 0), 3).text, '### x');
+      expect(setHeading(_v('#### x', 0), 0).text, 'x');
+      expect(setHeading(_v('### x', 0), 5).text, 'x'); // clamped to 3 = toggle
     });
 
     test('multi-line state: same level / body / mixed / blanks skipped', () {

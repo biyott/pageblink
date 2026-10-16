@@ -965,8 +965,10 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     messenger.showSnackBar(SnackBar(content: Text(failed)));
   }
 
-  /// Heading button: icon plus the current level (H1-H6) while the caret is
-  /// in a heading; plain icon for body text or a mixed selection.
+  /// Heading button: icon plus the current level while the caret is in a
+  /// heading; plain icon for body text or a mixed selection. The menu offers
+  /// body + H1-H3 only; a legacy `####`+ line still shows its own label (H4-H6)
+  /// with no menu item checked.
   Widget _headingButton(L l, ThemeData theme) {
     final level = headingLevel(_body.value);
     final active = level > 0;
@@ -982,7 +984,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
         return [
           for (final (level, label) in [
             (0, l.fmtBodyText),
-            for (var n = 1; n <= 6; n++) (n, 'H$n'),
+            for (var n = 1; n <= 3; n++) (n, 'H$n'),
           ])
             CheckedPopupMenuItem(
               value: level,

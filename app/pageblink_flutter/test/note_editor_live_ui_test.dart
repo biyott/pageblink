@@ -84,7 +84,9 @@ void main() {
       expect(label('H1'), findsOneWidget);
     });
 
-    testWidgets('menu checks the matching level; H4 is not "body"', (t) async {
+    testWidgets('menu lists body + H1-H3 only; legacy H4 is not "body"', (
+      t,
+    ) async {
       final (c, _) = await _pump(t);
       Future<Map<String, bool>> menu(String text, int a, [int? b]) async {
         await _set(t, c, text, a, b);
@@ -102,10 +104,14 @@ void main() {
       }
 
       final h4 = await menu('#### x', 5);
-      expect(h4['H4'], isTrue);
       expect(h4['Body text'] ?? h4['본문'], isFalse);
-      expect(h4.keys.where((k) => k.startsWith('H')).length, 6);
-      expect(h4.values.where((v) => v).length, 1);
+      expect(h4.keys.where((k) => k.startsWith('H')).toSet(), {
+        'H1',
+        'H2',
+        'H3',
+      });
+      expect(h4.length, 4);
+      expect(h4.values.where((v) => v), isEmpty); // nothing checked
 
       final body = await menu('x', 1);
       expect(body.values.where((v) => v).length, 1);

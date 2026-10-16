@@ -1207,22 +1207,28 @@ int headingLevel(TextEditingValue v) {
   return (q, line.substring(q.length));
 }
 
-/// `level` 1-6 sets `#`..`######`; 0 makes the line(s) body text. Apply rule
+/// `level` 1-3 sets `#`..`###`; 0 makes the line(s) body text. Out-of-range
+/// levels are clamped to 0..3 (the editor offers H1-H3 only; existing
+/// `####`+ lines keep rendering, see [headingLevel], and are replaced when a
+/// level is applied). Apply rule
 /// (the only place it is defined): if every non-blank selected line already
 /// has exactly `level`, it is removed from all of them (pressing the same
 /// level again clears it); otherwise `level` is set on all of them
 /// (replacing other levels, including a mixed selection). A leading `> `
 /// quote prefix is kept; list items are not converted.
-TextEditingValue setHeading(TextEditingValue v, int level) => _lines(
-  v,
-  has: (l) => level > 0 && _headLevel(l) == level,
-  add: (l) {
-    final rest = _stripHead(l);
-    return level == 0 ? rest : '${'#' * level} $rest';
-  },
-  remove: _stripHead,
-  restOnly: true,
-);
+TextEditingValue setHeading(TextEditingValue v, int level) {
+  final lv = level.clamp(0, 3);
+  return _lines(
+    v,
+    has: (l) => lv > 0 && _headLevel(l) == lv,
+    add: (l) {
+      final rest = _stripHead(l);
+      return lv == 0 ? rest : '${'#' * lv} $rest';
+    },
+    remove: _stripHead,
+    restOnly: true,
+  );
+}
 
 int _headLevel(String l) => _headRe.matchAsPrefix(l)?.group(2)!.length ?? 0;
 String _stripHead(String l) {
