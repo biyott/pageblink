@@ -295,7 +295,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             } &&
             (q.isEmpty ||
                 nfc(d.title).toLowerCase().contains(q) ||
-                nfc(d.body ?? '').toLowerCase().contains(q)))
+                nfc(d.body ?? '').toLowerCase().contains(q) ||
+                nfc(d.preview ?? '').toLowerCase().contains(q)))
           d,
     ];
   }
@@ -716,17 +717,19 @@ class DocumentCard extends StatelessWidget {
         ? (AppIcons.tierCloud, l.myCloud)
         : (AppIcons.tierShared, project?.name ?? l.shared);
     final line = indexLine(l, document, reindexing: reindexing);
+    // Notes show their body; a `ready` PDF shows the server's `preview`
+    // (null = not computed yet, '' = nothing readable: both stay empty).
+    // Status lines (indexing, failed) take the body's place and win.
     final preview = isNote
         ? (document.body ?? '')
               .replaceAll(RegExp(r'[#*_>`]|- \[[ x]\] '), '')
               .trim()
-        : '';
+        : (line == null ? (document.preview ?? '') : '');
     final meta = isNote
         ? l.noteMeta(l.ago(document.updatedAt.toLocal()))
         : l.pdfMeta(document.pageCount);
-    // PDFs have no preview: the body shows what is going on instead.
     final Widget body;
-    if (isNote) {
+    if (isNote || preview.isNotEmpty) {
       body = Text(
         preview,
         overflow: TextOverflow.fade,
