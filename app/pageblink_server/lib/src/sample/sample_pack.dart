@@ -298,7 +298,7 @@ More at https://github.com/biyott/pageblink
         'Nov 18, 2026',
         '₩12M',
       ]),
-      SampleQuestion('What is left to do before the launch?', [
+      SampleQuestion('What is left to do in the Q4 launch plan?', [
         'Finalize the release notes',
         'Send the beta invite emails',
       ]),
@@ -386,7 +386,7 @@ PageBlink는 **마크다운 노트와 PDF에 질문하는 앱**이에요. 답변
         '2026년 11월 18일',
         '1,200만 원',
       ]),
-      SampleQuestion('출시 전에 남은 일이 뭐야?', [
+      SampleQuestion('4분기 출시 계획에서 남은 일이 뭐야?', [
         '릴리스 노트 마무리',
         '베타 초대 메일 발송',
       ]),

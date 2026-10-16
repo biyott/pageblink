@@ -11,12 +11,13 @@ import '../demo/demo_user.dart';
 import 'chunk_migration.dart' show SessionScope;
 
 /// One periodic cleanup. [every] is a lower bound: the timer ticks every
-/// [MaintenanceTimer.tick], so a job runs at most one tick late.
+/// [MaintenanceTimer.tick], so a job runs at most one tick late. [run]
+/// returns how many rows (or documents) it deleted.
 class MaintenanceJob {
   const MaintenanceJob(this.name, this.every, this.run);
   final String name;
   final Duration every;
-  final Future<void> Function(Session session) run;
+  final Future<int> Function(Session session) run;
 }
 
 /// Periodic cleanup inside the server process (Serverpod's scheduled future
@@ -31,11 +32,10 @@ class MaintenanceTimer {
 
   /// Demo sign-ins past idle / absolute limit (every tick).
   static final demoTokens = MaintenanceJob('demo-tokens', tick, (s) async {
-    if (!DemoConfig.enabled(s)) return;
+    if (!DemoConfig.enabled(s)) return 0;
     // Accounts not ready at boot (or created by another instance): look up.
     if (DemoUser.accounts.isEmpty) await DemoUser.load(s);
-    final gone = await DemoGuard.purgeExpiredTokens(s);
-    if (gone > 0) stdout.writeln('maintenance: demo-tokens deleted=$gone');
+    return DemoGuard.purgeExpiredTokens(s);
   });
 
   /// Expired refresh tokens of every user (JWT lifetime). Nothing else calls
@@ -43,9 +43,16 @@ class MaintenanceTimer {
   static final authTokens = MaintenanceJob(
     'auth-tokens',
     const Duration(hours: 1),
-    (s) {
-      return AuthServices.getTokenManager<JwtTokenManager>().jwt.admin
-          .deleteExpiredRefreshTokens(s);
+    (s) async {
+      final jwt = AuthServices.getTokenManager<JwtTokenManager>().jwt;
+      // The library call returns nothing: count what it will delete first.
+      final oldest = DateTime.now().subtract(jwt.config.refreshTokenLifetime);
+      final expired = await RefreshToken.db.count(
+        s,
+        where: (t) => t.lastUpdatedAt < oldest,
+      );
+      await jwt.admin.deleteExpiredRefreshTokens(s);
+      return expired;
     },
   );
 
@@ -54,9 +61,9 @@ class MaintenanceTimer {
     'demo-documents',
     const Duration(hours: 1),
     (s) async {
-      if (!DemoConfig.enabled(s)) return;
+      if (!DemoConfig.enabled(s)) return 0;
       if (DemoUser.accounts.isEmpty) await DemoUser.load(s);
-      await DemoGuard.purgeExpiredDocuments(s);
+      return DemoGuard.purgeExpiredDocuments(s);
     },
   );
 
@@ -66,6 +73,18 @@ class MaintenanceTimer {
   static Timer? _periodic;
   static bool _busy = false;
   static final _lastOk = <String, DateTime>{};
+  static final _lastLogged = <String, DateTime>{};
+
+  /// A `ran` line per job at most once an hour, unless something was deleted.
+  static const logEvery = Duration(hours: 1);
+
+  /// Where log lines go (tests replace it).
+  static void Function(String line) log = stdout.writeln;
+
+  /// The line written once when the timer starts.
+  static String startLine({List<MaintenanceJob>? only}) =>
+      'maintenance: timer started jobs=${(only ?? jobs).map((j) => j.name).join(',')} '
+      'interval=${tick.inMinutes}m';
 
   /// Starts the timer: a first pass after 5 to 35 seconds (random, so that
   /// instances booting together do not run at once), then every [tick]. Does
@@ -85,6 +104,7 @@ class MaintenanceTimer {
     pod.experimental.shutdownTasks.addTask('maintenance-timer', () async {
       stop();
     });
+    log(startLine());
     return true;
   }
 
@@ -111,8 +131,18 @@ class MaintenanceTimer {
         if (last != null && t.difference(last) < job.every) continue;
         tried.add(job.name);
         try {
-          await scope(job.run);
+          final clock = Stopwatch()..start();
+          final deleted = await scope(job.run);
           _lastOk[job.name] = t;
+          final shown = _lastLogged[job.name];
+          if (deleted > 0 || shown == null || t.difference(shown) >= logEvery) {
+            _lastLogged[job.name] = t;
+            // Job name, count and time only: no user data.
+            log(
+              'maintenance: ${job.name} ran deleted=$deleted '
+              'ms=${clock.elapsedMilliseconds}',
+            );
+          }
         } catch (e) {
           // No stack trace, no request data: only what the job itself threw.
           stderr.writeln('maintenance: ${job.name} failed: $e');
@@ -129,5 +159,7 @@ class MaintenanceTimer {
     stop();
     _busy = false;
     _lastOk.clear();
+    _lastLogged.clear();
+    log = stdout.writeln;
   }
 }

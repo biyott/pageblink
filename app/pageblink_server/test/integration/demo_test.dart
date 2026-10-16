@@ -616,7 +616,7 @@ void main() {
       test('the timer job deletes them and finds accounts by itself', () async {
         final t = await fixture();
         DemoUser.debugReset(); // as after a boot that could not load them
-        await MaintenanceTimer.demoTokens.run(sb.build());
+        expect(await MaintenanceTimer.demoTokens.run(sb.build()), 3);
         expect(await alive(t['idle61']!), isFalse);
         expect(await alive(t['active']!), isTrue);
       });
@@ -634,7 +634,8 @@ void main() {
           created: const Duration(days: 30),
           updated: const Duration(days: 13),
         );
-        await MaintenanceTimer.authTokens.run(sb.build());
+        // The job reports what it deleted (the library call returns nothing).
+        expect(await MaintenanceTimer.authTokens.run(sb.build()), 1);
         expect(await alive(old), isFalse);
         expect(await alive(recent), isTrue);
       });

@@ -111,10 +111,11 @@ class DemoGuard {
 
   /// Deletes expired non-sample documents of every demo account (with their
   /// files) (research 026 §8, §9.2). No-op while no demo account is known or
-  /// the feature is off.
-  static Future<void> purgeExpiredDocuments(Session session) async {
-    if (DemoUser.accounts.isEmpty || !DemoConfig.enabled(session)) return;
+  /// the feature is off. Returns how many documents were deleted.
+  static Future<int> purgeExpiredDocuments(Session session) async {
+    if (DemoUser.accounts.isEmpty || !DemoConfig.enabled(session)) return 0;
     final limit = cutoff();
+    var deleted = 0;
 
     for (final MapEntry(key: demoId, value: pack)
         in DemoUser.accounts.entries.toList()) {
@@ -135,7 +136,9 @@ class DemoGuard {
           for (final d in stale) d.id!,
         }, transaction: tx),
       );
+      deleted += stale.length;
     }
+    return deleted;
   }
 
   /// Ends demo sign-ins: deletes `method == 'demo'` refresh tokens unused for
