@@ -43,7 +43,7 @@
 | [011](011-readme-only-folder-rules.md) | 폴더 규칙은 README.md만 (폴더별 AGENTS.md 제거) | 채택 |
 | [012](012-product-name-pageblink.md) | 제품 이름 PageBlink, 패키지명까지 변경 | 채택 (006 일부 대체) |
 | [013](013-llm-via-openrouter.md) | LLM은 OpenRouter 경유 (기본 Claude Haiku 5.5) | 채택 (004 대체) · 일부 대체됨 → 014 |
-| [014](014-model-catalog-and-rotation.md) | 모델 카탈로그 + 자동 로테이션 (무료 모델 기본) | 채택 (013 일부 대체) |
+| [014](014-model-catalog-and-rotation.md) | 모델 카탈로그 + 자동 로테이션 (무료 모델 기본) | 채택 (013 일부 대체) · 기본 모델·로테이션 일부 → 024 |
 | [015](015-product-scope-notes-and-pdfs.md) | 제품 범위: Keep 스타일 마크다운 노트 + PDF 업로드, 둘 다에 RAG (실시간 협업 보류) | 채택 |
 | [016](016-app-icon-and-ui-icon-direction.md) | 앱 아이콘 V1b Sparkle Fold, UI 아이콘 Lucide 스트로크 먼저 (실패 시 S3 커스텀) | 채택 |
 | [017](017-image-generation-model-guidance.md) | 이미지 생성: 목업은 Nano Banana 2.1, 로고·아이콘 최종본은 손으로 쓴 SVG | 채택 |
@@ -52,3 +52,5 @@
 | [020](020-demo-account-shared-user.md) | 데모 체험: 서버 시작 시 만드는 공유 demo 사용자 + 환경 설정 플래그(`demoEnabled`, 기본 꺼짐) | 채택 · 후속(언어별 분리) → 022 |
 | [021](021-line-level-chunks-two-tier-context.md) | 줄 단위 청크 + 검색용/맥락용 2단 구조 + 부팅 후 재색인 (`#c2` 표식) | 채택 |
 | [022](022-per-locale-demo-accounts-sample-pack.md) | 언어별 demo 계정 2개(en·ko) + 서버 상수 단일 SamplePack | 채택 (020 후속) |
+| [023](023-no-scanned-pdf-recovery.md) | 스캔·폼 전용 PDF 복구(OCR)를 제품화하지 않음 (코드는 일반 제거 커밋, 서버 `source` 필드·마이그레이션은 휴면 유지) | 채택 |
+| [024](024-ask-model-default-reasoning-off-paid-fallback.md) | Ask 모델 기본값 nemotron-3-super · 추론 끄기 · 자동 유료 폴백(상한 300) · 서버 보정 인용 | 채택 (014 일부 대체) |

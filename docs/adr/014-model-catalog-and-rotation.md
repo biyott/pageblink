@@ -2,7 +2,7 @@
 
 | 상태 | 결정일 | 근거 |
 |---|---|---|
-| 채택 (013 일부 대체: 기본 모델 · 무료 모델 · 개인정보 옵션) | 2026-10-14 | [research 016](../research/016-openrouter.md) · [devlog 007](../devlog/007-cloud-deploy-and-model-rotation.md) |
+| 채택 (013 일부 대체: 기본 모델 · 무료 모델 · 개인정보 옵션) · 기본 모델·로테이션 일부 → [024](024-ask-model-default-reasoning-off-paid-fallback.md) | 2026-10-14 | [research 016](../research/016-openrouter.md) · [devlog 007](../devlog/007-cloud-deploy-and-model-rotation.md) |
 
 ## 맥락
 [ADR 013](013-llm-via-openrouter.md)은 기본 모델을 `anthropic/claude-haiku-5.5`로, 모든 요청에 `data_collection: deny`를 걸고, 무료(`:free`) 모델은 비권장으로 정했다. 해커톤 데모는 비용을 낮추는 쪽이 유리하고(무료 모델), OpenRouter 무료 모델은 혼잡·한도로 실패할 수 있다.
