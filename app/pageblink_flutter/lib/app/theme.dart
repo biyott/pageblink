@@ -656,6 +656,41 @@ class PbBackground extends StatelessWidget {
   }
 }
 
+/// Frame of a page pushed on a navigator. The app's [Scaffold]s are
+/// transparent (the shell paints the gradient behind the navigator), so a bare
+/// pushed page lets the previous screen show through while it slides in. This
+/// paints its own opaque [PbBackground]; from 600 px up the content sits in a
+/// strong [GlassPanel] like the center pane.
+class PbPage extends StatelessWidget {
+  const PbPage({super.key, required this.child, this.safeBottom = true});
+  final Widget child;
+  final bool safeBottom;
+
+  @override
+  Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 600;
+    return PbBackground(
+      child: Scaffold(
+        body: SafeArea(
+          bottom: safeBottom,
+          child: wide
+              ? Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1100),
+                      child: GlassPanel(strong: true, child: child),
+                    ),
+                  ),
+                )
+              : child,
+        ),
+      ),
+    );
+  }
+}
+
 /// Soft corner glow (radial falloff, no blur filter so it stays cheap).
 class _Glow extends StatelessWidget {
   const _Glow(this.color, this.size);

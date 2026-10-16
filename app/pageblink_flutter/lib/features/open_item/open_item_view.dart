@@ -162,15 +162,13 @@ class OpenItemPage extends StatelessWidget {
   final OpenItem item;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      bottom: false,
-      child: OpenItemView(
-        item: item,
-        embedded: false,
-        controller: OpenItemScope.maybeOf(context),
-        onClose: () => Navigator.of(context).pop(),
-      ),
+  Widget build(BuildContext context) => PbPage(
+    safeBottom: false,
+    child: OpenItemView(
+      item: item,
+      embedded: false,
+      controller: OpenItemScope.maybeOf(context),
+      onClose: () => Navigator.of(context).pop(),
     ),
   );
 }

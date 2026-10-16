@@ -16,9 +16,10 @@ class AdminHistoryPage extends StatelessWidget {
   const AdminHistoryPage({super.key});
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    body: SafeArea(
-      child: AdminHistoryScreen(onClose: () => Navigator.of(context).pop()),
+  Widget build(BuildContext context) => PbPage(
+    child: AdminHistoryScreen(
+      embedded: MediaQuery.sizeOf(context).width >= 600,
+      onClose: () => Navigator.of(context).pop(),
     ),
   );
 }
@@ -28,9 +29,16 @@ enum _Period { all, today, d7, d30 }
 /// Read-only list of every user's Ask conversations (admins only; the server
 /// checks every call). A row opens to its questions and answers.
 class AdminHistoryScreen extends StatefulWidget {
-  const AdminHistoryScreen({super.key, required this.onClose});
+  const AdminHistoryScreen({
+    super.key,
+    required this.onClose,
+    this.embedded = false,
+  });
 
   final VoidCallback onClose;
+
+  /// In the glass panel (tablet/desktop): "← Settings /" header and close.
+  final bool embedded;
 
   @override
   State<AdminHistoryScreen> createState() => _AdminHistoryScreenState();
@@ -117,8 +125,10 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
     return Column(
       children: [
         PaneHeader(
-          embedded: false,
+          embedded: widget.embedded,
           onBack: widget.onClose,
+          onClose: widget.onClose,
+          backLabel: l.settings,
           title: Text(l.adminHistory),
         ),
         Expanded(
