@@ -21,6 +21,7 @@ class Pb extends ThemeExtension<Pb> {
     required this.glassShadow,
     required this.ink,
     required this.inkMuted,
+    required this.cardMeta,
     required this.hairline,
     required this.accentContainer,
     required this.onAccentContainer,
@@ -69,6 +70,13 @@ class Pb extends ThemeExtension<Pb> {
   final Color bgStart, bgMid, bgEnd, blobA, blobB;
   final Color glass, glassStrong, glassBorder, glassShadow;
   final Color ink, inkMuted, hairline;
+
+  /// 12px meta text on note / PDF cards ([inkMuted] elsewhere). A card keeps
+  /// its face color under the 6% hover / 12% pressed tint, so in dark
+  /// [inkMuted] fell to 4.00:1 (hover) and 3.34:1 (pressed) on the notes; this
+  /// stays >= 4.5:1 on every note color, the rainbow and the PDF paper in all
+  /// three states. Same as [inkMuted] in light, which already passes.
+  final Color cardMeta;
   final Color accentContainer, onAccentContainer;
   final List<Color> accentGradient;
 
@@ -130,6 +138,7 @@ class Pb extends ThemeExtension<Pb> {
     glassShadow: Color(0x1A6C4CF5),
     ink: Color(0xFF1F1B16),
     inkMuted: Color(0xFF5C5348),
+    cardMeta: Color(0xFF5C5348),
     hairline: Color(0xFFE4DDD0),
     accentContainer: Color(0xFFEAE4FD),
     onAccentContainer: Color(0xFF2E1F85),
@@ -202,6 +211,7 @@ class Pb extends ThemeExtension<Pb> {
     glassShadow: Color(0x4D000000),
     ink: Color(0xFFF2EDE3),
     inkMuted: Color(0xFFB5AD9F),
+    cardMeta: Color(0xFFD2CBBF),
     hairline: Color(0x24FFFFFF),
     accentContainer: Color(0xFF3A2F7A),
     onAccentContainer: Color(0xFFE9E3FC),

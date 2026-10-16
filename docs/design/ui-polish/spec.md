@@ -239,6 +239,7 @@
 | 이름 | 라이트 | 다크 | 용도 |
 |---|---|---|---|
 | `inkMuted` (변경) | `#5C5348` (현 `#6B6358`) | `#B5AD9F` (현 `#A59D8F`) | 보조 텍스트 전부. `subInkFor` 우회 제거 |
+| `cardMeta` (신규) | `#5C5348` (= `inkMuted`) | `#D2CBBF` | 노트·PDF 카드의 12px 메타 글자와 카드 상태줄(calm). 카드는 hover 6%·pressed 12% 틴트 아래에서도 면 색을 유지하므로 다크에서 `inkMuted`는 hover 4.00:1·pressed 3.34:1까지 내려갔다. 새 값은 팔레트 8색·무지개(양 끝·중간 + 촘촘한 표본)·PDF 종이 × 기본/hover/pressed 전부 ≥ 4.5:1(최소 4.59, ✅ 계산, `a11y_states_test.dart`). 전역 `inkMuted`는 그대로 |
 | `noteHighlight` (신규) | `#FFFFFF` 60% (`0x99FFFFFF`) | `#FFFFFF` 10% (`0x1AFFFFFF`) | 노트 카드 1px 안쪽 테두리(외곽선 ink 10% 대체) |
 | `skeletonBase` (신규) | `#1F1B16` 6% (`0x0F1F1B16`) | `#FFFFFF` 8% (`0x14FFFFFF`) | 스켈레톤 면 |
 | `skeletonHighlight` (신규) | `#FFFFFF` 70% (`0xB3FFFFFF`) | `#FFFFFF` 14% (`0x24FFFFFF`) | 시머 하이라이트 |

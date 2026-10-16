@@ -286,7 +286,106 @@ void main() {
         '[$br] on filled: rest $base, hover ${_ratio(on, Color.alphaBlend(pb.filledHover, fill))}, pressed ${_ratio(on, Color.alphaBlend(pb.filledPress, fill))}',
       );
     });
+
+    test(
+      '$br: card meta text >= 4.5:1 on every card face, rest/hover/press',
+      () {
+        // Faces: note colors 0..7, the rainbow (start / middle / end of the
+        // gradient, then a dense sweep), the PDF paper. The tint is painted by
+        // the card's InkWell over the face, so the face is blended with it.
+        // Not modelled: BackdropFilter (the cards have none; glass behind them
+        // does not show through an opaque card face).
+        final rb = pb.noteRainbow;
+        Color rainbow(double x) {
+          final s = x * (rb.length - 1);
+          final i = s.floor().clamp(0, rb.length - 2);
+          return Color.lerp(rb[i], rb[i + 1], s - i)!;
+        }
+
+        final faces = <String, List<Color>>{
+          for (var i = 0; i < 8; i++)
+            'note $i': [pb.noteColor(1, colorIndex: i)],
+          'rainbow start/mid/end': [rainbow(0), rainbow(.5), rainbow(1)],
+          'rainbow sweep': [for (var k = 0; k <= 100; k++) rainbow(k / 100)],
+          'pdf paper': [pb.pdfPaper],
+        };
+        final states = <String, Color Function(Color)>{
+          'rest': (f) => f,
+          'hover': (f) => Color.alphaBlend(pb.hover, f),
+          // Touch: the 12% ripple. Desktop: hover + the pressed highlight
+          // (both pb.hover, no splash).
+          'press (touch 12%)': (f) => Color.alphaBlend(pb.press, f),
+          'press (desktop)': (f) =>
+              Color.alphaBlend(pb.hover, Color.alphaBlend(pb.hover, f)),
+        };
+        final b = StringBuffer('[$br] card meta ${pb.cardMeta}\n');
+        var worst = 99.0;
+        for (final MapEntry(key: state, value: tint) in states.entries) {
+          var min = 99.0;
+          var at = '';
+          for (final MapEntry(key: name, value: bgs) in faces.entries) {
+            for (final f in bgs) {
+              final r = _ratio(pb.cardMeta, tint(f));
+              if (r < min) (min, at) = (r, name);
+            }
+          }
+          b.writeln('  $state: min ${min.toStringAsFixed(2)} ($at)');
+          if (min < worst) worst = min;
+        }
+        // ignore: avoid_print
+        print(b);
+        expect(worst, greaterThanOrEqualTo(4.5));
+      },
+    );
   }
+
+  testWidgets('card meta text uses the card token (note and PDF)', (t) async {
+    for (final br in Brightness.values) {
+      final pb = br == Brightness.light ? Pb.light : Pb.dark;
+      for (final kind in ['note', 'pdf']) {
+        final doc = Document(
+          id: 1,
+          ownerId: UuidValue.fromString(
+            '00000000-0000-4000-8000-000000000001',
+          ),
+          kind: kind,
+          title: 'T $kind',
+          body: 'b',
+          contentHash: 'h',
+          version: 1,
+          pageCount: 1,
+          status: 'ready',
+          embeddingModel: 'm',
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        );
+        await t.pumpWidget(
+          MaterialApp(
+            theme: buildPbTheme(br),
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 280,
+                  height: 250,
+                  child: DocumentCard(doc, const [], onTap: () {}),
+                ),
+              ),
+            ),
+          ),
+        );
+        final metas = t
+            .widgetList<Text>(find.byType(Text))
+            .where((x) => x.style?.fontSize == 12 && x.style?.color != null);
+        // The theme change animates; settle it.
+        await t.pumpAndSettle();
+        expect(
+          metas.any((m) => m.style!.color == pb.cardMeta),
+          isTrue,
+          reason: '$br $kind: the meta line uses pb.cardMeta',
+        );
+      }
+    }
+  });
 
   testWidgets(
     'Try the demo: one focusable button named for the screen reader',

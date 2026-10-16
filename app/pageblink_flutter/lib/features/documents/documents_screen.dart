@@ -797,7 +797,7 @@ class DocumentCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontSize: 12,
-                          color: pb.inkMuted,
+                          color: pb.cardMeta,
                         ),
                       ),
                     ),
@@ -974,7 +974,7 @@ class _StatusLineState extends State<_StatusLine> {
     final (labelColor, weight) = switch (line.tone) {
       IndexTone.warn => (pb.warnText, FontWeight.w600),
       IndexTone.neutral => (pb.ink, FontWeight.w600),
-      IndexTone.calm => (pb.inkMuted, FontWeight.w500),
+      IndexTone.calm => (pb.cardMeta, FontWeight.w500),
     };
     Widget label = Row(
       mainAxisSize: MainAxisSize.min,
@@ -985,7 +985,7 @@ class _StatusLineState extends State<_StatusLine> {
           Icon(
             line.icon,
             size: 14,
-            color: line.tone == IndexTone.warn ? pb.warn : pb.inkMuted,
+            color: line.tone == IndexTone.warn ? pb.warn : pb.cardMeta,
           ),
         const SizedBox(width: 6),
         Flexible(
@@ -1026,7 +1026,7 @@ class _StatusLineState extends State<_StatusLine> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(' · ', style: TextStyle(fontSize: 12, color: pb.inkMuted)),
+                Text(' · ', style: TextStyle(fontSize: 12, color: pb.cardMeta)),
                 _InlineLink(label: l.retry, onPressed: widget.onRetry!),
               ],
             ),
