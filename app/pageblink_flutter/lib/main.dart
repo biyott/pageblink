@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:pageblink_client/pageblink_client.dart';
-import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import 'app/app_icons.dart';
 import 'app/l10n.dart';
@@ -10,6 +9,8 @@ import 'app/open_item_controller.dart';
 import 'app/pb_interactive.dart';
 import 'app/theme.dart';
 import 'client.dart';
+import 'features/account/account.dart';
+import 'features/account/account_menu.dart';
 import 'features/ask/ask_chat.dart'
     show ensureHistoryStatus, resetHistoryStatus;
 import 'features/ask/ask_screen.dart';
@@ -113,6 +114,9 @@ class _HomeShellState extends State<HomeShell> {
     // changes the count (note save/delete, PDF added all bump boardRefresh).
     resetDemoStatus();
     refreshDemoStatus();
+    // Who is signed in (email on the account block).
+    resetAccountInfo();
+    loadAccountInfo();
     // Ask history: off (and all its UI hidden) unless the server says so.
     resetHistoryStatus();
     ensureHistoryStatus();
@@ -304,11 +308,8 @@ class _HomeShellState extends State<HomeShell> {
           tooltip: l.settings,
           onPressed: _openSettings,
         ),
-        IconButton(
-          icon: const Icon(AppIcons.signOut),
-          tooltip: l.signOut,
-          onPressed: () => client.auth.signOutDevice(),
-        ),
+        // Sign out lives in the account menu / sheet.
+        const AccountAvatarButton(),
       ],
     );
 
@@ -654,13 +655,11 @@ class _Sidebar extends StatelessWidget {
                   count: shared,
                 ),
                 const Spacer(),
+                // 12 above and below: the theme's divider has no spacing.
+                const SizedBox(height: 12),
                 const Divider(),
-                _NavItem(
-                  icon: AppIcons.signOut,
-                  label: l.signOut,
-                  active: false,
-                  onTap: () => client.auth.signOutDevice(),
-                ),
+                const SizedBox(height: 12),
+                const AccountRow(),
               ],
             );
           },

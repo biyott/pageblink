@@ -51,6 +51,8 @@ abstract final class AppIcons {
   static const settings = LucideIcons.settings;
   static const language = LucideIcons.languages;
   static const signOut = LucideIcons.logOut;
+  // Account avatar while the email is unknown.
+  static const account = LucideIcons.user;
   static const demo = LucideIcons.play;
   static const check = LucideIcons.check;
   static const close = LucideIcons.x;
