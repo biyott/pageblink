@@ -27,6 +27,7 @@ abstract class Document
     required this.pageCount,
     this.storagePath,
     required this.status,
+    this.preview,
     this.lastError,
     required this.embeddingModel,
     this.colorIndex,
@@ -46,6 +47,7 @@ abstract class Document
     required int pageCount,
     String? storagePath,
     required String status,
+    String? preview,
     String? lastError,
     required String embeddingModel,
     int? colorIndex,
@@ -68,6 +70,7 @@ abstract class Document
       pageCount: jsonSerialization['pageCount'] as int,
       storagePath: jsonSerialization['storagePath'] as String?,
       status: jsonSerialization['status'] as String,
+      preview: jsonSerialization['preview'] as String?,
       lastError: jsonSerialization['lastError'] as String?,
       embeddingModel: jsonSerialization['embeddingModel'] as String,
       colorIndex: jsonSerialization['colorIndex'] as int?,
@@ -108,6 +111,10 @@ abstract class Document
   /// uploaded | indexing | ready | failed
   String status;
 
+  /// PDF card text: the start of the first page with real text (about 240
+  /// characters). null = not computed yet, '' = tried, nothing readable. Notes: null.
+  String? preview;
+
   /// Why the last indexing failed (shown in the app, cleared on success).
   String? lastError;
 
@@ -135,6 +142,7 @@ abstract class Document
     int? pageCount,
     String? storagePath,
     String? status,
+    String? preview,
     String? lastError,
     String? embeddingModel,
     int? colorIndex,
@@ -156,6 +164,7 @@ abstract class Document
       'pageCount': pageCount,
       if (storagePath != null) 'storagePath': storagePath,
       'status': status,
+      if (preview != null) 'preview': preview,
       if (lastError != null) 'lastError': lastError,
       'embeddingModel': embeddingModel,
       if (colorIndex != null) 'colorIndex': colorIndex,
@@ -179,6 +188,7 @@ abstract class Document
       'pageCount': pageCount,
       if (storagePath != null) 'storagePath': storagePath,
       'status': status,
+      if (preview != null) 'preview': preview,
       if (lastError != null) 'lastError': lastError,
       'embeddingModel': embeddingModel,
       if (colorIndex != null) 'colorIndex': colorIndex,
@@ -208,6 +218,7 @@ class _DocumentImpl extends Document {
     required int pageCount,
     String? storagePath,
     required String status,
+    String? preview,
     String? lastError,
     required String embeddingModel,
     int? colorIndex,
@@ -225,6 +236,7 @@ class _DocumentImpl extends Document {
          pageCount: pageCount,
          storagePath: storagePath,
          status: status,
+         preview: preview,
          lastError: lastError,
          embeddingModel: embeddingModel,
          colorIndex: colorIndex,
@@ -248,6 +260,7 @@ class _DocumentImpl extends Document {
     int? pageCount,
     Object? storagePath = _Undefined,
     String? status,
+    Object? preview = _Undefined,
     Object? lastError = _Undefined,
     String? embeddingModel,
     Object? colorIndex = _Undefined,
@@ -266,6 +279,7 @@ class _DocumentImpl extends Document {
       pageCount: pageCount ?? this.pageCount,
       storagePath: storagePath is String? ? storagePath : this.storagePath,
       status: status ?? this.status,
+      preview: preview is String? ? preview : this.preview,
       lastError: lastError is String? ? lastError : this.lastError,
       embeddingModel: embeddingModel ?? this.embeddingModel,
       colorIndex: colorIndex is int? ? colorIndex : this.colorIndex,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../app/pb_interactive.dart';
+
 /// One inline format: tooltip, icon, the pure toggle from markdown_live and
 /// whether the selection is already in that format (see `formatState`).
 typedef FormatAction = (
@@ -171,28 +173,39 @@ class SelectionMiniBar extends StatelessWidget {
             for (final level in const [1, 2, 3])
               Tooltip(
                 message: 'H$level',
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () => onHeading!(level),
-                  child: Container(
-                    key: ValueKey('mini-h$level'),
-                    width: 32,
-                    height: 32,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: headingLevel == level
-                          ? scheme.primaryContainer
-                          : null,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      'H$level',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: headingLevel == level
-                            ? scheme.onPrimaryContainer
-                            : scheme.onSurfaceVariant,
+                child: Semantics(
+                  button: true,
+                  selected: headingLevel == level,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => onHeading!(level),
+                    // 36 on the desktop pointer layout, 44 elsewhere; the
+                    // 32 square is what is drawn.
+                    child: SizedBox.square(
+                      dimension: pbTarget(context),
+                      child: Center(
+                        child: Container(
+                          key: ValueKey('mini-h$level'),
+                          width: 32,
+                          height: 32,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: headingLevel == level
+                                ? scheme.primaryContainer
+                                : null,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'H$level',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: headingLevel == level
+                                  ? scheme.onPrimaryContainer
+                                  : scheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),

@@ -132,27 +132,28 @@ class DemoSignInButton extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Semantics(
-          button: true,
-          enabled: !busy,
-          label: l.demoButtonLabel,
-          excludeSemantics: true,
-          onTap: busy ? null : onPressed,
-          child: OutlinedButton.icon(
-            onPressed: busy ? null : onPressed,
-            icon: busy
-                ? const SizedBox.square(
+        // No Semantics(excludeSemantics) wrapper around the button: it removed
+        // the button's own "focusable" flag, so with accessibility on the
+        // button had no tab stop. The long name sits on the label instead.
+        OutlinedButton.icon(
+          onPressed: busy ? null : onPressed,
+          icon: busy
+              ? const ExcludeSemantics(
+                  child: SizedBox.square(
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(AppIcons.demo, size: 18),
-            label: Text(busy ? l.demoOpening : l.demoButton),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 48),
-              backgroundColor: pb.glassStrong,
-              foregroundColor: pb.ink,
-              side: BorderSide(color: pb.hairline),
-            ),
+                  ),
+                )
+              : const Icon(AppIcons.demo, size: 18),
+          label: Text(
+            busy ? l.demoOpening : l.demoButton,
+            semanticsLabel: busy ? l.demoOpening : l.demoButtonLabel,
+          ),
+          // The border (and its focus ring) come from the theme.
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 48),
+            backgroundColor: pb.glassStrong,
+            foregroundColor: pb.ink,
           ),
         ),
         if (failed)

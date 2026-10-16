@@ -5,6 +5,7 @@ import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 import '../../app/app_icons.dart';
 import '../../app/confirm_dialog.dart';
 import '../../app/l10n.dart';
+import '../../app/pb_interactive.dart';
 import '../../app/open_item_controller.dart';
 import '../../client.dart';
 import '../demo/demo.dart';
@@ -195,10 +196,13 @@ class ProjectsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l;
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _create(context),
-        icon: const Icon(AppIcons.newProject),
-        label: Text(l.newProject),
+      floatingActionButton: PbFocusRing(
+        radius: 28,
+        child: FloatingActionButton.extended(
+          onPressed: () => _create(context),
+          icon: const Icon(AppIcons.newProject),
+          label: Text(l.newProject),
+        ),
       ),
       body: projects.isEmpty
           ? Center(

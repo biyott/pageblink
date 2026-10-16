@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_icons.dart';
 import '../../app/l10n.dart';
+import '../../app/pb_interactive.dart';
 import '../../app/theme.dart';
 import 'upload_controller.dart';
 import 'upload_service.dart';
@@ -103,7 +104,6 @@ class _TrayPanel extends StatelessWidget {
                       IconButton(
                         tooltip: collapsed ? l.expandTray : l.collapse,
                         iconSize: 18,
-                        visualDensity: VisualDensity.compact,
                         onPressed: controller.toggleCollapsed,
                         icon: AnimatedRotation(
                           turns: collapsed ? 0.5 : 0,
@@ -116,7 +116,6 @@ class _TrayPanel extends StatelessWidget {
                       IconButton(
                         tooltip: l.dismiss,
                         iconSize: 18,
-                        visualDensity: VisualDensity.compact,
                         onPressed: controller.close,
                         icon: const Icon(AppIcons.close),
                       ),
@@ -217,10 +216,8 @@ class _RowView extends StatelessWidget {
               onPressed: () => controller.retry(row),
               style: TextButton.styleFrom(
                 foregroundColor: pb.linkInk,
-                minimumSize: const Size(0, 32),
+                minimumSize: Size(0, pbTarget(context)),
                 padding: const EdgeInsets.symmetric(horizontal: 6),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.compact,
                 textStyle: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -350,7 +347,6 @@ class _IconAction extends StatelessWidget {
   Widget build(BuildContext context) => IconButton(
     tooltip: tooltip,
     iconSize: 18,
-    visualDensity: VisualDensity.compact,
     onPressed: onPressed,
     icon: Icon(icon),
   );

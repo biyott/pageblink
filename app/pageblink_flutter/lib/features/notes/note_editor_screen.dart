@@ -1052,11 +1052,23 @@ class _NoteEditorViewState extends State<NoteEditorView> {
             builder: (context, _) {
               final on = formatState(_body.value);
               final [bold, italic, code, link] = _inlineActions(l, on);
+              // The keys that run these are in the tooltip, for keyboard
+              // users (the toolbar itself never takes focus).
+              final plat = Theme.of(context).platform;
+              final mod =
+                  plat == TargetPlatform.macOS || plat == TargetPlatform.iOS
+                  ? '⌘'
+                  : 'Ctrl+';
               return Row(
                 children: [
                   _headingButton(l, Theme.of(context)),
-                  button(bold.$1, bold.$2, bold.$3, bold.$4),
-                  button(italic.$1, italic.$2, italic.$3, italic.$4),
+                  button('${bold.$1} (${mod}B)', bold.$2, bold.$3, bold.$4),
+                  button(
+                    '${italic.$1} (${mod}I)',
+                    italic.$2,
+                    italic.$3,
+                    italic.$4,
+                  ),
                   button(
                     l.fmtStrike,
                     AppIcons.strikethrough,
@@ -1175,10 +1187,6 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                   // Labeled Live | Source toggle; icons only on narrow phones.
                   SegmentedButton<bool>(
                     showSelectedIcon: false,
-                    style: const ButtonStyle(
-                      visualDensity: VisualDensity.compact,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
                     segments: [
                       ButtonSegment(
                         value: true,

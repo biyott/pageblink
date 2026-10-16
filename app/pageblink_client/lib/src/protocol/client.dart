@@ -326,7 +326,10 @@ class EndpointAskAdmin extends _isc.EndpointRef {
   String get name => 'askAdmin';
 
   /// One page of conversations with their messages, newest first, and the
-  /// answers per model over the whole filtered range.
+  /// answers per model over the whole filtered range. A caller who may not
+  /// list gets an [AskAdminException] (a serialized answer, not a server
+  /// error); the reason says which rule: history off, demo account, or not
+  /// listed.
   _ida.Future<_ifeoh06a.AskAdminPage> listSessions(
     _ihxjv8go.AskAdminFilter filter,
   ) => caller.callServerEndpoint<_ifeoh06a.AskAdminPage>(

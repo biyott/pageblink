@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../app/app_icons.dart';
+import '../app/l10n.dart';
 import 'auth_spacing.dart';
 import 'email_register_forms.dart';
 
@@ -194,10 +195,16 @@ class _EmailLoginFormState extends State<EmailLoginForm> {
             decoration: authDecoration(
               texts.passwordLabel,
               suffixIcon: IconButton(
+                // The name says what a press does (and a tooltip for the
+                // mouse); the icon is the picture of the state.
+                tooltip: _obscure
+                    ? context.l.showPassword
+                    : context.l.hidePassword,
                 onPressed: () => setState(() => _obscure = !_obscure),
                 icon: Icon(
                   _obscure ? AppIcons.showPassword : AppIcons.hidePassword,
-                  color: Colors.grey[400],
+                  // onSurfaceVariant = inkMuted in the app theme.
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

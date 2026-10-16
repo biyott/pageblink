@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/l10n.dart';
+import '../../app/pb_interactive.dart';
 import '../../app/text_norm.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
@@ -252,10 +254,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       projectId = chosen;
     }
     if (!mounted) return;
-    await openItem(
-      context,
-      OpenItem.note(note: note, projectId: projectId),
-    );
+    await openItem(context, OpenItem.note(note: note, projectId: projectId));
   }
 
   /// PDFs open at their first page, in the same place notes do.
@@ -311,7 +310,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     final retryable = docs.where(isRetryableFailure).length;
     Widget filter(_Filter f, String label, int n, {bool warn = false}) {
       final selected = _filter == f;
-      final scheme = Theme.of(context).colorScheme;
       return ChoiceChip(
         selected: selected,
         showCheckmark: selected,
@@ -326,9 +324,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               )
             : null,
         label: Text(warn ? l.needsAttention(n) : '$label $n'),
-        side: selected
-            ? BorderSide(color: scheme.primary.withValues(alpha: 0.55))
-            : null,
         onSelected: (_) => setState(
           () => _filter = selected && f != _Filter.all ? _Filter.all : f,
         ),
@@ -343,11 +338,15 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         isDense: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: pb.hairline),
+          borderSide: BorderSide(color: pb.controlEdge),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: pb.hairline),
+          borderSide: BorderSide(color: pb.controlEdge),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: pb.focusRing, width: 2),
         ),
       ),
     );
@@ -394,7 +393,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     minimumSize: const Size(0, 44),
                     backgroundColor: pb.glassStrong,
                     foregroundColor: pb.ink,
-                    side: BorderSide(color: pb.hairline),
                   ),
                 ),
               ],
@@ -478,18 +476,24 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                FloatingActionButton.small(
-                  heroTag: 'pdf',
-                  tooltip: l.uploadPdf,
-                  onPressed: _upload,
-                  child: const Icon(AppIcons.pdf),
+                PbFocusRing(
+                  radius: 28,
+                  child: FloatingActionButton.small(
+                    heroTag: 'pdf',
+                    tooltip: l.uploadPdf,
+                    onPressed: _upload,
+                    child: const Icon(AppIcons.pdf),
+                  ),
                 ),
                 const SizedBox(height: 12),
-                FloatingActionButton.extended(
-                  heroTag: 'note',
-                  onPressed: () => _openNote(null),
-                  icon: const Icon(AppIcons.newNote),
-                  label: Text(l.newNote),
+                PbFocusRing(
+                  radius: 28,
+                  child: FloatingActionButton.extended(
+                    heroTag: 'note',
+                    onPressed: () => _openNote(null),
+                    icon: const Icon(AppIcons.newNote),
+                    label: Text(l.newNote),
+                  ),
                 ),
               ],
             ),
@@ -511,10 +515,12 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 _ => ValueListenableBuilder<Set<int>>(
                   valueListenable: flash,
                   builder: (context, flashing, _) => GridView.builder(
+                    // 4 at the sides on a wide board: room for the focus
+                    // ring of the cards in the first and last column.
                     padding: EdgeInsets.fromLTRB(
-                      wide ? 0 : 12,
+                      wide ? 4 : 12,
                       12,
-                      wide ? 0 : 12,
+                      wide ? 4 : 12,
                       140,
                     ),
                     gridDelegate:
@@ -757,7 +763,9 @@ class DocumentCard extends StatelessWidget {
         gradient,
         InkWell(
           onTap: onTap,
-          onLongPress: onLongPress,
+          // The ring is the keyboard one around the card; the tint is the
+          // hover/press ink only.
+          focusColor: Colors.transparent,
           child: Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -852,10 +860,27 @@ class DocumentCard extends StatelessWidget {
         ),
       ),
     );
-    if (!highlight) return card;
+    // Long press = delete only for a finger or a pen: a mouse press held for
+    // half a second used to open the delete dialog (the ⋯ menu and the Delete
+    // button are the mouse's paths). InkWell's own onLongPress takes any
+    // device, so the recognizer sits outside it.
+    final tappable = PbFocusRing(
+      radius: 16,
+      child: GestureDetector(
+        supportedDevices: const {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.stylus,
+          PointerDeviceKind.invertedStylus,
+        },
+        onLongPress: onLongPress,
+        // 0.985 while pressed (cards and rows; 0.97 is for small controls).
+        child: PbPressScale(scale: 0.985, child: card),
+      ),
+    );
+    if (!highlight) return tappable;
     return Stack(
       children: [
-        card,
+        tappable,
         const Positioned.fill(child: IgnorePointer(child: _FlashRing())),
       ],
     );
@@ -997,10 +1022,7 @@ class _StatusLineState extends State<_StatusLine> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  ' · ',
-                  style: TextStyle(fontSize: 12, color: pb.inkMuted),
-                ),
+                Text(' · ', style: TextStyle(fontSize: 12, color: pb.inkMuted)),
                 _InlineLink(label: l.retry, onPressed: widget.onRetry!),
               ],
             ),
@@ -1190,10 +1212,7 @@ class _FlashRingState extends State<_FlashRing>
         return DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: accent.withValues(alpha: a),
-              width: 2.5,
-            ),
+            border: Border.all(color: accent.withValues(alpha: a), width: 2.5),
             boxShadow: [
               BoxShadow(
                 color: accent.withValues(alpha: 0.35 * a),

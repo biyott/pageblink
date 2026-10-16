@@ -6,6 +6,7 @@ import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../app/app_icons.dart';
 import '../app/l10n.dart';
+import '../app/pb_interactive.dart';
 import '../app/theme.dart';
 import 'auth_spacing.dart';
 
@@ -87,26 +88,31 @@ class AuthFormFrame extends StatelessWidget {
           const SizedBox(height: AuthSpacing.title),
           ...children,
           const SizedBox(height: AuthSpacing.action),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              foregroundColor: scheme.onPrimary,
-              backgroundColor: scheme.primary,
-              shape: const StadiumBorder(),
-              // minimum, not fixed: the button grows with the text scale.
-              minimumSize: const Size.fromHeight(AuthSpacing.buttonHeight),
-              textStyle: theme.textTheme.labelLarge?.copyWith(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+          // Elevated: the ring has to be a wrapper (a shape ring would be
+          // clipped by the elevation).
+          PbFocusRing(
+            radius: 999,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                foregroundColor: scheme.onPrimary,
+                backgroundColor: scheme.primary,
+                shape: const StadiumBorder(),
+                // minimum, not fixed: the button grows with the text scale.
+                minimumSize: const Size.fromHeight(AuthSpacing.buttonHeight),
+                textStyle: theme.textTheme.labelLarge?.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
+              onPressed: isLoading ? null : onPressed,
+              child: isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(buttonLabel),
             ),
-            onPressed: isLoading ? null : onPressed,
-            child: isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(buttonLabel),
           ),
           if (bottom != null) ...[
             const SizedBox(height: AuthSpacing.secondary),
@@ -491,10 +497,16 @@ class _EmailSetPasswordFormState extends State<EmailSetPasswordForm> {
             decoration: authDecoration(
               widget.passwordLabel,
               suffixIcon: IconButton(
+                // The name says what a press does (and a tooltip for the
+                // mouse); the icon is the picture of the state.
+                tooltip: _obscure
+                    ? context.l.showPassword
+                    : context.l.hidePassword,
                 onPressed: () => setState(() => _obscure = !_obscure),
                 icon: Icon(
                   _obscure ? AppIcons.showPassword : AppIcons.hidePassword,
-                  color: Colors.grey[400],
+                  // onSurfaceVariant = inkMuted in the app theme.
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

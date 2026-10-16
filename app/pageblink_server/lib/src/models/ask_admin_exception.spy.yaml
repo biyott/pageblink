@@ -1,0 +1,6 @@
+### Thrown by the administrator list when the caller may not use it. A
+### serialized exception, so the app gets it as an answer and the server logs
+### no error: it is a normal refusal, not a failure.
+exception: AskAdminException
+fields:
+  reason: AskAdminReason

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/app_icons.dart';
 import '../../app/l10n.dart';
+import '../../app/pb_interactive.dart';
 import '../../app/theme.dart';
 
 /// Thin bar above a cited note / PDF page: `⚡1 · Evidence for the answer`,
@@ -124,9 +125,11 @@ class _Button extends StatelessWidget {
     onPressed: onTap,
     icon: Icon(icon, size: 18),
     color: color,
-    disabledColor: color.withValues(alpha: 0.35),
-    visualDensity: VisualDensity.compact,
-    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+    disabledColor: color.withValues(alpha: 0.38),
+    constraints: BoxConstraints.tightFor(
+      width: pbTarget(context),
+      height: pbTarget(context),
+    ),
     padding: EdgeInsets.zero,
   );
 }

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/app_icons.dart';
 import '../../app/l10n.dart';
+import '../../app/pb_interactive.dart';
 import '../../app/theme.dart';
 
 const _gap = 6.0;
@@ -147,8 +148,10 @@ class _LinkPopoverState extends State<LinkPopover> {
           key: key,
           tooltip: tip,
           icon: Icon(icon, size: 18),
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          constraints: BoxConstraints(
+            minWidth: pbTarget(context),
+            minHeight: pbTarget(context),
+          ),
           padding: EdgeInsets.zero,
           onPressed: onTap,
         );
@@ -339,12 +342,19 @@ class _LinkEditPopoverState extends State<LinkEditPopover> {
   @override
   Widget build(BuildContext context) {
     final l = context.l;
+    final pb = context.pb;
+    // Same radius in every state; the edge is controlEdge (3:1) and a
+    // focused field the 2px ring colour (the default was black in both).
+    OutlineInputBorder edge(Color c, [double w = 1]) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(4),
+      borderSide: BorderSide(color: c, width: w),
+    );
     InputDecoration deco(String label) => InputDecoration(
       isDense: true,
       labelText: label,
-      border: const OutlineInputBorder(),
-      enabledBorder: const OutlineInputBorder(),
-      focusedBorder: const OutlineInputBorder(),
+      border: edge(pb.controlEdge),
+      enabledBorder: edge(pb.controlEdge),
+      focusedBorder: edge(pb.focusRing, 2),
     );
     return _Below(
       anchors: widget.anchors,

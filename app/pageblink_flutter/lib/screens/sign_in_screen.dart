@@ -5,6 +5,7 @@ import 'package:serverpod_auth_idp_flutter/serverpod_auth_idp_flutter.dart';
 
 import '../app/l10n.dart';
 import '../app/locale_controller.dart';
+import '../app/pb_interactive.dart';
 import '../app/theme.dart';
 import '../client.dart';
 import '../features/auth/session_end.dart';
@@ -375,14 +376,38 @@ extension on BuildContext {
 
 /// Language switcher for signed-out users (Settings is unreachable before
 /// sign-in). Same [localeController], so it stays in sync with Settings.
-class _LanguageMenu extends StatelessWidget {
+class _LanguageMenu extends StatefulWidget {
   const _LanguageMenu();
 
+  @override
+  State<_LanguageMenu> createState() => _LanguageMenuState();
+}
+
+class _LanguageMenuState extends State<_LanguageMenu> {
   static const _system = 'system';
+  final _pill = GlobalKey();
+  bool _open = false;
+
+  Future<void> _show(Map<String, String> names, String chosen) async {
+    setState(() => _open = true);
+    final code = await pbShowMenu<String>(context, _pill, [
+      for (final e in names.entries)
+        CheckedPopupMenuItem<String>(
+          value: e.key,
+          checked: e.key == chosen,
+          child: Text(e.value),
+        ),
+    ]);
+    if (mounted) setState(() => _open = false);
+    if (code != null) {
+      localeController.choose(code == _system ? null : Locale(code));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final l = context.l;
+    final pb = context.pb;
     final names = {
       _system: l.languageSystem,
       'en': l.languageEnglish,
@@ -392,23 +417,25 @@ class _LanguageMenu extends StatelessWidget {
       valueListenable: localeController,
       builder: (context, locale, _) {
         final chosen = locale?.languageCode ?? _system;
-        return PopupMenuButton<String>(
-          tooltip: l.changeLanguage,
-          onSelected: (code) =>
-              localeController.choose(code == _system ? null : Locale(code)),
-          itemBuilder: (_) => [
-            for (final e in names.entries)
-              CheckedPopupMenuItem<String>(
-                value: e.key,
-                checked: e.key == chosen,
-                child: Text(e.value),
+        // Label: the language in effect (also when following the system).
+        final shown = l.isKorean ? l.languageKorean : l.languageEnglish;
+        return Tooltip(
+          message: l.changeLanguage,
+          child: PbInteractive(
+            onTap: () => _show(names, chosen),
+            radius: 12,
+            minHit: const Size(48, 48),
+            expanded: _open,
+            label: '${l.changeLanguage}: $shown',
+            builder: (context, states) => AnimatedContainer(
+              key: _pill,
+              duration: pbFast(context),
+              constraints: const BoxConstraints(minHeight: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: pbTint(pb, states, pressed: _open),
+                borderRadius: BorderRadius.circular(12),
               ),
-          ],
-          // Label: the language in effect (also when following the system).
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -416,12 +443,16 @@ class _LanguageMenu extends StatelessWidget {
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
-                      l.isKorean ? l.languageKorean : l.languageEnglish,
+                      shown,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(AppIcons.expand, size: 16),
+                  AnimatedRotation(
+                    turns: _open ? 0.5 : 0,
+                    duration: pbFast(context),
+                    child: const Icon(AppIcons.expand, size: 16),
+                  ),
                 ],
               ),
             ),

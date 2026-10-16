@@ -1,0 +1,10 @@
+### Why the administrator conversation list was refused.
+enum: AskAdminReason
+serialized: byName
+values:
+  ### The caller is not listed in `ADMIN_USER_IDS`.
+  - notAdmin
+  ### The caller is a shared demo account (never an administrator).
+  - demo
+  ### Conversation history is switched off on the server.
+  - disabled

@@ -308,19 +308,24 @@ class AskEndpoint extends Endpoint {
               documents[h.documentId]!.kind != 'note')
             h,
       ];
-      final pageTexts = pdfHits.isEmpty
-          ? <String, String>{}
-          : {
-              for (final p in await DocPage.db.find(
-                session,
-                where: (t) =>
-                    t.documentId.inSet({
-                      for (final h in pdfHits) h.documentId,
-                    }) &
-                    t.page.inSet({for (final h in pdfHits) h.page}),
-              ))
-                '${p.documentId}:${p.page}': p.text,
-            };
+      final hitPages = pdfHits.isEmpty
+          ? const <DocPage>[]
+          : await DocPage.db.find(
+              session,
+              where: (t) =>
+                  t.documentId.inSet({
+                    for (final h in pdfHits) h.documentId,
+                  }) &
+                  t.page.inSet({for (final h in pdfHits) h.page}),
+            );
+      final pageTexts = {
+        for (final p in hitPages) '${p.documentId}:${p.page}': p.text,
+      };
+      // Pages whose text was recovered on the client (form values, OCR).
+      final pageSources = {
+        for (final p in hitPages)
+          if (p.source != null) '${p.documentId}:${p.page}': p.source!,
+      };
       final plans = planSources(
         [
           for (final h in hits)
@@ -364,6 +369,7 @@ class AskEndpoint extends Endpoint {
           page: hit.page,
           quote: q.quote,
           quoteStart: q.start,
+          source: pageSources['${hit.documentId}:${hit.page}'],
         );
       }
 

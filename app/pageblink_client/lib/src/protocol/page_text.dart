@@ -18,17 +18,20 @@ abstract class PageText
   PageText._({
     required this.page,
     required this.text,
+    this.source,
   });
 
   factory PageText({
     required int page,
     required String text,
+    String? source,
   }) = _PageTextImpl;
 
   factory PageText.fromJson(Map<String, dynamic> jsonSerialization) {
     return PageText(
       page: jsonSerialization['page'] as int,
       text: jsonSerialization['text'] as String,
+      source: jsonSerialization['source'] as String?,
     );
   }
 
@@ -36,12 +39,17 @@ abstract class PageText
 
   String text;
 
+  /// form | ocr when the client recovered this page's text; null = original.
+  /// Older clients omit it. Anything else is stored as null.
+  String? source;
+
   /// Returns a shallow copy of this [PageText]
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
   PageText copyWith({
     int? page,
     String? text,
+    String? source,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -49,6 +57,7 @@ abstract class PageText
       '__className__': 'PageText',
       'page': page,
       'text': text,
+      if (source != null) 'source': source,
     };
   }
 
@@ -58,6 +67,7 @@ abstract class PageText
       '__className__': 'PageText',
       'page': page,
       'text': text,
+      if (source != null) 'source': source,
     };
   }
 
@@ -67,13 +77,17 @@ abstract class PageText
   }
 }
 
+class _Undefined {}
+
 class _PageTextImpl extends PageText {
   _PageTextImpl({
     required int page,
     required String text,
+    String? source,
   }) : super._(
          page: page,
          text: text,
+         source: source,
        );
 
   /// Returns a shallow copy of this [PageText]
@@ -83,10 +97,12 @@ class _PageTextImpl extends PageText {
   PageText copyWith({
     int? page,
     String? text,
+    Object? source = _Undefined,
   }) {
     return PageText(
       page: page ?? this.page,
       text: text ?? this.text,
+      source: source is String? ? source : this.source,
     );
   }
 }

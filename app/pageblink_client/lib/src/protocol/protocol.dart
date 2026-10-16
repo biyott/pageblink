@@ -23,8 +23,10 @@ import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
 import 'answer_event.dart' as _iiosvpvg;
+import 'ask_admin_exception.dart' as _i51waa1s;
 import 'ask_admin_filter.dart' as _iw2qnfnq;
 import 'ask_admin_page.dart' as _is3ts0ul;
+import 'ask_admin_reason.dart' as _ijcvup8n;
 import 'ask_admin_session.dart' as _ioy8iwam;
 import 'ask_history_status.dart' as _irkfr0me;
 import 'ask_limit_exception.dart' as _i7eaw818;
@@ -48,8 +50,10 @@ import 'project.dart' as _ifiazq2p;
 import 'project_member.dart' as _i7o7d07j;
 import 'sample_hint.dart' as _isfemdkk;
 export 'answer_event.dart';
+export 'ask_admin_exception.dart';
 export 'ask_admin_filter.dart';
 export 'ask_admin_page.dart';
+export 'ask_admin_reason.dart';
 export 'ask_admin_session.dart';
 export 'ask_history_status.dart';
 export 'ask_limit_exception.dart';
@@ -111,11 +115,17 @@ class Protocol extends _isc.SerializationManager {
     if (t == _iiosvpvg.AnswerEvent) {
       return _iiosvpvg.AnswerEvent.fromJson(data) as T;
     }
+    if (t == _i51waa1s.AskAdminException) {
+      return _i51waa1s.AskAdminException.fromJson(data) as T;
+    }
     if (t == _iw2qnfnq.AskAdminFilter) {
       return _iw2qnfnq.AskAdminFilter.fromJson(data) as T;
     }
     if (t == _is3ts0ul.AskAdminPage) {
       return _is3ts0ul.AskAdminPage.fromJson(data) as T;
+    }
+    if (t == _ijcvup8n.AskAdminReason) {
+      return _ijcvup8n.AskAdminReason.fromJson(data) as T;
     }
     if (t == _ioy8iwam.AskAdminSession) {
       return _ioy8iwam.AskAdminSession.fromJson(data) as T;
@@ -186,12 +196,20 @@ class Protocol extends _isc.SerializationManager {
     if (t == _isc.getType<_iiosvpvg.AnswerEvent?>()) {
       return (data != null ? _iiosvpvg.AnswerEvent.fromJson(data) : null) as T;
     }
+    if (t == _isc.getType<_i51waa1s.AskAdminException?>()) {
+      return (data != null ? _i51waa1s.AskAdminException.fromJson(data) : null)
+          as T;
+    }
     if (t == _isc.getType<_iw2qnfnq.AskAdminFilter?>()) {
       return (data != null ? _iw2qnfnq.AskAdminFilter.fromJson(data) : null)
           as T;
     }
     if (t == _isc.getType<_is3ts0ul.AskAdminPage?>()) {
       return (data != null ? _is3ts0ul.AskAdminPage.fromJson(data) : null) as T;
+    }
+    if (t == _isc.getType<_ijcvup8n.AskAdminReason?>()) {
+      return (data != null ? _ijcvup8n.AskAdminReason.fromJson(data) : null)
+          as T;
     }
     if (t == _isc.getType<_ioy8iwam.AskAdminSession?>()) {
       return (data != null ? _ioy8iwam.AskAdminSession.fromJson(data) : null)
@@ -359,8 +377,10 @@ class Protocol extends _isc.SerializationManager {
   static String? getClassNameForType(Type type) {
     return switch (type) {
       _iiosvpvg.AnswerEvent => 'AnswerEvent',
+      _i51waa1s.AskAdminException => 'AskAdminException',
       _iw2qnfnq.AskAdminFilter => 'AskAdminFilter',
       _is3ts0ul.AskAdminPage => 'AskAdminPage',
+      _ijcvup8n.AskAdminReason => 'AskAdminReason',
       _ioy8iwam.AskAdminSession => 'AskAdminSession',
       _irkfr0me.AskHistoryStatus => 'AskHistoryStatus',
       _i7eaw818.AskLimitException => 'AskLimitException',
@@ -399,10 +419,14 @@ class Protocol extends _isc.SerializationManager {
     switch (data) {
       case _iiosvpvg.AnswerEvent():
         return 'AnswerEvent';
+      case _i51waa1s.AskAdminException():
+        return 'AskAdminException';
       case _iw2qnfnq.AskAdminFilter():
         return 'AskAdminFilter';
       case _is3ts0ul.AskAdminPage():
         return 'AskAdminPage';
+      case _ijcvup8n.AskAdminReason():
+        return 'AskAdminReason';
       case _ioy8iwam.AskAdminSession():
         return 'AskAdminSession';
       case _irkfr0me.AskHistoryStatus():
@@ -472,11 +496,17 @@ class Protocol extends _isc.SerializationManager {
     if (dataClassName == 'AnswerEvent') {
       return deserialize<_iiosvpvg.AnswerEvent>(data['data']);
     }
+    if (dataClassName == 'AskAdminException') {
+      return deserialize<_i51waa1s.AskAdminException>(data['data']);
+    }
     if (dataClassName == 'AskAdminFilter') {
       return deserialize<_iw2qnfnq.AskAdminFilter>(data['data']);
     }
     if (dataClassName == 'AskAdminPage') {
       return deserialize<_is3ts0ul.AskAdminPage>(data['data']);
+    }
+    if (dataClassName == 'AskAdminReason') {
+      return deserialize<_ijcvup8n.AskAdminReason>(data['data']);
     }
     if (dataClassName == 'AskAdminSession') {
       return deserialize<_ioy8iwam.AskAdminSession>(data['data']);

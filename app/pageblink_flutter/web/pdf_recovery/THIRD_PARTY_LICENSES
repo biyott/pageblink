@@ -1,0 +1,67 @@
+PageBlink PDF recovery: third-party software shipped in this folder
+====================================================================
+
+The files under vendor/ are unmodified copies of the packages below. They run
+in the visitor's browser only when a PDF without readable text is recovered;
+nothing in them contacts another server. The full, unmodified license text of
+every component is in licenses/ (copied from the package, or downloaded from the
+project's repository where the package carries none; see the last column).
+
+vendor/pdfjs-6.4.299/            pdfjs-dist 6.4.299 (pdf.min.mjs, pdf.worker.min.mjs)
+    Mozilla Foundation (pdf.js), Apache License 2.0          licenses/pdfjs-LICENSE
+vendor/tesseract-7.0.0/          tesseract.js 7.0.0 (tesseract.min.js, worker.min.js)
+    Apache License 2.0                                       licenses/tesseract.js-LICENSE.md
+vendor/tesseract-7.0.0/          tesseract.js-core 7.0.0 (tesseract-core-simd-lstm.wasm.js,
+                                 tesseract-core-lstm.wasm.js): Tesseract OCR compiled to WebAssembly
+    Apache License 2.0                                       licenses/tesseract.js-core-LICENSE
+vendor/tessdata_fast-4.1.0/      tessdata_fast (kor.traineddata.gz, eng.traineddata.gz), gzip of the
+                                 upstream files at commit 87416418657359cb625c412a48b6e1d6d41c29bd
+    Apache License 2.0                                       licenses/tessdata_fast-LICENSE
+
+Bundled inside tesseract.min.js and worker.min.js (npm dependencies of tesseract.js 7.0.0;
+the bundles' own banners name regenerator-runtime, buffer, ieee754 and zlib.js):
+
+    bmp-js 0.1.0                 MIT                         licenses/bmp-js-LICENSE
+    buffer                       MIT                         licenses/buffer-LICENSE             (1)
+    idb-keyval 6.3.0             Apache-2.0                  licenses/idb-keyval-LICENCE
+    ieee754                      BSD-3-Clause                licenses/ieee754-LICENSE            (1)
+    is-url 1.2.4                 MIT                         licenses/is-url-LICENSE-MIT
+    regenerator-runtime 0.13.11  MIT                         licenses/regenerator-runtime-LICENSE
+    wasm-feature-detect 1.9.0    Apache-2.0                  licenses/wasm-feature-detect-LICENSE
+    zlibjs 0.3.1                 MIT                         licenses/zlibjs-LICENSE
+
+Compiled into tesseract-core-*.wasm.js (found by the symbols in the binary; the versions
+the tesseract.js-core build used are not stated in the package):
+
+    Tesseract OCR                Apache-2.0                  licenses/tesseract-LICENSE          (1)
+    Leptonica                    Leptonica license (BSD-like) licenses/leptonica-license.txt      (1)
+    libpng                       libpng License              licenses/libpng-LICENSE             (1)
+    libjpeg-turbo / IJG          IJG, BSD-3-Clause, zlib     licenses/libjpeg-turbo-LICENSE.md   (1)
+    libtiff                      libtiff license             licenses/libtiff-LICENSE.md         (1)
+    libwebp                      BSD-3-Clause                licenses/libwebp-COPYING            (1)
+    OpenJPEG                     BSD-2-Clause                licenses/openjpeg-LICENSE           (1)
+    zlib                         zlib license                licenses/zlib-LICENSE               (1)
+    Emscripten runtime           MIT / UIUC                  licenses/emscripten-LICENSE         (1)
+
+(1) Downloaded from the project's repository on 2026-10-16 (default branch), because the
+    npm package does not include it. The text is the repository's, unmodified; it may be a
+    later revision than the one linked into the core.
+
+NOTICE files (Apache License 2.0, section 4(d)): none of tesseract, tesseract.js, tesseract.js-core,
+tessdata_fast, pdf.js, idb-keyval or wasm-feature-detect has a NOTICE file in its package or at the
+top of its repository (checked 2026-10-16), so there is nothing further to reproduce.
+
+Integrity of the shipped vendor files (SHA-256):
+
+    57456c8e0c81e46be31174b499ef77f2b9f5ee46d04412ba627320a36755d4c2  vendor/pdfjs-6.4.299/pdf.min.mjs
+    9536359f1b8367850d485731ca1d5e45c159a7b7a0912325e539937aa21ceb18  vendor/pdfjs-6.4.299/pdf.worker.min.mjs
+    000c27d9cd0def655f77b36c72a389c0ab13793aa31cb4d7aab56d09c0afbc7e  vendor/tesseract-7.0.0/tesseract.min.js
+    576b7df7e3393e137e51849357c9adb53fe7ac1bb69bfa06cf3d61520f182c6d  vendor/tesseract-7.0.0/worker.min.js
+    c58b46a4c796c0b8afccf77591d5b875b6896b45d402bbce8caa6f5362447b38  vendor/tesseract-7.0.0/tesseract-core-simd-lstm.wasm.js
+    eef5f8b2f8e20e150680b20adaec4a60babafee3adbe8a94583c81fee46e8680  vendor/tesseract-7.0.0/tesseract-core-lstm.wasm.js
+    117aa1421ffbc2cc32a5dce717f705b03ab78e6025a955cb4e291eb428e3ea7b  vendor/tessdata_fast-4.1.0/kor.traineddata.gz
+    f1c22599ed6fd3eb821d87fdb43e09f98b61179a4abe38c43cfca2cdcb9f5ec2  vendor/tessdata_fast-4.1.0/eng.traineddata.gz
+    (the .gz files hold the upstream kor.traineddata 6b85e11d9bbf07863b97b3523b1b112844c43e713df8b66418a081fd1060b3b2
+     and eng.traineddata 7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2)
+
+recovery.js and prep_worker.js are PageBlink's own code.

@@ -92,6 +92,14 @@ const _note =
     '- **Marketing budget:** 12M for Q4\n'
     '- **Launch date:** moved to Nov 18\n';
 
+/// The refusal of `askAdmin.listSessions`: a serialized exception with the
+/// rule that applied, never a bare AccessDeniedException (HTTP 500 + ERROR).
+Matcher _denied(AskAdminReason reason) => isA<AskAdminException>().having(
+  (e) => e.reason,
+  'reason',
+  reason,
+);
+
 void main() {
   final embedder = _Embedder();
   final llm = _Llm();
@@ -958,13 +966,13 @@ void main() {
             );
             await expectLater(
               endpoints.askAdmin.listSessions(user, AskAdminFilter()),
-              throwsA(anything),
+              throwsA(_denied(AskAdminReason.notAdmin)),
             );
             // list emptied: no administrator any more
             AskConfig.debugValues['ADMIN_USER_IDS'] = '';
             await expectLater(
               endpoints.askAdmin.listSessions(admin, AskAdminFilter()),
-              throwsA(anything),
+              throwsA(_denied(AskAdminReason.notAdmin)),
             );
             expect(
               (await endpoints.askHistory.historyStatus(admin)).isAdmin,
@@ -981,7 +989,7 @@ void main() {
           );
           await expectLater(
             endpoints.askAdmin.listSessions(admin, AskAdminFilter()),
-            throwsA(anything),
+            throwsA(_denied(AskAdminReason.disabled)),
           );
         });
 
@@ -995,7 +1003,7 @@ void main() {
           );
           await expectLater(
             endpoints.askAdmin.listSessions(demo, AskAdminFilter()),
-            throwsA(anything),
+            throwsA(_denied(AskAdminReason.demo)),
           );
         });
 
@@ -1123,7 +1131,7 @@ void main() {
           );
           await expectLater(
             endpoints.askAdmin.listSessions(user, AskAdminFilter()),
-            throwsA(anything),
+            throwsA(_denied(AskAdminReason.notAdmin)),
           );
           expect(lines, [
             'ask-admin: list by=$adminId user=yes from=no to=no page=7 '

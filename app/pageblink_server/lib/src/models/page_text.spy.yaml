@@ -3,3 +3,6 @@ class: PageText
 fields:
   page: int
   text: String
+  ### form | ocr when the client recovered this page's text; null = original.
+  ### Older clients omit it. Anything else is stored as null.
+  source: String?

@@ -15,6 +15,9 @@ fields:
   storagePath: String?
   ### uploaded | indexing | ready | failed
   status: String
+  ### PDF card text: the start of the first page with real text (about 240
+  ### characters). null = not computed yet, '' = tried, nothing readable. Notes: null.
+  preview: String?
   ### Why the last indexing failed (shown in the app, cleared on success).
   lastError: String?
   embeddingModel: String

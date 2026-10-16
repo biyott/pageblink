@@ -11,6 +11,8 @@ import 'src/generated/serverpod.dart';
 import 'src/sample/sample_seed.dart';
 import 'src/services/chunk_migration.dart';
 import 'src/services/maintenance_timer.dart';
+import 'src/services/preview_backfill.dart';
+import 'src/web/flutter_cache_control.dart';
 import 'src/web/routes/app_config_route.dart';
 
 /// The starting point of the Serverpod server.
@@ -67,6 +69,9 @@ void run(List<String> args) async {
         // If building the Flutter app with WASM, set the below parameter to
         // true and add the --wasm flag to the flutter build command.
         enableWasmHeaders: false,
+        // The recovery engines under pdf_recovery/vendor/ are versioned by
+        // folder name and cached long; the rest of the app revalidates.
+        cacheControlFactory: flutterCacheControl,
       ),
       '/',
     );
@@ -117,6 +122,10 @@ void run(List<String> args) async {
   // Re-indexes documents on older chunk rules or an older embedding model in
   // the background. Does nothing unless `REINDEX_ON_BOOT` is set.
   unawaited(ChunkMigration.start(pod));
+
+  // Fills the PDF card text of documents indexed before it existed. Reads
+  // stored text only, so it always runs; ends at once when nothing is pending.
+  unawaited(PreviewBackfill.start(pod));
 
   // Periodic cleanup: demo sign-ins (5 min), expired refresh tokens and demo
   // documents (hourly). Not started for the `maintenance` role.

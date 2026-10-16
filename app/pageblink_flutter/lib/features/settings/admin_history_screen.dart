@@ -147,6 +147,7 @@ class _AdminHistoryScreenState extends State<AdminHistoryScreen> {
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
+                runSpacing: 8,
                 children: [
                   for (final p in _Period.values)
                     ChoiceChip(

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:serverpod/serverpod.dart';
 
+import '../demo/demo_user.dart';
 import '../generated/protocol.dart';
 import '../services/acl.dart';
 import '../services/ask_config.dart';
@@ -19,7 +20,10 @@ class AskAdminEndpoint extends Endpoint {
   static void Function(String line) out = stdout.writeln;
 
   /// One page of conversations with their messages, newest first, and the
-  /// answers per model over the whole filtered range.
+  /// answers per model over the whole filtered range. A caller who may not
+  /// list gets an [AskAdminException] (a serialized answer, not a server
+  /// error); the reason says which rule: history off, demo account, or not
+  /// listed.
   Future<AskAdminPage> listSessions(
     Session session,
     AskAdminFilter filter,
@@ -27,7 +31,13 @@ class AskAdminEndpoint extends Endpoint {
     final adminId = Acl.requireUser(session);
     if (!AskHistoryEndpoint.isAdmin(session)) {
       out(deniedLine(adminId));
-      throw AccessDeniedException();
+      throw AskAdminException(
+        reason: !AskConfig.of(session).enabled
+            ? AskAdminReason.disabled
+            : DemoUser.isDemo(adminId)
+            ? AskAdminReason.demo
+            : AskAdminReason.notAdmin,
+      );
     }
     final page = await AskStore.run(
       session,

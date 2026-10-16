@@ -7,6 +7,7 @@ import 'app/app_icons.dart';
 import 'app/l10n.dart';
 import 'app/locale_controller.dart';
 import 'app/open_item_controller.dart';
+import 'app/pb_interactive.dart';
 import 'app/theme.dart';
 import 'client.dart';
 import 'features/ask/ask_chat.dart'
@@ -60,7 +61,8 @@ class PageBlinkApp extends StatelessWidget {
             ? const Locale('ko')
             : const Locale('en');
       },
-      builder: (context, child) => PbBackground(child: child!),
+      builder: (context, child) =>
+          pbAdaptiveTargets(context, PbBackground(child: child!)),
       home: const SignInScreen(child: HomeShell()),
     ),
   );
@@ -252,9 +254,14 @@ class _HomeShellState extends State<HomeShell> {
       clipBehavior: Clip.none,
       children: [
         Positioned.fill(
-          child: Offstage(
-            offstage: item != null,
-            child: TickerMode(enabled: item == null, child: base),
+          // Offstage is still in the focus tree: Tab must not go into the
+          // board hidden behind an open note.
+          child: ExcludeFocus(
+            excluding: item != null,
+            child: Offstage(
+              offstage: item != null,
+              child: TickerMode(enabled: item == null, child: base),
+            ),
           ),
         ),
         if (item != null)
@@ -429,13 +436,15 @@ class _HomeShellState extends State<HomeShell> {
                 children: [
                   SizedBox(
                     width: 240,
-                    child: DropScrim(
-                      child: ValueListenableBuilder<List<Project>>(
-                        valueListenable: _projects,
-                        builder: (context, projects, _) => _Sidebar(
-                          selected: _tab == 2 ? 2 : 1,
-                          projects: projects,
-                          onSelect: _select,
+                    child: FocusTraversalGroup(
+                      child: DropScrim(
+                        child: ValueListenableBuilder<List<Project>>(
+                          valueListenable: _projects,
+                          builder: (context, projects, _) => _Sidebar(
+                            selected: _tab == 2 ? 2 : 1,
+                            projects: projects,
+                            onSelect: _select,
+                          ),
                         ),
                       ),
                     ),
@@ -446,14 +455,20 @@ class _HomeShellState extends State<HomeShell> {
                       alignment: Alignment.topCenter,
                       child: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 1100),
-                        child: _withPane(_tab == 2 ? _projectsTab() : _notes()),
+                        child: FocusTraversalGroup(
+                          child: _withPane(
+                            _tab == 2 ? _projectsTab() : _notes(),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 24),
                   SizedBox(
                     width: 380,
-                    child: DropScrim(child: GlassPanel(child: _ask())),
+                    child: FocusTraversalGroup(
+                      child: DropScrim(child: GlassPanel(child: _ask())),
+                    ),
                   ),
                 ],
               ),
@@ -673,40 +688,51 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final fg = active ? scheme.onPrimary : context.pb.ink;
+    final pb = context.pb;
+    final fg = active ? scheme.onPrimary : pb.ink;
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: Material(
-        color: active ? scheme.primary : Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: SizedBox(
-            height: 40,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Icon(icon, size: 20, color: fg),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: fg,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                    ),
+      child: PbInteractive(
+        onTap: onTap,
+        radius: 14,
+        pressScale: 0.985,
+        expand: true,
+        minHit: const Size(0, 40),
+        selected: active,
+        builder: (context, states) => AnimatedContainer(
+          duration: pbFast(context),
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            // The open item is a violet fill: it darkens (black 8% / 14%);
+            // the rest tint with ink / white 6% / 12%.
+            color: active
+                ? Color.alphaBlend(
+                    pbTint(pb, states, filled: true),
+                    scheme.primary,
+                  )
+                : pbTint(pb, states),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: fg),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: fg,
+                    fontWeight: active ? FontWeight.w600 : FontWeight.w500,
                   ),
-                  if (count != null)
-                    Text(
-                      '$count',
-                      style: TextStyle(color: fg.withValues(alpha: 0.85)),
-                    ),
-                ],
+                ),
               ),
-            ),
+              if (count != null)
+                Text(
+                  '$count',
+                  style: TextStyle(color: fg.withValues(alpha: 0.85)),
+                ),
+            ],
           ),
         ),
       ),

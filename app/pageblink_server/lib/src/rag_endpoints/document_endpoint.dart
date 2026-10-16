@@ -4,6 +4,8 @@ import '../generated/protocol.dart';
 import '../rag/chunker.dart';
 import '../rag/embedding_spec.dart';
 import '../rag/index_chunks.dart';
+import '../rag/page_source.dart';
+import '../rag/preview_text.dart';
 import '../rag/text_norm.dart';
 import '../sample/sample_pack.dart';
 import '../providers/embedding_provider.dart';
@@ -120,7 +122,18 @@ class DocumentEndpoint extends Endpoint {
             ),
           );
 
-    return _index(session, document, pages);
+    // A retry keeps text recovered earlier (form values, OCR) that this
+    // client sent blank.
+    final kept = existing == null
+        ? pages
+        : keepRecoveredPages(
+            pages,
+            await DocPage.db.find(
+              session,
+              where: (t) => t.documentId.equals(existing.id!),
+            ),
+          );
+    return _index(session, document, kept);
   }
 
   /// Creates or updates a markdown note and (re)indexes it as one page.
@@ -364,7 +377,10 @@ class DocumentEndpoint extends Endpoint {
       orderBy: (t) => t.page,
     );
     final texts = pages.isNotEmpty
-        ? [for (final p in pages) PageText(page: p.page, text: p.text)]
+        ? [
+            for (final p in pages)
+              PageText(page: p.page, text: p.text, source: p.source),
+          ]
         : document.kind == 'note'
         ? [PageText(page: 1, text: document.body ?? '')]
         : null;
@@ -439,7 +455,22 @@ class DocumentEndpoint extends Endpoint {
     List<PageText> pages,
   ) async {
     // Keep the raw text so a failed document can be retried later.
+    pages = normalizePages(pages);
+    // The PDF card text comes from the same pages; notes have none.
+    final preview = document.kind == 'note'
+        ? null
+        : pdfPreview([for (final p in pages) (page: p.page, text: p.text)]);
+    if (preview != null) document = document.copyWith(preview: preview);
     await session.db.transaction((tx) async {
+      if (preview != null) {
+        // Only the column: status and updatedAt are the caller's.
+        await Document.db.updateWhere(
+          session,
+          columnValues: (t) => [t.preview(preview)],
+          where: (t) => t.id.equals(document.id!),
+          transaction: tx,
+        );
+      }
       await DocPage.db.deleteWhere(
         session,
         where: (t) => t.documentId.equals(document.id!),
@@ -449,7 +480,12 @@ class DocumentEndpoint extends Endpoint {
         session,
         [
           for (final p in pages)
-            DocPage(documentId: document.id!, page: p.page, text: p.text),
+            DocPage(
+              documentId: document.id!,
+              page: p.page,
+              text: p.text,
+              source: p.source,
+            ),
         ],
         transaction: tx,
       );

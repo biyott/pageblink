@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:pageblink_client/pageblink_client.dart';
 
+import '../../app/pb_interactive.dart';
 import '../../app/text_wrap.dart';
 import '../../app/theme.dart';
 import '../../app/l10n.dart';
@@ -20,6 +21,10 @@ import '../../app/app_icons.dart';
 
 export 'ask_chat.dart' show AskTurn;
 
+/// Tests replace the model list call (it needs the generated client).
+@visibleForTesting
+Future<List<LlmModel>> Function()? modelListCall;
+
 /// Ask a question; the answer streams in with ⚡ citations you can blink to.
 class AskScreen extends StatefulWidget {
   const AskScreen({super.key, required this.projects});
@@ -32,6 +37,7 @@ class AskScreen extends StatefulWidget {
 
 class _AskScreenState extends State<AskScreen> {
   final _input = TextEditingController();
+  final _inputFocus = FocusNode();
   final _scroll = ScrollController();
   final _chat = AskChat();
   final _selectedProjects = <int>{};
@@ -75,7 +81,7 @@ class _AskScreenState extends State<AskScreen> {
 
   Future<void> _loadModels() async {
     try {
-      final models = await client.model.list();
+      final models = await (modelListCall ?? client.model.list)();
       if (mounted) setState(() => _models = models);
     } catch (_) {
       // Picker stays hidden; the server default model is used.
@@ -94,6 +100,7 @@ class _AskScreenState extends State<AskScreen> {
   void dispose() {
     _chat.dispose();
     _input.dispose();
+    _inputFocus.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -290,118 +297,116 @@ class _AskScreenState extends State<AskScreen> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-            child: GlassPanel(
+            // The panel carries the focus of the question field (the field
+            // itself has no border): a ring on click and on keyboard alike.
+            child: PbFocusRing(
+              focusNode: _inputFocus,
+              always: true,
               radius: 20,
-              strong: true,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (historyOn)
-                      _ChatBar(
-                        chat: _chat,
-                        onRecent: _pickChat,
-                      ),
-                    if (_chat.hint != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Text(
-                          switch (_chat.hint!) {
-                            AskHint.busy => l.askBusy,
-                            AskHint.expired => l.askExpired,
-                            AskHint.notFound => l.askChatGone,
-                            AskHint.loadFailed => l.historyLoadFailed,
-                          },
-                          style: TextStyle(fontSize: 12, color: pb.warnText),
+              child: GlassPanel(
+                radius: 20,
+                strong: true,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (historyOn)
+                        _ChatBar(
+                          chat: _chat,
+                          onRecent: _pickChat,
                         ),
-                      ),
-                    if (limitReached)
-                      _LimitBanner(
-                        text: l.askLimitReached(
-                          _chat.limit ?? _chat.count ?? 0,
+                      if (_chat.hint != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            switch (_chat.hint!) {
+                              AskHint.busy => l.askBusy,
+                              AskHint.expired => l.askExpired,
+                              AskHint.notFound => l.askChatGone,
+                              AskHint.loadFailed => l.historyLoadFailed,
+                            },
+                            style: TextStyle(fontSize: 12, color: pb.warnText),
+                          ),
                         ),
-                        onNew: _chat.newChat,
+                      if (limitReached)
+                        _LimitBanner(
+                          text: l.askLimitReached(
+                            _chat.limit ?? _chat.count ?? 0,
+                          ),
+                          onNew: _chat.newChat,
+                        ),
+                      _ScopeButton(
+                        summary: context.l.scopeSummary(
+                          _includePersonal,
+                          _projectCount,
+                        ),
+                        empty: _scopeEmpty,
+                        onTap: _pickScope,
                       ),
-                    _ScopeButton(
-                      summary: context.l.scopeSummary(
-                        _includePersonal,
-                        _projectCount,
-                      ),
-                      empty: _scopeEmpty,
-                      onTap: _pickScope,
-                    ),
-                    // Input and send button share a row (chat style); the
-                    // button stays at the bottom edge when the text wraps.
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _input,
-                            enabled: !limitReached,
-                            inputFormatters:
-                                historyOn && (status?.questionMaxChars ?? 0) > 0
-                                ? [
-                                    LengthLimitingTextInputFormatter(
-                                      status!.questionMaxChars,
-                                    ),
-                                  ]
-                                : null,
-                            minLines: 1,
-                            maxLines: 5,
-                            textInputAction: TextInputAction.send,
-                            onSubmitted: (_) => _ask(),
-                            decoration: InputDecoration(
-                              hintText: limitReached
-                                  ? l.askLimitHint
-                                  : l.askPlaceholder,
-                              filled: false,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 14,
+                      // Input and send button share a row (chat style); the
+                      // button stays at the bottom edge when the text wraps.
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _input,
+                              focusNode: _inputFocus,
+                              enabled: !limitReached,
+                              inputFormatters:
+                                  historyOn &&
+                                      (status?.questionMaxChars ?? 0) > 0
+                                  ? [
+                                      LengthLimitingTextInputFormatter(
+                                        status!.questionMaxChars,
+                                      ),
+                                    ]
+                                  : null,
+                              minLines: 1,
+                              maxLines: 5,
+                              textInputAction: TextInputAction.send,
+                              onSubmitted: (_) => _ask(),
+                              decoration: InputDecoration(
+                                hintText: limitReached
+                                    ? l.askLimitHint
+                                    : l.askPlaceholder,
+                                filled: false,
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 14,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: ListenableBuilder(
-                            listenable: _input,
-                            builder: (context, _) {
-                              final canSend =
-                                  _input.text.trim().isNotEmpty && !_blocked;
-                              return IconButton.filled(
-                                onPressed: canSend ? _ask : null,
-                                tooltip: context.l.askTooltip,
-                                icon: const Icon(AppIcons.send),
-                                style: IconButton.styleFrom(
-                                  fixedSize: const Size(40, 40),
-                                  backgroundColor: pb.accent,
-                                  foregroundColor: Theme.of(
-                                    context,
-                                  ).colorScheme.onPrimary,
-                                  disabledBackgroundColor: pb.hairline,
-                                  disabledForegroundColor: pb.inkMuted,
-                                ),
-                              );
-                            },
+                          const SizedBox(width: 8),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: ListenableBuilder(
+                              listenable: _input,
+                              builder: (context, _) {
+                                final canSend =
+                                    _input.text.trim().isNotEmpty && !_blocked;
+                                return _SendButton(
+                                  onPressed: canSend ? _ask : null,
+                                );
+                              },
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    if (_models.isNotEmpty)
-                      _ModelPill(
-                        models: _models,
-                        selected: _modelId,
-                        onChanged: (id) => setState(() => _modelId = id),
+                        ],
                       ),
-                  ],
+                      if (_models.isNotEmpty)
+                        _ModelPill(
+                          models: _models,
+                          selected: _modelId,
+                          onChanged: (id) => setState(() => _modelId = id),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -421,10 +426,88 @@ class _AskScreenState extends State<AskScreen> {
   }
 }
 
+/// The question button: violet fill that darkens on hover and press, the
+/// outer keyboard ring (the theme's ring shape), a calm off look, and a hint
+/// for why it is off.
+class _SendButton extends StatelessWidget {
+  const _SendButton({required this.onPressed});
+
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    final l = context.l;
+    // 44 below the desktop layout, 40 on it; the box is the drawn circle.
+    final size = pbDesktop(context) ? 40.0 : 44.0;
+    return MergeSemantics(
+      // Merged: the hint belongs to the button's own node.
+      child: Semantics(
+        hint: onPressed == null ? l.askSendHint : null,
+        child: PbPressScale(
+          child: IconButton.filled(
+            onPressed: onPressed,
+            tooltip: l.askTooltip,
+            icon: const Icon(AppIcons.send),
+            style:
+                IconButton.styleFrom(
+                  fixedSize: Size.square(size),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  backgroundColor: pb.accent,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  disabledBackgroundColor: pb.disabledBg,
+                  disabledForegroundColor: pb.disabledFg,
+                ).copyWith(
+                  // Dark over the violet fill (white would wash it out);
+                  // focus is the outer ring, so no fill change for it.
+                  overlayColor: WidgetStateProperty.resolveWith(
+                    (s) => s.contains(WidgetState.pressed)
+                        ? pb.filledPress
+                        : s.contains(WidgetState.hovered)
+                        ? pb.filledHover
+                        : Colors.transparent,
+                  ),
+                ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A popup menu row that is one choice of a group: the screen reader hears a
+/// radio menu item and whether it is checked. ([PopupMenuItem] is a plain
+/// `menuitem`; [CheckedPopupMenuItem] is a checkbox, with the check on the
+/// left; this keeps the row's own layout.)
+class _RadioMenuItem<T> extends PopupMenuItem<T> {
+  const _RadioMenuItem({
+    super.value,
+    required this.checked,
+    required super.child,
+  });
+
+  final bool checked;
+
+  @override
+  PopupMenuItemState<T, PopupMenuItem<T>> createState() =>
+      _RadioMenuItemState<T>();
+}
+
+class _RadioMenuItemState<T> extends PopupMenuItemState<T, _RadioMenuItem<T>> {
+  @override
+  Widget buildSemantics({required Widget child}) => Semantics(
+    role: SemanticsRole.menuItemRadio,
+    enabled: widget.enabled,
+    checked: widget.checked,
+    button: true,
+    child: child,
+  );
+}
+
 /// Menu sentinel for Auto; never sent to the server (Auto sends null).
 const _autoValue = '';
 
-class _ModelPill extends StatelessWidget {
+class _ModelPill extends StatefulWidget {
   const _ModelPill({
     required this.models,
     required this.selected,
@@ -436,100 +519,156 @@ class _ModelPill extends StatelessWidget {
   final ValueChanged<String?> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final pb = context.pb;
+  State<_ModelPill> createState() => _ModelPillState();
+}
+
+class _ModelPillState extends State<_ModelPill> {
+  final _pill = GlobalKey();
+
+  /// The menu is showing: the pill stays pressed and the chevron turns.
+  bool _open = false;
+
+  /// Opens the menu under the pill, the way [PopupMenuButton] does (the pill
+  /// is a [PbInteractive], so the menu is opened by hand: the popup button's
+  /// own ink would sit under the pill's face and the state would not show).
+  Future<void> _show() async {
     final l = context.l;
-    final current = models.where((m) => m.id == selected).firstOrNull;
+    final pb = context.pb;
+    final current = widget.models
+        .where((m) => m.id == widget.selected)
+        .firstOrNull;
     final muted = TextStyle(fontSize: 11, color: pb.inkMuted);
-    Widget check(bool on) => SizedBox(
-      width: 20,
-      child: on ? Icon(AppIcons.check, size: 18, color: pb.accent) : null,
+    // The check mark is only the picture (excluded); the screen reader gets
+    // a radio menu item with its checked state (see [_RadioMenuItem]).
+    Widget row(Widget child, bool on) => Row(
+      children: [
+        Expanded(child: child),
+        ExcludeSemantics(
+          child: SizedBox(
+            width: 20,
+            child: on ? Icon(AppIcons.check, size: 18, color: pb.accent) : null,
+          ),
+        ),
+      ],
     );
-    return PopupMenuButton<String>(
-      tooltip: l.answerModel,
-      onSelected: (v) => onChanged(v == _autoValue ? null : v),
-      itemBuilder: (context) => [
-        PopupMenuItem(
+    setState(() => _open = true);
+    final v = await pbShowMenu<String>(
+      context,
+      _pill,
+      [
+        _RadioMenuItem(
           value: _autoValue,
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  l.modelAutoRotates,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              check(current == null),
-            ],
+          checked: current == null,
+          child: row(
+            Text(
+              l.modelAutoRotates,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            current == null,
           ),
         ),
         const PopupMenuDivider(),
-        for (final m in models)
-          PopupMenuItem(
+        for (final m in widget.models)
+          _RadioMenuItem(
             value: m.id,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            checked: m.id == widget.selected,
+            child: row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              m.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          _FreeBadge(free: m.free),
-                        ],
-                      ),
-                      if (l.modelNote(m.note) case final note?)
-                        Text(
-                          note,
+                      Flexible(
+                        child: Text(
+                          m.label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: muted,
                         ),
+                      ),
+                      const SizedBox(width: 6),
+                      _FreeBadge(free: m.free),
                     ],
                   ),
-                ),
-                check(m.id == selected),
-              ],
+                  if (l.modelNote(m.note) case final note?)
+                    Text(
+                      note,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: muted,
+                    ),
+                ],
+              ),
+              m.id == widget.selected,
             ),
           ),
       ],
-      child: Container(
-        height: 32,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: pb.chipBg,
-          border: Border.all(color: pb.hairline),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                current?.label ?? l.modelAuto,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
+    );
+    if (mounted) setState(() => _open = false);
+    if (v != null) widget.onChanged(v == _autoValue ? null : v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pb = context.pb;
+    final l = context.l;
+    final current = widget.models
+        .where((m) => m.id == widget.selected)
+        .firstOrNull;
+    final name = current?.label ?? l.modelAuto;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Tooltip(
+        message: l.answerModel,
+        child: PbInteractive(
+          onTap: _show,
+          radius: 16,
+          minHit: Size(0, pbTarget(context)),
+          expanded: _open,
+          label: l.answerModelIs(name),
+          builder: (context, states) => AnimatedContainer(
+            key: _pill,
+            duration: pbFast(context),
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Color.alphaBlend(
+                pbTint(pb, states, pressed: _open),
+                pb.chipBg,
               ),
+              border: Border.all(
+                color: states.contains(WidgetState.hovered) || _open
+                    ? pb.ink.withValues(alpha: 0.28)
+                    : pb.hairline,
+              ),
+              borderRadius: BorderRadius.circular(16),
             ),
-            if (current != null) ...[
-              const SizedBox(width: 6),
-              _FreeBadge(free: current.free),
-            ],
-            const Icon(AppIcons.expand, size: 18),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (current != null) ...[
+                  const SizedBox(width: 6),
+                  _FreeBadge(free: current.free),
+                ],
+                AnimatedRotation(
+                  turns: _open ? 0.5 : 0,
+                  duration: pbFast(context),
+                  child: const Icon(AppIcons.expand, size: 18),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -579,20 +718,33 @@ class _ScopeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pb = context.pb;
-    final color = empty ? pb.warn : pb.inkMuted;
+    // Nothing selected: amber face, text in warnText (5.75:1; `warn` is 4.5).
+    final color = empty ? pb.warnText : pb.inkMuted;
     return Align(
       alignment: Alignment.centerLeft,
       child: Tooltip(
         message: context.l.scope,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+        child: PbInteractive(
           onTap: onTap,
-          child: Container(
+          radius: 16,
+          minHit: Size(0, pbTarget(context)),
+          label: context.l.scopeIs(summary),
+          builder: (context, states) => AnimatedContainer(
+            duration: pbFast(context),
             constraints: const BoxConstraints(minHeight: 32),
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              color: empty ? pb.warnContainer : Colors.transparent,
-              border: Border.all(color: empty ? pb.warnBorder : pb.hairline),
+              color: Color.alphaBlend(
+                pbTint(pb, states, hover: empty ? pb.warnHover : null),
+                empty ? pb.warnContainer : Colors.transparent,
+              ),
+              border: Border.all(
+                color: states.contains(WidgetState.hovered)
+                    ? pb.ink.withValues(alpha: 0.28)
+                    : empty
+                    ? pb.warnBorder
+                    : pb.hairline,
+              ),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -612,7 +764,7 @@ class _ScopeButton extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: empty ? pb.warn : pb.ink,
+                      color: empty ? pb.warnText : pb.ink,
                     ),
                   ),
                 ),
@@ -1056,63 +1208,67 @@ class _AskTurnViewState extends State<AskTurnView>
                     bottomLeft: Radius.circular(18),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    GptMarkdown(
-                      renderMarkers(turn.answer.toString()),
-                      // The pill carries its own 2px hit padding.
-                      styleSheet: const GptMarkdownStyleSheet(
-                        sourceTag: SourceTagStyle(padding: EdgeInsets.zero),
-                      ),
-                      inlineSourceTagBuilder: _marker,
-                      onSourceTagTap: (id) {
-                        final n = int.tryParse(id);
-                        if (n != null) _cite(n);
-                      },
-                    ),
-                    if (citations.isNotEmpty)
-                      SourcesList(
-                        citations: citations,
-                        collapsible: _collapsible(citations.length),
-                        expanded: _expanded,
-                        snap: _snap,
-                        onToggle: () => setState(() {
-                          _snap = false;
-                          _expanded = !_expanded;
-                        }),
-                        rowBuilder: (c) => _sourceRow(citations, c),
-                      ),
-                    SizedBox(height: citations.isEmpty ? 8 : 12),
-                    Row(
-                      children: [
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          iconSize: 20,
-                          color: pb.inkMuted,
-                          tooltip: l.copy,
-                          icon: const Icon(AppIcons.copy),
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(text: turn.answer.toString()),
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(l.copied)),
-                              );
-                            }
-                          },
+                // Ink (hover / focus of a bare InkWell) paints on the nearest
+                // Material, which is below this translucent face.
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GptMarkdown(
+                        renderMarkers(turn.answer.toString()),
+                        // The pill carries its own 2px hit padding.
+                        styleSheet: const GptMarkdownStyleSheet(
+                          sourceTag: SourceTagStyle(padding: EdgeInsets.zero),
                         ),
-                        const Spacer(),
-                        if (turn.modelLabel != null)
-                          Text(
-                            turn.modelLabel!,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(fontSize: 12, color: pb.inkMuted),
+                        inlineSourceTagBuilder: _marker,
+                        onSourceTagTap: (id) {
+                          final n = int.tryParse(id);
+                          if (n != null) _cite(n);
+                        },
+                      ),
+                      if (citations.isNotEmpty)
+                        SourcesList(
+                          citations: citations,
+                          collapsible: _collapsible(citations.length),
+                          expanded: _expanded,
+                          snap: _snap,
+                          onToggle: () => setState(() {
+                            _snap = false;
+                            _expanded = !_expanded;
+                          }),
+                          rowBuilder: (c) => _sourceRow(citations, c),
+                        ),
+                      SizedBox(height: citations.isEmpty ? 8 : 12),
+                      Row(
+                        children: [
+                          IconButton(
+                            iconSize: 20,
+                            color: pb.inkMuted,
+                            tooltip: l.copy,
+                            icon: const Icon(AppIcons.copy),
+                            onPressed: () async {
+                              await Clipboard.setData(
+                                ClipboardData(text: turn.answer.toString()),
+                              );
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(l.copied)),
+                                );
+                              }
+                            },
                           ),
-                      ],
-                    ),
-                  ],
+                          const Spacer(),
+                          if (turn.modelLabel != null)
+                            Text(
+                              turn.modelLabel!,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(fontSize: 12, color: pb.inkMuted),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1219,32 +1375,34 @@ class _SuggestionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final pb = context.pb;
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(14),
-      side: BorderSide(color: pb.hairline),
-    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420, minHeight: 44),
         child: SizedBox(
           width: double.infinity,
-          child: Material(
-            color: pb.chipBg,
-            shape: shape,
-            child: InkWell(
-              customBorder: shape,
-              onTap: onTap,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
+          child: PbInteractive(
+            onTap: onTap,
+            radius: 14,
+            pressScale: 0.985,
+            expand: true,
+            minHit: const Size(0, 44),
+            builder: (context, states) => AnimatedContainer(
+              duration: pbFast(context),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Color.alphaBlend(pbTint(pb, states), pb.chipBg),
+                border: Border.all(
+                  color: states.contains(WidgetState.hovered)
+                      ? pb.ink.withValues(alpha: 0.28)
+                      : pb.hairline,
                 ),
-                child: Text(
-                  keepAllKorean(text),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                keepAllKorean(text),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
           ),
@@ -1284,7 +1442,6 @@ class _HistoryNotice extends StatelessWidget {
           ),
           IconButton(
             tooltip: context.l.dismiss,
-            visualDensity: VisualDensity.compact,
             iconSize: 18,
             onPressed: onClose,
             icon: const Icon(AppIcons.close),
@@ -1314,7 +1471,8 @@ class _ChatBar extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 6),
       child: Wrap(
         spacing: 8,
-        runSpacing: 4,
+        // 8: the focus ring of a chip reaches 4px out.
+        runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           if (n != null && m != null && n >= 1)

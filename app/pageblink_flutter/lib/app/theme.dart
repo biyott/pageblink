@@ -1,7 +1,10 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'pb_interactive.dart';
 
 /// Design tokens for direction "AB · Glass Paper" (docs/design/ab-glass-paper/spec.md).
 @immutable
@@ -52,6 +55,15 @@ class Pb extends ThemeExtension<Pb> {
     required this.citePdfFill,
     required this.citePdfEdge,
     required this.selection,
+    required this.focusRing,
+    required this.hover,
+    required this.press,
+    required this.filledHover,
+    required this.filledPress,
+    required this.disabledFg,
+    required this.disabledBg,
+    required this.controlEdge,
+    required this.warnHover,
   });
 
   final Color bgStart, bgMid, bgEnd, blobA, blobB;
@@ -93,6 +105,18 @@ class Pb extends ThemeExtension<Pb> {
 
   /// Text selection: a neutral blue-grey, so violet stays for citations.
   final Color selection;
+
+  /// Interaction states (docs/design/ui-polish/spec.md §5.3, a11y spec §3).
+  /// [focusRing] is the neutral keyboard ring (2px, 2px gap; violet stays for
+  /// citations). [hover] 6% / [press] 12% of `ink` (white in dark) are for
+  /// clear, pastel and glass faces; [filledHover] / [filledPress] are black
+  /// 8% / 14% for violet fills. [disabledFg] / [disabledBg] are ink 38% / 8%.
+  /// [controlEdge] (ink 50%, >= 3:1 on the field face) is the boundary of a
+  /// control: form inputs and the unselected note-color swatch (WCAG 1.4.11);
+  /// every other hairline stays. [warnHover] is
+  /// the amber face's hover.
+  final Color focusRing, hover, press, filledHover, filledPress;
+  final Color disabledFg, disabledBg, controlEdge, warnHover;
 
   static const light = Pb(
     bgStart: Color(0xFFEDE6FA),
@@ -155,6 +179,15 @@ class Pb extends ThemeExtension<Pb> {
     citePdfEdge: Color(0xFF6C4CF5),
     // slate #44546F at 22%.
     selection: Color(0x3844546F),
+    focusRing: Color(0xFF1F1B16),
+    hover: Color(0x0F1F1B16),
+    press: Color(0x1F1F1B16),
+    filledHover: Color(0x14000000),
+    filledPress: Color(0x24000000),
+    disabledFg: Color(0x611F1B16),
+    disabledBg: Color(0x141F1B16),
+    controlEdge: Color(0x801F1B16),
+    warnHover: Color(0x14B45309),
   );
 
   static const dark = Pb(
@@ -219,6 +252,15 @@ class Pb extends ThemeExtension<Pb> {
     citePdfEdge: Color(0xFF6C4CF5),
     // blue-grey #9FB4D6 at 24%.
     selection: Color(0x3D9FB4D6),
+    focusRing: Color(0xFFF2EDE3),
+    hover: Color(0x0FFFFFFF),
+    press: Color(0x1FFFFFFF),
+    filledHover: Color(0x14000000),
+    filledPress: Color(0x24000000),
+    disabledFg: Color(0x61F2EDE3),
+    disabledBg: Color(0x14FFFFFF),
+    controlEdge: Color(0x80F2EDE3),
+    warnHover: Color(0x14FBBF24),
   );
 
   /// `Document.colorIndex` of the rainbow gradient (server: noteColorCount 9).
@@ -246,9 +288,6 @@ class Pb extends ThemeExtension<Pb> {
         )
       : null;
 
-  /// Boundary of a control (3:1 on the sheet): ink at 50%.
-  Color get controlEdge => ink.withValues(alpha: 0.5);
-
   @override
   Pb copyWith() => this;
 
@@ -269,8 +308,13 @@ const pbSansFamily = 'PretendardSubset';
 /// KS X 1001 subset, weight 600 only: every serif style is w600).
 const pbHangulSerifFamily = 'NotoSerifKRSubset';
 
-ThemeData buildPbTheme(Brightness brightness) {
+/// [platform] only for tests; the app uses the platform it runs on.
+ThemeData buildPbTheme(Brightness brightness, {TargetPlatform? platform}) {
   final pb = brightness == Brightness.light ? Pb.light : Pb.dark;
+  final touch = const {
+    TargetPlatform.android,
+    TargetPlatform.iOS,
+  }.contains(platform ?? defaultTargetPlatform);
   final accent = brightness == Brightness.light
       ? const Color(0xFF6C4CF5)
       : const Color(0xFFB7A6FF);
@@ -347,6 +391,45 @@ ThemeData buildPbTheme(Brightness brightness) {
     labelSmall: role(sans.labelSmall, 12, FontWeight.w600, 1.3),
   );
 
+  // ── Interaction states (a11y state spec §3, §7.2) ───────────────────────
+  // Overlays are explicit: a null falls back to the Material default, which is
+  // violet (and white on a violet fill). Pressed > hovered > focused.
+  WidgetStateProperty<Color?> overlay(
+    Color hover,
+    Color press, [
+    Color focus = Colors.transparent,
+  ]) => WidgetStateProperty.resolveWith((s) {
+    if (s.contains(WidgetState.pressed)) return press;
+    if (s.contains(WidgetState.hovered)) return hover;
+    if (s.contains(WidgetState.focused)) return focus;
+    return null;
+  });
+  // The ring is a 2px inset `side` (the floor for buttons and chips without
+  // an outer ring); only in keyboard mode, since WidgetState.focused is raw
+  // focus (a dialog may focus a button on a phone).
+  BorderSide ringSide() => BorderSide(color: pb.focusRing, width: 2);
+  WidgetStateProperty<BorderSide?> focusSide([
+    BorderSide? Function(Set<WidgetState>)? other,
+  ]) => WidgetStateProperty.resolveWith((s) {
+    if (s.contains(WidgetState.focused) && pbKeyboardMode) return ringSide();
+    return other?.call(s);
+  });
+  WidgetStateProperty<Color?> fgDisabled() => WidgetStateProperty.resolveWith(
+    (s) => s.contains(WidgetState.disabled) ? pb.disabledFg : null,
+  );
+  final cursor = WidgetStateMouseCursor.clickable;
+  // The outer ring (2px, 2px gap) as the button's shape: only painted, the
+  // geometry is [base]'s. Buttons, icon buttons; chips and segmented buttons
+  // cannot (their shape does not depend on state), they keep the inset side.
+  OutlinedBorder ringShape(OutlinedBorder base, Set<WidgetState> s) =>
+      s.contains(WidgetState.focused) && pbKeyboardMode
+      ? PbRingBorder(base, pb.focusRing)
+      : base;
+  WidgetStateProperty<OutlinedBorder?> stadiumRing() =>
+      WidgetStateProperty.resolveWith(
+        (s) => ringShape(const StadiumBorder(), s),
+      );
+
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
@@ -376,11 +459,15 @@ ThemeData buildPbTheme(Brightness brightness) {
     chipTheme: ChipThemeData(
       shape: const StadiumBorder(),
       side: WidgetStateBorderSide.resolveWith(
-        (states) => BorderSide(
-          color: states.contains(WidgetState.selected)
-              ? accent.withValues(alpha: 0.55)
-              : pb.hairline,
-        ),
+        (states) =>
+            focusSide().resolve(states) ??
+            BorderSide(
+              color: states.contains(WidgetState.selected)
+                  ? accent.withValues(alpha: 0.55)
+                  : states.contains(WidgetState.hovered)
+                  ? pb.ink.withValues(alpha: 0.28)
+                  : pb.hairline,
+            ),
       ),
       backgroundColor: pb.chipBg,
       selectedColor: pb.accentContainer,
@@ -398,15 +485,98 @@ ThemeData buildPbTheme(Brightness brightness) {
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      style: ButtonStyle(
+        shape: WidgetStateProperty.resolveWith(
+          (s) => ringShape(
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            s,
+          ),
+        ),
+        overlayColor: overlay(pb.filledHover, pb.filledPress),
+        mouseCursor: cursor,
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.disabled) ? pb.disabledBg : null,
+        ),
+        foregroundColor: fgDisabled(),
       ),
     ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ButtonStyle(
+        overlayColor: overlay(pb.filledHover, pb.filledPress),
+        mouseCursor: cursor,
+        foregroundColor: fgDisabled(),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: ButtonStyle(
+        overlayColor: overlay(pb.hover, pb.press),
+        mouseCursor: cursor,
+        shape: stadiumRing(),
+        foregroundColor: fgDisabled(),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: ButtonStyle(
+        overlayColor: overlay(pb.hover, pb.press),
+        mouseCursor: cursor,
+        foregroundColor: fgDisabled(),
+        shape: stadiumRing(),
+        side: WidgetStateProperty.resolveWith(
+          (s) => BorderSide(
+            color: s.contains(WidgetState.hovered)
+                ? pb.ink.withValues(alpha: 0.28)
+                : pb.hairline,
+          ),
+        ),
+      ),
+    ),
+    // IconButton.filled (the send button) overrides overlay and side itself.
+    iconButtonTheme: IconButtonThemeData(
+      style: ButtonStyle(
+        overlayColor: overlay(pb.hover, pb.press),
+        mouseCursor: cursor,
+        shape: stadiumRing(),
+        foregroundColor: fgDisabled(),
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        overlayColor: overlay(pb.hover, pb.press),
+        mouseCursor: cursor,
+        side: focusSide(),
+      ),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      // The sheet colour is translucent (it sits on a blur elsewhere); a menu
+      // has no blur, so it is laid on the paper first.
+      color: Color.alphaBlend(pb.sheet, pb.pdfPaper),
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      mouseCursor: cursor,
+    ),
+    listTileTheme: ListTileThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      mouseCursor: cursor,
+    ),
+    // Hover 6%, pressed 12% (desktop: hover under the press highlight, so the
+    // press reads as ~12%; touch: the ripple carries it). Focus stays a 12%
+    // neutral tint for the rows without a ring (list tiles, menu rows, the
+    // navigation bar); ringed controls switch it off themselves.
+    hoverColor: pb.hover,
+    focusColor: pb.press,
+    highlightColor: touch ? Colors.transparent : pb.hover,
+    splashColor: pb.press,
+    splashFactory: touch ? null : NoSplash.splashFactory,
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: accent,
       foregroundColor: scheme.onPrimary,
       elevation: 6,
       shape: const StadiumBorder(),
+      // The ring is a PbFocusRing around it; the fill darkens on hover.
+      hoverColor: pb.filledHover,
+      focusColor: Colors.transparent,
+      splashColor: pb.filledPress,
+      mouseCursor: cursor,
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: pb.glass,
@@ -420,21 +590,28 @@ ThemeData buildPbTheme(Brightness brightness) {
       selectedIconTheme: IconThemeData(color: pb.accent),
       unselectedIconTheme: IconThemeData(color: pb.inkMuted),
     ),
+    // Form inputs only get the darker edge (controlEdge, 3:1); a focused
+    // field is the neutral 2px ring colour, on click too (a text field is
+    // always focused to type).
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: pb.glassStrong,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(999),
-        borderSide: BorderSide(color: pb.hairline),
+        borderSide: BorderSide(color: pb.controlEdge),
       ),
       enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(999),
+        borderSide: BorderSide(color: pb.controlEdge),
+      ),
+      disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(999),
         borderSide: BorderSide(color: pb.hairline),
       ),
       // Without this a focused field fell back to a form's own `border`.
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(999),
-        borderSide: BorderSide(color: accent, width: 2),
+        borderSide: BorderSide(color: pb.focusRing, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
     ),
@@ -482,9 +659,7 @@ class _Glow extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color, color.withValues(alpha: 0)],
-        ),
+        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
       ),
     ),
   );
@@ -526,7 +701,11 @@ class GlassPanel extends StatelessWidget {
               borderRadius: BorderRadius.circular(radius),
               border: Border.all(color: pb.glassBorder),
             ),
-            child: child,
+            // Ink paints on the nearest Material, below this translucent
+            // face, which dimmed any bare InkWell in a panel to ~26% (the
+            // hover/focus looked dead). A transparent Material here puts the
+            // ink above the face.
+            child: Material(type: MaterialType.transparency, child: child),
           ),
         ),
       ),

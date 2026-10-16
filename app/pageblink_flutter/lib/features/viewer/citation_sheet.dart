@@ -94,15 +94,16 @@ class _CitationSheetState extends State<_CitationSheet> {
                     ),
                   ),
                   Container(
-                    height: 28,
+                    // 44 high: the two steps are 44px touch targets.
                     decoration: BoxDecoration(
                       color: pb.accentContainer,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(22),
                     ),
                     child: Row(
                       children: [
                         _Step(
                           icon: AppIcons.previous,
+                          tooltip: l.citePrevious,
                           onTap: _i > 0 ? () => setState(() => _i--) : null,
                         ),
                         Text(
@@ -115,6 +116,7 @@ class _CitationSheetState extends State<_CitationSheet> {
                         ),
                         _Step(
                           icon: AppIcons.next,
+                          tooltip: l.citeNext,
                           onTap: _i < total - 1
                               ? () => setState(() => _i++)
                               : null,
@@ -232,23 +234,23 @@ class _CitationSheetState extends State<_CitationSheet> {
 }
 
 class _Step extends StatelessWidget {
-  const _Step({required this.icon, required this.onTap});
+  const _Step({required this.icon, required this.tooltip, required this.onTap});
 
   final IconData icon;
+  final String tooltip;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => InkResponse(
-    onTap: onTap,
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Icon(
-        icon,
-        size: 18,
-        color: onTap == null
-            ? context.pb.onAccentContainer.withValues(alpha: 0.35)
-            : context.pb.onAccentContainer,
-      ),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final color = context.pb.onAccentContainer;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      color: color,
+      disabledColor: color.withValues(alpha: 0.38),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 44, height: 44),
+    );
+  }
 }

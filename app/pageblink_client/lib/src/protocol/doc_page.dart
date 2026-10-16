@@ -21,6 +21,7 @@ abstract class DocPage
     required this.documentId,
     required this.page,
     required this.text,
+    this.source,
   });
 
   factory DocPage({
@@ -28,6 +29,7 @@ abstract class DocPage
     required int documentId,
     required int page,
     required String text,
+    String? source,
   }) = _DocPageImpl;
 
   factory DocPage.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -36,6 +38,7 @@ abstract class DocPage
       documentId: jsonSerialization['documentId'] as int,
       page: jsonSerialization['page'] as int,
       text: jsonSerialization['text'] as String,
+      source: jsonSerialization['source'] as String?,
     );
   }
 
@@ -50,6 +53,11 @@ abstract class DocPage
 
   String text;
 
+  /// Where [text] came from when it was not read from the PDF text layer:
+  /// form (form field values) | ocr (recognized on the client). Null = the
+  /// original text. Kept through re-indexing and re-uploads.
+  String? source;
+
   /// Returns a shallow copy of this [DocPage]
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
@@ -58,6 +66,7 @@ abstract class DocPage
     int? documentId,
     int? page,
     String? text,
+    String? source,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -67,6 +76,7 @@ abstract class DocPage
       'documentId': documentId,
       'page': page,
       'text': text,
+      if (source != null) 'source': source,
     };
   }
 
@@ -78,6 +88,7 @@ abstract class DocPage
       'documentId': documentId,
       'page': page,
       'text': text,
+      if (source != null) 'source': source,
     };
   }
 
@@ -95,11 +106,13 @@ class _DocPageImpl extends DocPage {
     required int documentId,
     required int page,
     required String text,
+    String? source,
   }) : super._(
          id: id,
          documentId: documentId,
          page: page,
          text: text,
+         source: source,
        );
 
   /// Returns a shallow copy of this [DocPage]
@@ -111,12 +124,14 @@ class _DocPageImpl extends DocPage {
     int? documentId,
     int? page,
     String? text,
+    Object? source = _Undefined,
   }) {
     return DocPage(
       id: id is int? ? id : this.id,
       documentId: documentId ?? this.documentId,
       page: page ?? this.page,
       text: text ?? this.text,
+      source: source is String? ? source : this.source,
     );
   }
 }

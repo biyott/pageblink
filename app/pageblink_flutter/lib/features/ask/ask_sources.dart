@@ -5,6 +5,7 @@ import 'package:pageblink_client/pageblink_client.dart';
 
 import '../../app/app_icons.dart';
 import '../../app/l10n.dart';
+import '../../app/pb_interactive.dart';
 import '../../app/theme.dart';
 
 // Spec: docs/design/ask-sources-v2/spec.md (slate pill with a filled yellow
@@ -508,15 +509,18 @@ class _CiteMarkerState extends State<CiteMarker> {
           math.max(m.picked * pick, m.ack * a),
         );
         final ring = math.max(0.65 * pick, a);
+        // The pill itself is excluded below (its digits are the label); the
+        // detector's focus node stays, so the pill is a tab stop with the
+        // screen reader on (excludeSemantics here dropped "focusable").
         return Semantics(
           button: true,
           selected: widget.selected(),
           label: label,
-          excludeSemantics: true,
           onTap: widget.onTap,
           child: FocusableActionDetector(
             mouseCursor: SystemMouseCursors.click,
-            onShowHoverHighlight: (v) => setState(() => _hover = v),
+            // Hover comes from the MouseRegion below: the detector reports
+            // it only while the keyboard is in use.
             onShowFocusHighlight: (v) => setState(() => _focus = v),
             actions: {
               ActivateIntent: CallbackAction<ActivateIntent>(
@@ -526,73 +530,83 @@ class _CiteMarkerState extends State<CiteMarker> {
                 },
               ),
             },
-            child: Listener(
-              onPointerDown: (_) => setState(() => _down = true),
-              onPointerUp: (_) => setState(() => _down = false),
-              onPointerCancel: (_) => setState(() => _down = false),
-              // The transparent 2px either side widens the hit area to ~34x18.
-              child: ColoredBox(
-                color: Colors.transparent,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Transform.scale(
-                    scale: widget.reduced ? 1 : 1 + 0.08 * a,
-                    // The ring is painted behind the pill by a painter, not
-                    // laid out: picking never moves the line.
-                    child: CustomPaint(
-                      painter: RainbowRingPainter(
-                        colors: tones.rainbowClosed,
-                        strength: ring,
-                        tightAlpha: tones.ringTight,
-                        wideAlpha: tones.ringWide,
-                        radius: 999,
-                        tightWidth: 1.8,
-                        tightSigma: 0.6,
-                        wideWidth: 4.5 + a,
-                        wideSigma: 1.3 + 0.5 * a,
-                        clipInset: 5,
-                      ),
-                      child: DecoratedBox(
-                        decoration: ShapeDecoration(
-                          color: Color.alphaBlend(
-                            tones.markerOverlay.withValues(alpha: overlay),
-                            tones.pill,
+            child: ExcludeSemantics(
+              child: MouseRegion(
+                onEnter: (_) => setState(() => _hover = true),
+                onExit: (_) => setState(() => _hover = false),
+                child: Listener(
+                  onPointerDown: (_) => setState(() => _down = true),
+                  onPointerUp: (_) => setState(() => _down = false),
+                  onPointerCancel: (_) => setState(() => _down = false),
+                  // The transparent 2px either side widens the hit area to ~34x18.
+                  child: ColoredBox(
+                    color: Colors.transparent,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Transform.scale(
+                        scale: widget.reduced ? 1 : 1 + 0.08 * a,
+                        // The ring is painted behind the pill by a painter, not
+                        // laid out: picking never moves the line.
+                        child: CustomPaint(
+                          // The neutral keyboard ring, outside the pill (1px gap:
+                          // the line box is only a little taller than the pill).
+                          foregroundPainter: PbRingPainter(
+                            visible: _focus,
+                            color: pb.focusRing,
+                            radius: 999,
+                            offset: 1,
                           ),
-                          shape: StadiumBorder(
-                            side: _focus
-                                ? BorderSide(color: pb.accent, width: 2)
-                                : BorderSide.none,
+                          painter: RainbowRingPainter(
+                            colors: tones.rainbowClosed,
+                            strength: ring,
+                            tightAlpha: tones.ringTight,
+                            wideAlpha: tones.ringWide,
+                            radius: 999,
+                            tightWidth: 1.8,
+                            tightSigma: 0.6,
+                            wideWidth: 4.5 + a,
+                            wideSigma: 1.3 + 0.5 * a,
+                            clipInset: 5,
                           ),
-                        ),
-                        child: SizedBox(
-                          height: widget.height,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(4, 0, 6, 0),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _Bolt(
-                                  size: 11,
-                                  color: tones.bolt,
-                                  outline: tones.boltOutline,
+                          child: DecoratedBox(
+                            decoration: ShapeDecoration(
+                              color: Color.alphaBlend(
+                                tones.markerOverlay.withValues(alpha: overlay),
+                                tones.pill,
+                              ),
+                              shape: const StadiumBorder(),
+                            ),
+                            child: SizedBox(
+                              height: widget.height,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(4, 0, 6, 0),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    _Bolt(
+                                      size: 11,
+                                      color: tones.bolt,
+                                      outline: tones.boltOutline,
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      '${widget.index}',
+                                      textScaler: TextScaler.noScaling,
+                                      style: base?.copyWith(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        height: 1,
+                                        letterSpacing: 0,
+                                        decoration: TextDecoration.none,
+                                        fontFeatures: const [
+                                          FontFeature.tabularFigures(),
+                                        ],
+                                        color: tones.digit,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  '${widget.index}',
-                                  textScaler: TextScaler.noScaling,
-                                  style: base?.copyWith(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    height: 1,
-                                    letterSpacing: 0,
-                                    decoration: TextDecoration.none,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                    color: tones.digit,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -654,7 +668,6 @@ class SourceRow extends StatefulWidget {
 class _SourceRowState extends State<SourceRow> {
   bool _hover = false;
   bool _down = false;
-  bool _focus = false;
 
   @override
   Widget build(BuildContext context) {
@@ -673,9 +686,7 @@ class _SourceRowState extends State<SourceRow> {
     final picked = math.max(fx.fill, fx.halo).clamp(0.0, 1.0);
     final shape = RoundedRectangleBorder(
       borderRadius: radius,
-      side: _focus
-          ? BorderSide(color: pb.accent, width: 2)
-          : inferred
+      side: inferred
           ? BorderSide
                 .none // the dashes are drawn over the row
           : BorderSide(
@@ -740,121 +751,132 @@ class _SourceRowState extends State<SourceRow> {
                 page: c.page,
               ) +
               (inferred ? '. ${l.sourceInferred}' : ''),
-          excludeSemantics: true,
-          onTap: widget.onTap,
+          // The row's content is excluded below; InkWell keeps the focus + tap
+          // semantics (excludeSemantics here dropped "focusable").
+
           child: _MaybeTooltip(
             message: inferred ? l.sourceInferred : null,
-            child: Material(
-              color: Color.lerp(tones.rowFill, tones.rowPulse, fx.fill),
-              shape: shape,
-              child: InkWell(
-                customBorder: shape,
-                onTap: widget.onTap,
-                onHover: (v) => setState(() => _hover = v),
-                onHighlightChanged: (v) => setState(() => _down = v),
-                onFocusChange: (v) => setState(() => _focus = v),
-                overlayColor: WidgetStateProperty.resolveWith((s) {
-                  if (s.contains(WidgetState.pressed)) return tones.rowPress;
-                  if (s.contains(WidgetState.hovered)) return tones.rowHover;
-                  return null;
-                }),
-                child: Stack(
-                  children: [
-                    if (fx.bloomAlpha > 0)
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              borderRadius: radius,
-                              gradient: _bloom(tones, fx),
+            // The keyboard ring is the neutral one, outside the row (the
+            // rainbow ring is the selection, and violet stays for citations).
+            child: PbFocusRing(
+              radius: 14,
+              child: Material(
+                color: Color.lerp(tones.rowFill, tones.rowPulse, fx.fill),
+                shape: shape,
+                child: InkWell(
+                  customBorder: shape,
+                  onTap: widget.onTap,
+                  focusColor: Colors.transparent,
+                  onHover: (v) => setState(() => _hover = v),
+                  onHighlightChanged: (v) => setState(() => _down = v),
+                  overlayColor: WidgetStateProperty.resolveWith((s) {
+                    if (s.contains(WidgetState.pressed)) return tones.rowPress;
+                    if (s.contains(WidgetState.hovered)) return tones.rowHover;
+                    return null;
+                  }),
+                  child: ExcludeSemantics(
+                    child: Stack(
+                      children: [
+                        if (fx.bloomAlpha > 0)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  borderRadius: radius,
+                                  gradient: _bloom(tones, fx),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    if (inferred && !_focus)
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: CustomPaint(
-                            key: ValueKey('source-dashed-${c.index}'),
-                            painter: _DashedBorderPainter(
-                              tones.rowBorderSelected,
-                              14,
+                        if (inferred)
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: CustomPaint(
+                                key: ValueKey('source-dashed-${c.index}'),
+                                painter: _DashedBorderPainter(
+                                  tones.rowBorderSelected,
+                                  14,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(minHeight: 44),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            _Badge(c.index),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    c.documentTitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: pb.ink,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Row(
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                _Badge(c.index),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(
-                                        isNote ? AppIcons.note : AppIcons.pdf,
-                                        size: 14,
-                                        color: sub,
+                                      Text(
+                                        c.documentTitle,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: pb.ink,
+                                        ),
                                       ),
-                                      const SizedBox(width: 4),
-                                      Flexible(
-                                        child: Text(
-                                          subtitle,
-                                          maxLines: 1,
+                                      const SizedBox(height: 2),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            isNote
+                                                ? AppIcons.note
+                                                : AppIcons.pdf,
+                                            size: 14,
+                                            color: sub,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              subtitle,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: sub,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (inferred)
+                                        Text(
+                                          l.sourceInferred,
+                                          maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            fontSize: 12,
+                                            fontSize: 11,
                                             color: sub,
                                           ),
                                         ),
-                                      ),
                                     ],
                                   ),
-                                  if (inferred)
-                                    Text(
-                                      l.sourceInferred,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: sub,
-                                      ),
-                                    ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  AppIcons.next,
+                                  size: 16,
+                                  color: _hover || _down ? pb.ink : sub,
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              AppIcons.next,
-                              size: 16,
-                              color: _hover || _down ? pb.accent : sub,
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -1124,47 +1146,51 @@ class _SourcesListState extends State<SourcesList> {
             child: grid,
           ),
         if (widget.collapsible)
-          Semantics(
-            button: true,
-            expanded: widget.expanded,
-            label: widget.expanded ? l.lessSources : l.moreSources(hidden),
-            excludeSemantics: true,
-            onTap: widget.onToggle,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: InkWell(
-                key: const ValueKey('sources-toggle'),
-                borderRadius: BorderRadius.circular(8),
-                onTap: widget.onToggle,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 44),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            widget.expanded
-                                ? l.lessSources
-                                : l.moreSources(hidden),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: pb.ink,
-                            ),
-                          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            // Not an InkWell: the answer card's face would cover its ink.
+            child: PbInteractive(
+              key: const ValueKey('sources-toggle'),
+              onTap: widget.onToggle,
+              radius: 10,
+              minHit: Size(0, pbTarget(context)),
+              expanded: widget.expanded,
+              label: widget.expanded ? l.lessSources : l.moreSources(hidden),
+              builder: (context, states) => AnimatedContainer(
+                duration: pbFast(context),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: pbTint(pb, states),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        widget.expanded ? l.lessSources : l.moreSources(hidden),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        // Underlined: it reads as a link before any hover.
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: pb.ink,
+                          decoration: TextDecoration.underline,
+                          decorationColor: pb.ink.withValues(alpha: 0.5),
                         ),
-                        const SizedBox(width: 4),
-                        RotatedBox(
-                          quarterTurns: widget.expanded ? 2 : 0,
-                          child: Icon(AppIcons.expand, size: 16, color: pb.ink),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    AnimatedRotation(
+                      turns: widget.expanded ? 0.5 : 0,
+                      duration: pbFast(context),
+                      child: Icon(AppIcons.expand, size: 16, color: pb.ink),
+                    ),
+                  ],
                 ),
               ),
             ),

@@ -197,7 +197,8 @@ void main() {
       t.getSize(find.byKey(const ValueKey('note-color-5'))),
       const Size(48, 48),
     );
-    expect(at('5').dx - at('auto').dx, 52);
+    // closeTo: the board's side padding puts the popover at a fractional x.
+    expect(at('5').dx - at('auto').dx, closeTo(52, 0.001));
   });
 
   testWidgets('dismissing the picker changes nothing', (t) async {

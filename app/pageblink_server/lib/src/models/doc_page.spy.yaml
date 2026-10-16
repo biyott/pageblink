@@ -6,6 +6,10 @@ fields:
   documentId: int
   page: int
   text: String
+  ### Where [text] came from when it was not read from the PDF text layer:
+  ### form (form field values) | ocr (recognized on the client). Null = the
+  ### original text. Kept through re-indexing and re-uploads.
+  source: String?
 indexes:
   doc_page_document_idx:
     fields: documentId, page

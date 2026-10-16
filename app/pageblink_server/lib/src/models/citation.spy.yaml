@@ -17,3 +17,7 @@ fields:
   ### text, not because the model wrote a [n] marker. Null (also from older
   ### servers) means a direct citation. Shown in the source list only.
   inferred: bool?
+  ### form | ocr when the cited PDF page's text was recovered on the client
+  ### (not read from the PDF text layer); null = original text, a note, or an
+  ### older server. Labels the source chip only.
+  source: String?

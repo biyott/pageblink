@@ -47,6 +47,9 @@ class L {
   String get languageKorean => '한국어';
   // Sign-in screen switcher: the button's tooltip / screen-reader label.
   String get changeLanguage => _t('Change language', '언어 변경');
+  // Password field's eye button: tooltip / screen-reader label.
+  String get showPassword => _t('Show password', '비밀번호 보기');
+  String get hidePassword => _t('Hide password', '비밀번호 숨기기');
 
   // ── Shell (main.dart) ─────────────────────────────────────────────────
   String get tabAsk => _t('Ask', '질문');
@@ -400,6 +403,12 @@ class L {
   String get askHint => _t('Ask your notes…', '내 노트에 질문하기…');
   String get askTooltip => _t('Ask', '질문');
   String get answerModel => _t('Answer model', '답변 모델');
+  // Screen-reader names of the two pills under the question field: name + value.
+  String answerModelIs(String v) => _t('Answer model: $v', '답변 모델: $v');
+  String scopeIs(String v) => _t('Search scope: $v', '검색 범위: $v');
+  // The send button's hint while it is off (nothing typed, or a limit).
+  String get askSendHint =>
+      _t('Type a question to send it', '질문을 입력하면 보낼 수 있어요');
   String get myDocs => _t('My documents', '내 문서');
   String get askEmptyTitle => _t('Ask your notes & documents', '노트와 문서에 질문하세요');
   String get askEmptySubtitle => _k(
