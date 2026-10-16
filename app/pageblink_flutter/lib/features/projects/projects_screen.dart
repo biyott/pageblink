@@ -9,6 +9,7 @@ import '../../app/pb_interactive.dart';
 import '../../app/open_item_controller.dart';
 import '../../client.dart';
 import '../demo/demo.dart';
+import 'projects_load.dart';
 
 /// Same limit the server enforces (`cleanProjectName`).
 const maxProjectNameLength = 60;
@@ -27,9 +28,14 @@ class ProjectsScreen extends StatelessWidget {
     super.key,
     required this.projects,
     required this.onChanged,
+    this.status = ProjectsLoad.loaded,
   });
 
   final List<Project> projects;
+
+  /// Whether [projects] is still being read or could not be (the screen does
+  /// not tell the two from an empty list yet).
+  final ProjectsLoad status;
   final Future<void> Function() onChanged;
 
   /// Only the owner can rename or delete (the server enforces it too).

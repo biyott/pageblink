@@ -22,6 +22,7 @@ import 'features/demo/demo.dart';
 import 'features/demo/demo_widgets.dart';
 import 'features/documents/upload_tray.dart';
 import 'features/open_item/open_item_view.dart';
+import 'features/projects/projects_load.dart';
 import 'features/projects/projects_screen.dart';
 import 'screens/sign_in_screen.dart';
 
@@ -79,7 +80,8 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _tab = 0;
-  final _projects = ValueNotifier<List<Project>>(const []);
+  final _projectsModel = ProjectsModel();
+  ValueNotifier<List<Project>> get _projects => _projectsModel.list;
 
   /// Notes and PDFs open in the center pane on tablet/desktop...
   final _open = OpenItemController();
@@ -109,7 +111,7 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
     _open.openInNotesTab = _openInNotesTab;
-    _loadProjects();
+    _projectsModel.load();
     // Demo account: banner + create counter. Re-read after anything that
     // changes the count (note save/delete, PDF added all bump boardRefresh).
     resetDemoStatus();
@@ -155,17 +157,8 @@ class _HomeShellState extends State<HomeShell> {
     boardRefresh.removeListener(refreshSampleHints);
     _open.dispose();
     _uploads.dispose();
-    _projects.dispose();
+    _projectsModel.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadProjects() async {
-    try {
-      final projects = await client.project.list();
-      if (mounted) _projects.value = projects;
-    } catch (_) {
-      // Shown as an empty project list; the documents tab surfaces errors.
-    }
   }
 
   /// The tab navigators push/pop outside of this widget's build.
@@ -233,10 +226,13 @@ class _HomeShellState extends State<HomeShell> {
     builder: (context, projects, _) => DocumentsScreen(projects: projects),
   );
 
-  Widget _projectsTab() => ValueListenableBuilder<List<Project>>(
-    valueListenable: _projects,
-    builder: (context, projects, _) =>
-        ProjectsScreen(projects: projects, onChanged: _loadProjects),
+  Widget _projectsTab() => ListenableBuilder(
+    listenable: Listenable.merge([_projects, _projectsModel.status]),
+    builder: (context, _) => ProjectsScreen(
+      projects: _projects.value,
+      status: _projectsModel.status.value,
+      onChanged: _projectsModel.load,
+    ),
   );
 
   /// One navigator per tab (phones), so pushes stay inside the tab.
