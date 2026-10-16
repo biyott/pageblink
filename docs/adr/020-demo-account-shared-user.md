@@ -2,7 +2,7 @@
 
 | 상태 | 결정일 | 근거 |
 |---|---|---|
-| 채택 | 2026-10-16 | [plan 014](../plan/014-demo-account.md) · [research 026](../research/026-demo-account-api-verification.md) · `serverpod_auth_core_server-4.0.4` / `serverpod_auth_idp_server-4.0.4` 소스 |
+| 채택 · 후속(언어별 분리) → [022](022-per-locale-demo-accounts-sample-pack.md) | 2026-10-16 | [plan 014](../plan/014-demo-account.md) · [research 026](../research/026-demo-account-api-verification.md) · `serverpod_auth_core_server-4.0.4` / `serverpod_auth_idp_server-4.0.4` 소스 |
 
 > 2026-10-16 09:30 KST: research 026(소스 검증)과 PM 확정 값을 반영해 결정·결과를 구체화했다. 같은 날, 미커밋 상태의 구체화이며 결정 방향(공유 계정 + 서버 시작 시 `ensure()` + 플래그)은 바뀌지 않았다.
 

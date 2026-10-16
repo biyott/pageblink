@@ -2,7 +2,7 @@
 
 | 상태 | 결정일 | 근거 |
 |---|---|---|
-| 채택 | 2026-10-14 | [research 002](../research/002-flutter-ondevice-rag-stack.md) · [research 006](../research/006-llm-embedding-providers.md) |
+| 채택 · 재색인 방식 보완 → [021](021-line-level-chunks-two-tier-context.md) | 2026-10-14 | [research 002](../research/002-flutter-ondevice-rag-stack.md) · [research 006](../research/006-llm-embedding-providers.md) |
 
 ## 맥락
 기기와 서버가 같은 벡터 공간을 써야 혼합 검색과 승격이 가능하다. pgvector 컬럼은 차원이 고정이다.

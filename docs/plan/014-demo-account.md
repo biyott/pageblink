@@ -1,9 +1,9 @@
 # 🎟️ 데모 체험 로그인(Demo account) 설계 명세
 
-> **작성일**: 2026-10-16 09:06 KST · **최종 수정**: 2026-10-16 10:32 KST
-> **관련 문서**: [ADR 020 (공유 demo 사용자)](../adr/020-demo-account-shared-user.md) · [research 026 (API 소스 검증)](../research/026-demo-account-api-verification.md) · [research 028 (언어별 demo 계정·SamplePack 조사)](../research/028-locale-samples.md) · [devlog 010 (구현·배포 기록)](../devlog/010-demo-account-implementation.md) · [첫 화면 기획 (007)](007-landing-sign-in.md) · [세션 인수인계 (012)](012-session-handoff.md) · [제품 범위 ADR 015](../adr/015-product-scope-notes-and-pdfs.md) · [ACL ADR 010](../adr/010-acl-in-query.md) · [`AGENTS.md`](../../AGENTS.md)
+> **작성일**: 2026-10-16 09:06 KST · **최종 수정**: 2026-10-16 11:53 KST
+> **관련 문서**: [ADR 020 (공유 demo 사용자)](../adr/020-demo-account-shared-user.md) · [research 026 (API 소스 검증)](../research/026-demo-account-api-verification.md) · [research 028 (언어별 demo 계정·SamplePack 조사)](../research/028-locale-samples.md) · [ADR 022 (언어별 demo·SamplePack)](../adr/022-per-locale-demo-accounts-sample-pack.md) · [devlog 010 (구현·배포 기록)](../devlog/010-demo-account-implementation.md) · [devlog 011 (9차 배포 기록)](../devlog/011-chunk-v2-two-tier-u2-locale-demo.md) · [첫 화면 기획 (007)](007-landing-sign-in.md) · [세션 인수인계 (012)](012-session-handoff.md) · [제품 범위 ADR 015](../adr/015-product-scope-notes-and-pdfs.md) · [ACL ADR 010](../adr/010-acl-in-query.md) · [`AGENTS.md`](../../AGENTS.md)
 > **표기**: ✅ 코드·소스로 확인 · ⚠️ 미확인/구현 시 점검 필요
-> **상태**: **배포 완료(8차, 2026-10-16, `c99822f`)** — 7차 `8445f02`(demo 계정) 뒤 샘플 노트·Ask 예시를 보강한 후속 배포 · 라이브 확인 ✅(§13), 브라우저 수동 확인(§12 체크리스트)만 ⚠️ 남음. §11 소스 검증 완료([research 026](../research/026-demo-account-api-verification.md)) · §10 값 확정(2026-10-16). 아래 §0~§10 본문은 구현 전 설계 시점의 서술이며, 배포 결과는 §8 하단(8차 구성)·§11 하단·§12·§13·§16에 기록합니다.
+> **상태**: **배포 완료(언어별 demo, 9차, 2026-10-16, `2801184`)** — 영·한 demo 계정 2개와 단일 `SamplePack`([ADR 022](../adr/022-per-locale-demo-accounts-sample-pack.md), §8.2·§13.4). 앞서 7차 `8445f02`(demo 계정), 8차 `c99822f`(샘플 노트·Ask 예시 보강) · 라이브 확인 ✅(§13), 브라우저 수동 확인(§12 체크리스트)만 ⚠️ 남음. §11 소스 검증 완료([research 026](../research/026-demo-account-api-verification.md)) · §10 값 확정(2026-10-16). 아래 §0~§10 본문은 구현 전 설계 시점의 서술(공유 계정 1개 기준)이며, 배포 결과는 §8 하단(8차 §8.1·9차 §8.2 구성)·§11 하단·§12·§13·§16에 기록합니다.
 > **범위**: 서버 `app/pageblink_server`, 클라이언트 `app/pageblink_flutter`. 생성 코드(`lib/src/generated/`, `pageblink_client`)는 직접 수정하지 않습니다.
 
 ---
@@ -20,7 +20,7 @@
 | 프로비저닝 | **`await pod.start()` 뒤** 멱등 `DemoUser.ensure()` (사용자 동기, 샘플 시드 백그라운드) |
 | 결정 근거 | [ADR 020](../adr/020-demo-account-shared-user.md) · 소스 검증 [research 026](../research/026-demo-account-api-verification.md) |
 | 확정 현황 | §10 표의 값은 2026-10-16 확정(PM 위임). §11 체크리스트 8개는 검증 완료, 남은 ⚠️는 §11 하단 |
-| 배포 현황 | ✅ 8차 배포 완료(`c99822f`: 데모 샘플 노트·Ask 예시 보강), 7차 `8445f02`(demo 계정 최초), 운영 플래그 켜짐, 라이브 확인 통과 — §13 · §13.3 · §16. ⚠️ 브라우저 수동 시나리오(U8)는 사용자 확인 대기 |
+| 배포 현황 | ✅ 9차 배포 완료(`2801184`: 언어별 demo 계정 en·ko + `SamplePack`, ADR 022), 8차 `c99822f`(샘플 노트·Ask 예시 보강), 7차 `8445f02`(demo 계정 최초), 운영 플래그 켜짐, 라이브 확인 통과 — §13 · §13.3 · §13.4 · §16. ⚠️ 브라우저 수동 시나리오(U8)는 사용자 확인 대기 |
 
 ---
 
@@ -310,7 +310,28 @@ sequenceDiagram
 - 데모 계정이면 Ask 예시 질문을 **데모 전용 4개만** 표시합니다(`demoSuggestions`, EN/KO). 일반 예시는 섞지 않습니다.
 - 한도·보호 규칙(§10)은 바뀌지 않았습니다 ✅ (변경 9개 파일에 가드·설정 파일이 없음). 샘플은 계속 `contentHash` 표식으로 제외·잠금됩니다.
 - ⚠️ 샘플 노트 본문에 연도가 없어, 한국어 질문(출시일·예산) 하나에서 모델이 노트에 없는 연도를 만들어 냈습니다(§13.3). 다음 샘플 변경 때 노트에 연도를 명시할 예정입니다.
-- 언어별 demo 계정 분리·`SamplePack` 통합은 [research 028](../research/028-locale-samples.md)이 제안했고 구현 대기입니다(이 문서의 §0~§16에는 아직 반영하지 않음).
+- 언어별 demo 계정 분리·`SamplePack` 통합은 [research 028](../research/028-locale-samples.md)이 제안했고 9차에서 구현됐습니다(§8.2, [ADR 022](../adr/022-per-locale-demo-accounts-sample-pack.md)). 이 줄은 8차 시점의 기록이라 그대로 둡니다.
+
+### 8.2 9차 배포 후 실제 구성 (`2801184`, 언어별 demo)
+
+§8·§8.1은 그대로 두고, 9차(언어별 demo 계정, [ADR 022](../adr/022-per-locale-demo-accounts-sample-pack.md))의 구성을 덧붙입니다. 샘플과 Ask 질문 예시의 정본은 서버 상수 `SamplePack`(`lib/src/sample/sample_pack.dart`)입니다. 제목은 코드에서 확인했습니다 ✅.
+
+| 계정 | # | 종류 | 제목 | 언어 | 비고 |
+|---|---|---|---|---|---|
+| `demo@pageblink.invalid` (en, 기존 계정 승계) | 1 | 노트 | `PageBlink tour: try it in 5 minutes` | EN | 날짜에 연도 명시 |
+| | 2 | 노트 | `Q4 launch plan` | EN | 날짜에 연도 명시 |
+| | 3 | 노트 | `Weekly sync: week 3 of October` | EN | 날짜에 연도 명시 |
+| | 4 | PDF | `PageBlink guide` | EN→KO 병기 | 두 계정이 공유 |
+| `demo-ko@pageblink.invalid` (ko, 신규) | 1 | 노트 | `PageBlink 둘러보기: 5분이면 충분해요` | KO | 영어 노트와 같은 사실 |
+| | 2 | 노트 | `4분기 출시 계획` | KO | 영어 노트와 같은 사실 |
+| | 3 | 노트 | `주간 회의: 10월 셋째 주` | KO | 영어 노트와 같은 사실 |
+| | 4 | PDF | `PageBlink guide` | EN→KO 병기 | 영어 계정과 공유 |
+
+- 로그인 시 UI 언어로 계정을 고릅니다: `signIn([locale])`, 인자가 없으면 en, ko 계정 생성이 실패하면 en으로 폴백합니다.
+- Ask 질문 예시는 `SamplePack.questions[{text, evidence}]`를 `sampleHints()` API로 내려 줍니다(언어별 4개 ✅). `evidence` 문자열이 본문에 없으면 서버 단위 테스트가 실패합니다. 질문 언어는 샘플 내용 언어를 따릅니다.
+- DB 테이블·마이그레이션은 없습니다. Ask 일일 상한(50회)은 두 계정이 전체 공유합니다. 한도·보호 규칙(§10)은 그대로입니다.
+- 문서 id 대역(라이브 확인): 영 8~13, 한 14~17 ✅.
+- 롤백 주의: 단계 2를 revert하면(⚠️ 단계 정의는 확인 필요) `demo-ko@`로 열려 있던 기존 세션이 한도 없는 계정이 되므로 토큰을 삭제해야 합니다.
 
 ---
 
@@ -485,7 +506,7 @@ sequenceDiagram
 | 2 서버 가드·정리 | ✅ | 서버 `dart test` 48개 통과 |
 | 3 클라이언트 | ✅ | `flutter test` 1,150개 통과. 브라우저 수동 확인은 ⚠️(§12.2) |
 | 4 시드 | ✅ | 샘플 3개(노트 2 + PDF 1) 모두 `ready`, 부팅 2회에도 중복 없음 |
-| 5 배포 | ✅ | 7차 배포, 아래 §13.1 · 8차 후속 배포(샘플 보강) §13.3 |
+| 5 배포 | ✅ | 7차 배포, 아래 §13.1 · 8차 후속 배포(샘플 보강) §13.3 · 9차 후속 배포(언어별 demo) §13.4 |
 
 ### 13.1 배포·라이브 확인 (7차)
 
@@ -541,6 +562,29 @@ scloud deploy --redeploy    # 변수만 바꿔서는 반영되지 않음
 | 6 | Ask 일일 상한 | 질문 6회 후 50 중 **44 남음** |
 
 배포·커밋 절차는 [012 §2](012-session-handoff.md)를 따른다(깨끗한 워크트리 검증 → 무접촉 커밋 → `scloud` 배포).
+
+### 13.4 9차 배포·라이브 확인 (`2801184`, 언어별 demo)
+
+| 항목 | 값 |
+|---|---|
+| 커밋 | `2801184` `feat(app,server): per-locale demo accounts, line-level chunks with two-tier context, U2 citation highlight`, push `92d9835..2801184`, 66개 파일(+7,064/-734) ✅ |
+| 범위 | 이 plan과 관련된 부분은 언어별 demo 계정·`SamplePack`(§8.2). 같은 커밋에 줄 단위 청크([ADR 021](../adr/021-line-level-chunks-two-tier-context.md))와 U2 인용 하이라이트도 들어 있음([devlog 011](../devlog/011-chunk-v2-two-tier-u2-locale-demo.md)) |
+| 빌드 · 롤아웃 | 빌드 133초 · 롤아웃 66초 · **DB 마이그레이션 없음** |
+| 테스트 | 클라이언트 `flutter test` 1,194개(기준선 1,156 + 인용 하이라이트 38), 서버 `dart test` 146개, 두 analyze 이슈 0, `flutter build web --release` 성공 ✅ |
+
+라이브 확인:
+
+| # | 확인 | 결과 |
+|---|---|---|
+| 1 | 영·한 demo 계정의 문서 | ✅ 4개씩 `ready`, 섞이지 않음 (id 영 8~13, 한 14~17) |
+| 2 | 영어 노트 연도 | ✅ `2026` 반영, 옛 노트 정리 |
+| 3 | `sampleHints` | ✅ 언어별 4개 |
+| 4 | 샘플 질문 | ✅ 영어 2개·한국어 2개 인용 정상 (quote 16~47자 줄 단위, `quoteStart` 있음) |
+| 5 | 일반 회귀 | ✅ 정상 |
+| 6 | Ask 일일 상한 | 질문 7회 사용 |
+
+- ⚠️ 한국어 질문 1건에서 모델이 `【3】`(전각 괄호)로 표기해 인용이 0개가 됨 — 10차에서 파서 보강 예정. 8차의 환각 ⚠️(U13)에 대해서는 영어 노트에 연도를 명시했고(§8.2), 재발 여부는 확인 필요.
+- ⚠️ research 028 미확인 항목인 ko 시드 시간·임베딩 비용, 배포 직후 첫 ko 방문자의 색인 지연은 측정한 값을 전달받지 못함(확인 필요).
 
 ---
 
@@ -598,3 +642,4 @@ scloud deploy --redeploy    # 변수만 바꿔서는 반영되지 않음
 | 2026-10-16 09:30 | [research 026](../research/026-demo-account-api-verification.md) 반영: §11 체크리스트 8개 결과 기록, 설계 변경 D1~D6(`ensure()`를 `pod.start()` 뒤로, 플래그를 일반 변수로도 주입, 샘플 보호 4곳, 시드 방식 A, `DemoLimitException`, 샘플 제목 접두 금지), §10을 PM 확정 값으로 갱신, §14 위험 R11~R18 추가(R5·R7·R8 갱신), §13 진행 상태 "서버 구현 중" |
 | 2026-10-16 10:07 | 배포 결과 반영: 상태 "배포 완료(7차, `8445f02`)", §11 U 목록 해소·잔존 구분(U1·U2·U5 해소, U3·U6·U7 잔존, U9~U11 추가), §12.1 테스트 결과·§12.2 수동 확인 체크리스트 11개, §13 진행 상태·§13.1 배포·라이브 확인·§13.2 되돌리기, §16 수용 기준 확인 결과. 설계 본문(§0~§10)은 구현 전 서술 그대로 |
 | 2026-10-16 10:32 | 8차 배포(`c99822f`) 반영: 상태·§0 배포 현황 갱신, §8.1 8차 실제 샘플 구성 표 추가(§8 설계 기록은 보존), §11 U12(교차 언어 검색 ✅ 해소)·U13(생성 환각 ⚠️) 추가, §12.1 8차 테스트 결과, §12.2 샘플 개수 주석, §13 진행 상태·§13.3 8차 배포·라이브 확인 추가. 관련 문서에 research 028 링크 |
+| 2026-10-16 11:53 | 9차 배포(`2801184`, 언어별 demo·ADR 022) 반영: 상태·관련 문서·§0 배포 현황 갱신, §8.2 9차 실제 구성 표 추가(§8·§8.1은 보존), §13 진행 상태 표 5행 갱신·§13.4 9차 배포·라이브 확인 추가 |

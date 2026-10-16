@@ -31,7 +31,7 @@
 | # | 결정 | 상태 |
 |---|---|---|
 | [001](001-offline-retrieval-online-generation.md) | v1 온디바이스 범위: 오프라인 검색 + 온라인 생성 | 채택 |
-| [002](002-embedding-embeddinggemma-768.md) | 임베딩: EmbeddingGemma-300m 768차원 (기기·서버 공용) | 채택 |
+| [002](002-embedding-embeddinggemma-768.md) | 임베딩: EmbeddingGemma-300m 768차원 (기기·서버 공용) | 채택 · 재색인 방식 보완 → 021 |
 | [003](003-pdf-extract-on-client.md) | PDF 텍스트는 앱(pdfrx)에서 추출 | 채택 |
 | [004](004-llm-claude.md) | LLM: Claude Sonnet 5.5 (서버 경유 스트리밍) | 대체됨 → 013 |
 | [005](005-backend-split.md) | 백엔드: Serverpod 메인 + AI 워커/외부 API | 채택 |
@@ -49,4 +49,6 @@
 | [017](017-image-generation-model-guidance.md) | 이미지 생성: 목업은 Nano Banana 2.1, 로고·아이콘 최종본은 손으로 쓴 SVG | 채택 |
 | [018](018-body-font-pretendard-single-family.md) | 본문 폰트를 Pretendard 한 가족으로 통일 (Inter·Noto Sans KR 제거) | 채택 |
 | [019](019-pdf-drag-drop-desktop-drop-shell-web-first.md) | PDF 드래그 앤 드롭: `desktop_drop`, 앱 셸 수준, 웹 우선 | 채택 |
-| [020](020-demo-account-shared-user.md) | 데모 체험: 서버 시작 시 만드는 공유 demo 사용자 + 환경 설정 플래그(`demoEnabled`, 기본 꺼짐) | 채택 |
+| [020](020-demo-account-shared-user.md) | 데모 체험: 서버 시작 시 만드는 공유 demo 사용자 + 환경 설정 플래그(`demoEnabled`, 기본 꺼짐) | 채택 · 후속(언어별 분리) → 022 |
+| [021](021-line-level-chunks-two-tier-context.md) | 줄 단위 청크 + 검색용/맥락용 2단 구조 + 부팅 후 재색인 (`#c2` 표식) | 채택 |
+| [022](022-per-locale-demo-accounts-sample-pack.md) | 언어별 demo 계정 2개(en·ko) + 서버 상수 단일 SamplePack | 채택 (020 후속) |
