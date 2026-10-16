@@ -61,6 +61,7 @@ void main() {
               list: () async => const [],
               reindex: (id) async => throw UnimplementedError(),
               delete: (id) async {},
+              setNoteColor: (id, c) async => throw UnimplementedError(),
             ),
           ),
         ),

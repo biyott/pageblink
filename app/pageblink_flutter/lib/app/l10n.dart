@@ -318,6 +318,26 @@ class L {
   String get deleteFailed =>
       _t("Couldn't delete. Try again.", '삭제하지 못했어요. 다시 시도해 주세요.');
 
+  // Note color.
+  String get noteColor => _t('Color', '색상');
+  String get noteColorAuto => _t('Auto', '자동');
+  String get colorFailed =>
+      _t("Couldn't change the color. Try again.", '색을 바꾸지 못했어요. 다시 시도해 주세요.');
+
+  /// Name of the color `colorIndex` i: 0..4 `Pb.notes`, 5..7 `Pb.notesExtra`,
+  /// 8 rainbow.
+  String noteColorName(int i) => switch (i) {
+    0 => _t('Butter', '버터'),
+    1 => _t('Mint', '민트'),
+    2 => _t('Peach', '피치'),
+    3 => _t('Blue', '블루'),
+    4 => _t('Lilac', '라일락'),
+    5 => _t('Rose', '로즈'),
+    6 => _t('Aqua', '아쿠아'),
+    7 => _t('Lime', '라임'),
+    _ => _t('Rainbow', '무지개'),
+  };
+
   // Storage tiers.
   String get whereToPut => _t('Where should it go?', '어디에 둘까요?');
   String get cloakTitle => _t('Cloak · This device only', 'Cloak · 이 기기에만');

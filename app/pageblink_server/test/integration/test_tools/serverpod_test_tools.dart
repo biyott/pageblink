@@ -1003,6 +1003,41 @@ class _DocumentEndpoint {
     });
   }
 
+  _ida.Future<_iloq337r.Document> setNoteColor(
+    _ist.TestSessionBuilder sessionBuilder,
+    int documentId,
+    int? colorIndex,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'document',
+            method: 'setNoteColor',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'document',
+          methodName: 'setNoteColor',
+          parameters: _ist.testObjectToJson({
+            'documentId': documentId,
+            'colorIndex': colorIndex,
+          }),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iloq337r.Document>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
   _ida.Future<int?> ensureSample(
     _ist.TestSessionBuilder sessionBuilder,
     String locale,

@@ -18,6 +18,8 @@ fields:
   ### Why the last indexing failed (shown in the app, cleared on success).
   lastError: String?
   embeddingModel: String
+  ### Chosen note card color: index into the app palette (0..7 solid, 8 rainbow), null = auto.
+  colorIndex: int?
   createdAt: DateTime
   updatedAt: DateTime
 indexes:

@@ -13,6 +13,7 @@ import '../../app/open_item_controller.dart';
 import '../demo/demo.dart';
 import '../open_item/open_item_view.dart';
 import 'index_status.dart';
+import 'note_color_picker.dart';
 import 'tier_sheet.dart';
 import 'upload_controller.dart';
 import 'upload_service.dart';
@@ -25,17 +26,23 @@ class BoardApi {
     required this.list,
     required this.reindex,
     required this.delete,
+    required this.setNoteColor,
   });
 
   factory BoardApi.live() => BoardApi(
     list: () => client.document.list(),
     reindex: (id) => client.document.reindex(id),
     delete: (id) => client.document.delete(id),
+    setNoteColor: (id, colorIndex) =>
+        client.document.setNoteColor(id, colorIndex),
   );
 
   final Future<List<Document>> Function() list;
   final Future<Document> Function(int id) reindex;
   final Future<void> Function(int id) delete;
+
+  /// null clears the color (automatic).
+  final Future<Document> Function(int id, int? colorIndex) setNoteColor;
 }
 
 /// Keep-style board of notes and PDFs (personal and project).
@@ -216,6 +223,21 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         _demoLimit(l, e);
       } else {
         _snack(l.deleteFailed);
+      }
+    }
+    await _refresh();
+  }
+
+  Future<void> _setNoteColor(Document document, int? colorIndex) async {
+    final l = context.l;
+    try {
+      await _api.setNoteColor(document.id!, colorIndex);
+    } catch (e) {
+      debugPrint('set note color failed: $e');
+      if (e is DemoLimitException) {
+        _demoLimit(l, e);
+      } else {
+        _snack(l.colorFailed);
       }
     }
     await _refresh();
@@ -515,6 +537,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                             : (d.status == 'ready' ? () => _openPdf(d) : null),
                         onLongPress: () => _delete(d),
                         onDelete: () => _delete(d),
+                        onSetColor: (c) => _setNoteColor(d, c),
                         // Any status: also rescues a doc stuck in 'indexing'.
                         // Only this card is locked while it runs.
                         onReindex: busy ? null : () => _reindex(d),
@@ -541,6 +564,88 @@ enum _Filter { all, notes, pdfs, attention }
 /// Latest board contents, shared so the desktop sidebar can show tier counts.
 final documentsNotifier = ValueNotifier<List<Document>>(const []);
 
+enum _CardAction { reindex, color, delete }
+
+/// The card's `⋯` menu. "Color" opens the picker: a bottom sheet on phones, a
+/// popover anchored to the `⋯` button on wider layouts.
+class _CardMenu extends StatefulWidget {
+  const _CardMenu({
+    required this.document,
+    required this.onReindex,
+    required this.onDelete,
+    required this.onSetColor,
+  });
+
+  final Document document;
+  final VoidCallback? onReindex;
+  final VoidCallback? onDelete;
+
+  /// null hides the "Color" entry.
+  final ValueChanged<int?>? onSetColor;
+
+  @override
+  State<_CardMenu> createState() => _CardMenuState();
+}
+
+class _CardMenuState extends State<_CardMenu> {
+  final _popover = MenuController();
+
+  void _color() {
+    final pick = widget.onSetColor!;
+    if (MediaQuery.sizeOf(context).width < noteColorSheetBreakpoint) {
+      showNoteColorSheet(context, widget.document.colorIndex, pick);
+    } else {
+      _popover.open();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l;
+    final pb = context.pb;
+    return MenuAnchor(
+      controller: _popover,
+      style: noteColorMenuStyle(pb),
+      menuChildren: [
+        NoteColorPopover(
+          current: widget.document.colorIndex,
+          onPick: (c) => widget.onSetColor?.call(c),
+        ),
+      ],
+      child: PopupMenuButton<_CardAction>(
+        tooltip: l.moreActions,
+        icon: Icon(AppIcons.more, size: 18, color: pb.inkMuted),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        onSelected: (action) {
+          switch (action) {
+            case _CardAction.reindex:
+              widget.onReindex?.call();
+            case _CardAction.color:
+              _color();
+            case _CardAction.delete:
+              widget.onDelete?.call();
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: _CardAction.reindex,
+            enabled: widget.onReindex != null,
+            child: Text(l.reindex),
+          ),
+          if (widget.onSetColor != null)
+            PopupMenuItem(value: _CardAction.color, child: Text(l.noteColor)),
+          PopupMenuItem(
+            value: _CardAction.delete,
+            enabled: widget.onDelete != null,
+            child: Text(l.delete),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 @visibleForTesting
 class DocumentCard extends StatelessWidget {
   const DocumentCard(
@@ -552,6 +657,7 @@ class DocumentCard extends StatelessWidget {
     this.onRetry,
     this.onReindex,
     this.onDelete,
+    this.onSetColor,
     this.reindexing = false,
     this.highlight = false,
     this.now,
@@ -569,6 +675,10 @@ class DocumentCard extends StatelessWidget {
   final VoidCallback? onReindex;
   final VoidCallback? onDelete;
 
+  /// Menu entry "Color" (notes only); null hides it. Called with the picked
+  /// color index, or null for Auto.
+  final ValueChanged<int?>? onSetColor;
+
   /// A re-index of this card is running: "Re-indexing", no link.
   final bool reindexing;
 
@@ -577,6 +687,15 @@ class DocumentCard extends StatelessWidget {
 
   /// Clock for the indexing wording phases; tests replace it.
   final DateTime Function()? now;
+
+  /// Paints [gradient] under the ink so splashes stay visible; the card's
+  /// flat color shows through when there is none.
+  static Widget _gradient(Gradient? gradient, Widget child) => gradient == null
+      ? child
+      : Ink(
+          decoration: BoxDecoration(gradient: gradient),
+          child: child,
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -619,125 +738,116 @@ class DocumentCard extends StatelessWidget {
     } else {
       body = const SizedBox.shrink();
     }
+    final gradient = isNote ? pb.noteGradient(document.colorIndex) : null;
     final card = Card(
       clipBehavior: Clip.antiAlias,
       // The card keeps its own color in every state (§2.1).
-      color: isNote ? pb.noteColor(document.id) : pb.pdfPaper,
+      color: !isNote
+          ? pb.pdfPaper
+          : gradient != null
+          ? Colors.transparent
+          : pb.noteColor(document.id, colorIndex: document.colorIndex),
       shadowColor: pb.ink.withValues(alpha: 0.06),
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: pb.ink.withValues(alpha: 0.10)),
       ),
-      child: InkWell(
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: pb.tile,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      isNote ? AppIcons.note : AppIcons.pdf,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      meta,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontSize: 12,
-                        color: pb.inkMuted,
+      child: _gradient(
+        gradient,
+        InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: pb.tile,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        isNote ? AppIcons.note : AppIcons.pdf,
+                        size: 18,
                       ),
                     ),
-                  ),
-                  PopupMenuButton<bool>(
-                    tooltip: l.moreActions,
-                    icon: Icon(AppIcons.more, size: 18, color: pb.inkMuted),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 40,
-                      minHeight: 40,
-                    ),
-                    onSelected: (reindex) =>
-                        (reindex ? onReindex : onDelete)?.call(),
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: true,
-                        enabled: onReindex != null,
-                        child: Text(l.reindex),
-                      ),
-                      PopupMenuItem(
-                        value: false,
-                        enabled: onDelete != null,
-                        child: Text(l.delete),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                document.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Expanded(child: body),
-              if (line != null)
-                _StatusLine(
-                  document: document,
-                  reindexing: reindexing,
-                  showReasonTip: isNote,
-                  onRetry: onRetry,
-                  now: now,
-                ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: pb.chipBg,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(tierIcon, size: 14),
-                        const SizedBox(width: 4),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 110),
-                          child: Text(
-                            tier,
-                            style: theme.textTheme.labelSmall,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          color: pb.inkMuted,
                         ),
-                      ],
+                      ),
                     ),
+                    _CardMenu(
+                      document: document,
+                      onReindex: onReindex,
+                      onDelete: onDelete,
+                      onSetColor: isNote ? onSetColor : null,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  document.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
-            ],
+                ),
+                const SizedBox(height: 6),
+                Expanded(child: body),
+                if (line != null)
+                  _StatusLine(
+                    document: document,
+                    reindexing: reindexing,
+                    showReasonTip: isNote,
+                    onRetry: onRetry,
+                    now: now,
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: pb.chipBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(tierIcon, size: 14),
+                          const SizedBox(width: 4),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 110),
+                            child: Text(
+                              tier,
+                              style: theme.textTheme.labelSmall,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

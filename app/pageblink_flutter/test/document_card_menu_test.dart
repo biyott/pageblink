@@ -142,8 +142,11 @@ void main() {
     expect(find.widgetWithText(TextButton, 'Retry'), findsNothing);
     await t.tap(find.byIcon(AppIcons.more));
     await t.pump(const Duration(milliseconds: 300));
-    final item = t.widget<PopupMenuItem<bool>>(
-      find.widgetWithText(PopupMenuItem<bool>, 'Re-index'),
+    final item = t.widget<PopupMenuItem<dynamic>>(
+      find.ancestor(
+        of: find.text('Re-index'),
+        matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+      ),
     );
     expect(item.enabled, isFalse);
   });
@@ -151,8 +154,11 @@ void main() {
   testWidgets('busy (no onReindex): menu item is disabled', (t) async {
     await _pump(t, 'ready', onReindex: null);
     await _openMenu(t);
-    final item = t.widget<PopupMenuItem<bool>>(
-      find.widgetWithText(PopupMenuItem<bool>, 'Re-index'),
+    final item = t.widget<PopupMenuItem<dynamic>>(
+      find.ancestor(
+        of: find.text('Re-index'),
+        matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+      ),
     );
     expect(item.enabled, isFalse);
   });

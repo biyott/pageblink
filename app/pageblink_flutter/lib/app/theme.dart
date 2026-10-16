@@ -23,6 +23,9 @@ class Pb extends ThemeExtension<Pb> {
     required this.onAccentContainer,
     required this.accentGradient,
     required this.notes,
+    required this.notesExtra,
+    required this.noteRainbow,
+    required this.noteRainbowFlat,
     required this.pdfPaper,
     required this.warn,
     required this.warnContainer,
@@ -56,7 +59,19 @@ class Pb extends ThemeExtension<Pb> {
   final Color ink, inkMuted, hairline;
   final Color accentContainer, onAccentContainer;
   final List<Color> accentGradient;
+
+  /// Automatic note colors (cycled by id). Stays at five so notes that were
+  /// colored automatically before the extra colors existed keep their color.
   final List<Color> notes;
+
+  /// Hand-picked only, `colorIndex` 5..7 (rose, aqua, lime).
+  final List<Color> notesExtra;
+
+  /// Six evenly spaced stops of the rainbow card gradient (`colorIndex` 8).
+  final List<Color> noteRainbow;
+
+  /// Plain-color stand-in for the rainbow where a gradient cannot be drawn.
+  final Color noteRainbowFlat;
   final Color pdfPaper, warn, warnContainer, warnBorder;
   final Color tile, thumbBg, warnTint, chipBg, scrim, sheet, success, accent;
 
@@ -102,6 +117,16 @@ class Pb extends ThemeExtension<Pb> {
       Color(0xFFD6E8F8),
       Color(0xFFE9E3FC),
     ],
+    notesExtra: [Color(0xFFFFD7E9), Color(0xFFBDEDF2), Color(0xFFE4F0C5)],
+    noteRainbow: [
+      Color(0xFFFFD7E9),
+      Color(0xFFFFDCCB),
+      Color(0xFFFFF1B8),
+      Color(0xFFD9F0E1),
+      Color(0xFFD6E8F8),
+      Color(0xFFE9E3FC),
+    ],
+    noteRainbowFlat: Color(0xFFF4DEF2),
     pdfPaper: Colors.white,
     warn: Color(0xFFB45309),
     warnContainer: Color(0xFFFEF3C7),
@@ -155,6 +180,16 @@ class Pb extends ThemeExtension<Pb> {
       Color(0xFF22364A),
       Color(0xFF342C58),
     ],
+    notesExtra: [Color(0xFF472737), Color(0xFF073338), Color(0xFF333813)],
+    noteRainbow: [
+      Color(0xFF472737),
+      Color(0xFF47302A),
+      Color(0xFF463E22),
+      Color(0xFF223A2E),
+      Color(0xFF22364A),
+      Color(0xFF342C58),
+    ],
+    noteRainbowFlat: Color(0xFF452F43),
     pdfPaper: Color(0xFF2A2620),
     warn: Color(0xFFFBBF24),
     warnContainer: Color(0xFF3A2A0A),
@@ -186,8 +221,33 @@ class Pb extends ThemeExtension<Pb> {
     selection: Color(0x3D9FB4D6),
   );
 
-  /// Stable pastel per note so cards keep their color between refreshes.
-  Color noteColor(int? id) => notes[(id ?? 0) % notes.length];
+  /// `Document.colorIndex` of the rainbow gradient (server: noteColorCount 9).
+  static const rainbowIndex = 8;
+
+  /// Card color: the chosen [colorIndex] (0..4 [notes], 5..7 [notesExtra])
+  /// wins, else a stable pastel per note. The rainbow and unknown values fall
+  /// back as follows: rainbow -> [noteRainbowFlat] (use [noteGradient] where a
+  /// gradient can be drawn), unknown -> automatic.
+  Color noteColor(int? id, {int? colorIndex}) {
+    final c = colorIndex;
+    if (c == rainbowIndex) return noteRainbowFlat;
+    if (c != null && c >= 0 && c < notes.length + notesExtra.length) {
+      return c < notes.length ? notes[c] : notesExtra[c - notes.length];
+    }
+    return notes[(id ?? 0) % notes.length];
+  }
+
+  /// The rainbow card gradient for [colorIndex], null for any other value.
+  Gradient? noteGradient(int? colorIndex) => colorIndex == rainbowIndex
+      ? LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: noteRainbow,
+        )
+      : null;
+
+  /// Boundary of a control (3:1 on the sheet): ink at 50%.
+  Color get controlEdge => ink.withValues(alpha: 0.5);
 
   @override
   Pb copyWith() => this;

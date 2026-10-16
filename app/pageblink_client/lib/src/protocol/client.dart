@@ -479,6 +479,20 @@ class EndpointDocument extends _isc.EndpointRef {
     },
   );
 
+  /// Sets (or clears with null) a note's card color. Metadata only: no
+  /// re-index, and `updatedAt`/`version`/`status` stay as they are.
+  _ida.Future<_ix72owx0.Document> setNoteColor(
+    int documentId,
+    int? colorIndex,
+  ) => caller.callServerEndpoint<_ix72owx0.Document>(
+    'document',
+    'setNoteColor',
+    {
+      'documentId': documentId,
+      'colorIndex': colorIndex,
+    },
+  );
+
   /// Localizes and indexes the sign-up sample note once (research 021 §A).
   /// Returns its id, or null when there is nothing to do (already handled,
   /// edited, deleted). Safe to call on every app start and from two tabs.

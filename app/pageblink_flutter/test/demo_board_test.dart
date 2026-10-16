@@ -81,6 +81,7 @@ void main() {
         list: () async => [_doc(1, 'ready')],
         reindex: (id) async => _doc(id, 'ready'),
         delete: (id) async {},
+        setNoteColor: (id, c) async => throw UnimplementedError(),
       ),
     );
 
@@ -104,6 +105,7 @@ void main() {
         list: () async => [_doc(1, 'ready')],
         reindex: (id) async => _doc(id, 'ready'),
         delete: (id) async {},
+        setNoteColor: (id, c) async => throw UnimplementedError(),
       ),
     );
     await t.tap(find.text('Upload PDF'));
@@ -121,6 +123,7 @@ void main() {
         reindex: (id) async =>
             throw DemoLimitException(reason: DemoLimitReason.sampleLocked),
         delete: (id) async {},
+        setNoteColor: (id, c) async => throw UnimplementedError(),
       ),
     );
     await t.tap(find.widgetWithText(TextButton, 'Retry').first);

@@ -614,6 +614,31 @@ class Endpoints extends _is.EndpointDispatch {
                     params['projectId'],
                   ),
         ),
+        'setNoteColor': _is.MethodConnector(
+          name: 'setNoteColor',
+          params: {
+            'documentId': _is.ParameterDescription(
+              name: 'documentId',
+              type: _is.getType<int>(),
+              nullable: false,
+            ),
+            'colorIndex': _is.ParameterDescription(
+              name: 'colorIndex',
+              type: _is.getType<int?>(),
+              nullable: true,
+            ),
+          },
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['document'] as _iw2avhc4.DocumentEndpoint)
+                  .setNoteColor(
+                    session,
+                    params['documentId'],
+                    params['colorIndex'],
+                  ),
+        ),
         'ensureSample': _is.MethodConnector(
           name: 'ensureSample',
           params: {

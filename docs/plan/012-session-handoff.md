@@ -1,6 +1,6 @@
 # 🤝 세션 인수인계 — 작업 방식·하네스·현재 상태
 
-> **작성일**: 2026-10-15 16:00 KST · **최종 수정**: 2026-10-16 11:53 KST
+> **작성일**: 2026-10-15 16:00 KST · **최종 수정**: 2026-10-16 15:11 KST
 > **관련 문서**: [검색 컬럼 계획 (010)](010-pdf-search-column.md) · [폼 입력란 폴백 (011)](011-pdf-form-field-fallback.md) · [후속 기능 명세 (005)](005-follow-up-spec.md) · [기술 스택 (003)](003-tech-stack-and-prep.md) · [UI polish 명세](../design/ui-polish/spec.md) · [research 025 (PDF 업로드)](../research/025-pdf-drag-drop-upload.md) · [ADR 019](../adr/019-pdf-drag-drop-desktop-drop-shell-web-first.md) · [`AGENTS.md`](../../AGENTS.md) · [`CLAUDE.md`](../../CLAUDE.md) · [`app/AGENTS.md`](../../app/AGENTS.md)
 > **표기**: ✅ 확인 · ⚠️ 미확인/확인 필요
 > **용도**: 새 세션이 **이 문서만 읽고** 이어서 작업할 수 있게 한 인수인계 문서입니다. 상태 값은 작성 시점(위 KST) 스냅샷이므로, 시작할 때 §6 점검 명령으로 다시 확인하세요.
@@ -154,7 +154,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 | # | 항목 | 상태 | 세부 |
 |---|---|---|---|
 | ① | **NFC 수정 검증 → 커밋 → 배포** | ✅ 완료·사용자 확인됨 (`5a2b7d9`, 6차 배포) | 아래 §3-1 |
-| ② | **노트별 색 변경 + 상단 고정** | 미착수 | 아래 §3-2 |
+| ② | **노트별 색 변경 + 상단 고정** | 색 변경 ✅ 구현(로컬 커밋, 미배포 · [note-color/spec.md](../design/note-color/spec.md)) · 상단 고정 미착수 | 아래 §3-2 |
 | ③ | **PDF·노트 검색 컬럼** | 계획 | [010](010-pdf-search-column.md) |
 | ④ | **폼 입력란 PDF 폴백 (P3)** | 계획 | [011](011-pdf-form-field-fallback.md) |
 | ⑤ | **UI polish 잔여** (코드 감사 결과는 [013](013-ui-polish-status.md)) — ✅ UP-01 · 🟡 UP-02·06·16·18 · ⬜ UP-03·04·05·08·09·10·11·12·13·14·15·17·19·20·21 · ⛔ UP-07(재색인 UX로 대체)·UP-22(클라이언트 결정 대기) | 부분 진행 (이전의 "UP-03/04/05/08/09/10/11 미착수"는 불완전한 기억 기반 목록이었음) | [013 현황·실행 순서](013-ui-polish-status.md) · [spec.md](../design/ui-polish/spec.md) |

@@ -38,6 +38,7 @@ class _Server {
   BoardApi get api => BoardApi(
     list: () async => List.of(docs),
     delete: (id) async {},
+    setNoteColor: (id, c) async => throw UnimplementedError(),
     reindex: (id) async {
       calls.add(id);
       await (gates[id] ??= Completer<void>()).future;
@@ -183,6 +184,7 @@ void main() {
     final api = BoardApi(
       list: () async => List.of(s.docs),
       delete: (id) async {},
+      setNoteColor: (id, c) async => throw UnimplementedError(),
       reindex: (id) async => throw StateError('embedding timeout 504 secret'),
     );
     t.view.physicalSize = const Size(1280, 900);

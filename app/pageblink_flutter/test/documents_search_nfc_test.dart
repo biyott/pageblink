@@ -48,6 +48,7 @@ void main() {
           boardApi: BoardApi(
             list: () async => docs,
             delete: (id) async {},
+            setNoteColor: (id, c) async => throw UnimplementedError(),
             reindex: (id) async => docs.first,
           ),
           pickPdfs: () async => const [],

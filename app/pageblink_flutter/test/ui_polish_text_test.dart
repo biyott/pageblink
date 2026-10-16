@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,22 @@ double contrast(Color a, Color b) {
 
 /// [top] (with its alpha) over opaque [bottom].
 Color over(Color top, Color bottom) => Color.alphaBlend(top, bottom);
+
+/// Every surface a note's text can sit on: the 5 auto colors, the extra
+/// solids, the rainbow stops, its flat stand-in, and 600 points along the
+/// rainbow path (the gradient is 1-D, so these cover every pixel).
+Map<String, Color> noteSurfaces(Pb pb) => {
+  for (var i = 0; i < pb.notes.length; i++) 'note$i': pb.notes[i],
+  for (var i = 0; i < pb.notesExtra.length; i++) 'extra$i': pb.notesExtra[i],
+  for (var i = 0; i < pb.noteRainbow.length; i++) 'stop$i': pb.noteRainbow[i],
+  'rainbowFlat': pb.noteRainbowFlat,
+  for (var n = 0; n <= 600; n++)
+    'path$n': () {
+      final x = n / 600 * (pb.noteRainbow.length - 1);
+      final i = math.min(x.floor(), pb.noteRainbow.length - 2);
+      return Color.lerp(pb.noteRainbow[i], pb.noteRainbow[i + 1], x - i)!;
+    }(),
+};
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -50,7 +67,7 @@ void main() {
           final surfaces = {
             'glass': over(pb.glass, bg),
             'glassStrong': over(pb.glassStrong, bg),
-            for (var i = 0; i < pb.notes.length; i++) 'note$i': pb.notes[i],
+            ...noteSurfaces(pb),
           };
           for (final e in surfaces.entries) {
             expect(
@@ -66,6 +83,56 @@ void main() {
           }
         });
       }
+
+      test('warnText and linkInk >= 4.5:1 on every note surface', () {
+        for (final (name, pb) in [('light', Pb.light), ('dark', Pb.dark)]) {
+          for (final e in noteSurfaces(pb).entries) {
+            for (final (what, c) in [
+              ('warnText', pb.warnText),
+              ('linkInk', pb.linkInk),
+            ]) {
+              expect(
+                contrast(c, e.value),
+                greaterThanOrEqualTo(4.5),
+                reason: '$name $what on ${e.key}',
+              );
+            }
+          }
+        }
+      });
+
+      test(
+        'rainbow worst case matches docs/design/note-color/spec.md §4.2',
+        () {
+          double worst(Pb pb, Color text) => noteSurfaces(pb).entries
+              .where((e) => e.key.startsWith('path'))
+              .map((e) => contrast(text, e.value))
+              .reduce(math.min);
+          // light: ink 13.14, inkMuted 5.78 · dark: ink 9.12, inkMuted 4.79
+          expect(worst(Pb.light, Pb.light.ink), closeTo(13.14, 0.05));
+          expect(worst(Pb.light, Pb.light.inkMuted), closeTo(5.78, 0.05));
+          expect(worst(Pb.dark, Pb.dark.ink), closeTo(9.12, 0.05));
+          expect(worst(Pb.dark, Pb.dark.inkMuted), closeTo(4.79, 0.05));
+        },
+      );
+
+      test('new solids and rainbow stops are the spec values', () {
+        expect(Pb.light.notesExtra, const [
+          Color(0xFFFFD7E9),
+          Color(0xFFBDEDF2),
+          Color(0xFFE4F0C5),
+        ]);
+        expect(Pb.dark.notesExtra, const [
+          Color(0xFF472737),
+          Color(0xFF073338),
+          Color(0xFF333813),
+        ]);
+        expect(Pb.light.noteRainbow, hasLength(6));
+        expect(Pb.dark.noteRainbow, hasLength(6));
+        expect(Pb.light.noteRainbowFlat, const Color(0xFFF4DEF2));
+        expect(Pb.dark.noteRainbowFlat, const Color(0xFF452F43));
+        expect(Pb.light.notes, hasLength(5)); // auto colors stay five
+      });
 
       test('spec values', () {
         expect(Pb.light.inkMuted, const Color(0xFF5C5348));

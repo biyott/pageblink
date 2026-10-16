@@ -15,6 +15,10 @@ import '../services/index_config.dart';
 import '../services/document_cleanup.dart';
 import '../services/rag_services.dart';
 
+/// Valid `colorIndex` is 0..noteColorCount-1: the 8 solid colors of `Pb.notes`
+/// plus 8 = rainbow gradient (app side). Keep in sync with the app.
+const noteColorCount = 9;
+
 /// A document stuck in `indexing` longer than this lost its request (restart,
 /// rollout, gateway kill). Normal indexing takes seconds: <= ~19 batches of
 /// 32 chunks for a 512 KiB upload, each capped at [embeddingRequestTimeout].
@@ -186,6 +190,30 @@ class DocumentEndpoint extends Endpoint {
       );
     }
     return _index(session, document, [PageText(page: 1, text: body)]);
+  }
+
+  /// Sets (or clears with null) a note's card color. Metadata only: no
+  /// re-index, and `updatedAt`/`version`/`status` stay as they are.
+  Future<Document> setNoteColor(
+    Session session,
+    int documentId,
+    int? colorIndex,
+  ) async {
+    final userId = Acl.requireUser(session);
+    if (colorIndex != null &&
+        (colorIndex < 0 || colorIndex >= noteColorCount)) {
+      throw ArgumentError('Invalid color');
+    }
+    final document = await Document.db.findById(session, documentId);
+    if (document == null || document.kind != 'note') {
+      throw ArgumentError('Note not found');
+    }
+    await _requireWrite(session, userId, document);
+    return Document.db.updateRow(
+      session,
+      document.copyWith(colorIndex: colorIndex),
+      columns: (t) => [t.colorIndex],
+    );
   }
 
   /// Localizes and indexes the sign-up sample note once (research 021 §A).

@@ -29,6 +29,7 @@ abstract class Document
     required this.status,
     this.lastError,
     required this.embeddingModel,
+    this.colorIndex,
     required this.createdAt,
     required this.updatedAt,
   }) : kind = kind ?? 'pdf';
@@ -47,6 +48,7 @@ abstract class Document
     required String status,
     String? lastError,
     required String embeddingModel,
+    int? colorIndex,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _DocumentImpl;
@@ -68,6 +70,7 @@ abstract class Document
       status: jsonSerialization['status'] as String,
       lastError: jsonSerialization['lastError'] as String?,
       embeddingModel: jsonSerialization['embeddingModel'] as String,
+      colorIndex: jsonSerialization['colorIndex'] as int?,
       createdAt: _is.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -112,6 +115,9 @@ abstract class Document
 
   String embeddingModel;
 
+  /// Chosen note card color: index into the app palette (0..7 solid, 8 rainbow), null = auto.
+  int? colorIndex;
+
   DateTime createdAt;
 
   DateTime updatedAt;
@@ -136,6 +142,7 @@ abstract class Document
     String? status,
     String? lastError,
     String? embeddingModel,
+    int? colorIndex,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -156,6 +163,7 @@ abstract class Document
       'status': status,
       if (lastError != null) 'lastError': lastError,
       'embeddingModel': embeddingModel,
+      if (colorIndex != null) 'colorIndex': colorIndex,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
     };
@@ -178,6 +186,7 @@ abstract class Document
       'status': status,
       if (lastError != null) 'lastError': lastError,
       'embeddingModel': embeddingModel,
+      if (colorIndex != null) 'colorIndex': colorIndex,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
     };
@@ -228,6 +237,7 @@ class _DocumentImpl extends Document {
     required String status,
     String? lastError,
     required String embeddingModel,
+    int? colorIndex,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) : super._(
@@ -244,6 +254,7 @@ class _DocumentImpl extends Document {
          status: status,
          lastError: lastError,
          embeddingModel: embeddingModel,
+         colorIndex: colorIndex,
          createdAt: createdAt,
          updatedAt: updatedAt,
        );
@@ -266,6 +277,7 @@ class _DocumentImpl extends Document {
     String? status,
     Object? lastError = _Undefined,
     String? embeddingModel,
+    Object? colorIndex = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -283,6 +295,7 @@ class _DocumentImpl extends Document {
       status: status ?? this.status,
       lastError: lastError is String? ? lastError : this.lastError,
       embeddingModel: embeddingModel ?? this.embeddingModel,
+      colorIndex: colorIndex is int? ? colorIndex : this.colorIndex,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -354,6 +367,11 @@ class DocumentUpdateTable extends _is.UpdateTable<DocumentTable> {
         value,
       );
 
+  _is.ColumnValue<int, int> colorIndex(int? value) => _is.ColumnValue(
+    table.colorIndex,
+    value,
+  );
+
   _is.ColumnValue<DateTime, DateTime> createdAt(DateTime value) =>
       _is.ColumnValue(
         table.createdAt,
@@ -419,6 +437,10 @@ class DocumentTable extends _is.Table<int?> {
       'embeddingModel',
       this,
     );
+    colorIndex = _is.ColumnInt(
+      'colorIndex',
+      this,
+    );
     createdAt = _is.ColumnDateTime(
       'createdAt',
       this,
@@ -459,6 +481,9 @@ class DocumentTable extends _is.Table<int?> {
 
   late final _is.ColumnString embeddingModel;
 
+  /// Chosen note card color: index into the app palette (0..7 solid, 8 rainbow), null = auto.
+  late final _is.ColumnInt colorIndex;
+
   late final _is.ColumnDateTime createdAt;
 
   late final _is.ColumnDateTime updatedAt;
@@ -478,6 +503,7 @@ class DocumentTable extends _is.Table<int?> {
     status,
     lastError,
     embeddingModel,
+    colorIndex,
     createdAt,
     updatedAt,
   ];

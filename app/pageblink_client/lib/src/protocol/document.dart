@@ -29,6 +29,7 @@ abstract class Document
     required this.status,
     this.lastError,
     required this.embeddingModel,
+    this.colorIndex,
     required this.createdAt,
     required this.updatedAt,
   }) : kind = kind ?? 'pdf';
@@ -47,6 +48,7 @@ abstract class Document
     required String status,
     String? lastError,
     required String embeddingModel,
+    int? colorIndex,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _DocumentImpl;
@@ -68,6 +70,7 @@ abstract class Document
       status: jsonSerialization['status'] as String,
       lastError: jsonSerialization['lastError'] as String?,
       embeddingModel: jsonSerialization['embeddingModel'] as String,
+      colorIndex: jsonSerialization['colorIndex'] as int?,
       createdAt: _isc.DateTimeJsonExtension.fromJson(
         jsonSerialization['createdAt'],
       ),
@@ -110,6 +113,9 @@ abstract class Document
 
   String embeddingModel;
 
+  /// Chosen note card color: index into the app palette (0..7 solid, 8 rainbow), null = auto.
+  int? colorIndex;
+
   DateTime createdAt;
 
   DateTime updatedAt;
@@ -131,6 +137,7 @@ abstract class Document
     String? status,
     String? lastError,
     String? embeddingModel,
+    int? colorIndex,
     DateTime? createdAt,
     DateTime? updatedAt,
   });
@@ -151,6 +158,7 @@ abstract class Document
       'status': status,
       if (lastError != null) 'lastError': lastError,
       'embeddingModel': embeddingModel,
+      if (colorIndex != null) 'colorIndex': colorIndex,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
     };
@@ -173,6 +181,7 @@ abstract class Document
       'status': status,
       if (lastError != null) 'lastError': lastError,
       'embeddingModel': embeddingModel,
+      if (colorIndex != null) 'colorIndex': colorIndex,
       'createdAt': createdAt.toJson(),
       'updatedAt': updatedAt.toJson(),
     };
@@ -201,6 +210,7 @@ class _DocumentImpl extends Document {
     required String status,
     String? lastError,
     required String embeddingModel,
+    int? colorIndex,
     required DateTime createdAt,
     required DateTime updatedAt,
   }) : super._(
@@ -217,6 +227,7 @@ class _DocumentImpl extends Document {
          status: status,
          lastError: lastError,
          embeddingModel: embeddingModel,
+         colorIndex: colorIndex,
          createdAt: createdAt,
          updatedAt: updatedAt,
        );
@@ -239,6 +250,7 @@ class _DocumentImpl extends Document {
     String? status,
     Object? lastError = _Undefined,
     String? embeddingModel,
+    Object? colorIndex = _Undefined,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -256,6 +268,7 @@ class _DocumentImpl extends Document {
       status: status ?? this.status,
       lastError: lastError is String? ? lastError : this.lastError,
       embeddingModel: embeddingModel ?? this.embeddingModel,
+      colorIndex: colorIndex is int? ? colorIndex : this.colorIndex,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
