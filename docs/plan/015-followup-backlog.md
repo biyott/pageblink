@@ -326,3 +326,4 @@ PATH="$HOME/Library/Application Support/Dart/install/bin:$PATH" scloud --non-int
 - `2026-10-16 16:22` 최초 작성 (후속 개선 11개 항목, 작업 방식, 진행 순서)
 - `2026-10-16 16:53` 16차 반영: 2-1 · 2-2 · 2-5 · 2-7 완료 표시(16차 배포 성공 17:01), 2-8 i 잔여(Ask 카드 · 인용 하이라이트 위 `inkMuted`) 메모, 2-10의 1 · 3 · 4 · 5번 확인 결과 반영(2 · 6번은 그대로)
 - `2026-10-16 17:20` 17차 반영: 노트 색 즉시 반영 · 관리자 대화 기록 불투명 프레임 완료 표시(배포 `e262e7a4-4a4b-4339-a723-c5d9ca52da4f`, 성공 17:24)
+- `2026-10-16 17:30` 문서 추가(코드 변경 없음): 로고 클릭 이펙트 조사 [research 035](../research/035-logo-click-effect-references.md), 기획 [design/logo-click-effect/spec.md](../design/logo-click-effect/spec.md) (제안, 소유자 선택 대기)
