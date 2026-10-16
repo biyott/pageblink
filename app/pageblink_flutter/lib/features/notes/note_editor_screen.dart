@@ -14,9 +14,11 @@ import '../../app/confirm_dialog.dart';
 import '../../app/l10n.dart';
 import '../../app/open_item_controller.dart';
 import '../../app/pane_header.dart';
+import '../../app/pb_interactive.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
 import '../demo/demo.dart';
+import '../documents/note_color_picker.dart';
 import '../viewer/cite_bar.dart';
 import 'cite_layer.dart';
 import 'link_popover.dart';
@@ -24,6 +26,9 @@ import 'live_check_layer.dart';
 import 'live_code_layer.dart';
 import 'markdown_live.dart';
 import 'selection_mini_bar.dart';
+
+/// The header "..." menu, in this order.
+enum _NoteAction { reindex, color, delete }
 
 /// Body column width cap (018): keeps lines readable on wide windows.
 const noteColumnWidth = 680.0;
@@ -365,6 +370,14 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   late Document? _doc = widget.note;
   bool _saving = false; // saving or re-indexing (one spinner)
 
+  // Note color (`colorIndex`, null = auto). The dot shows [_colorIndex]; a pick
+  // made while saving/deleting, or before the first save, waits in [_pendingColor]
+  // and is sent when the save is done.
+  late int? _colorIndex = widget.note?.colorIndex;
+  ({int? index})? _pendingColor;
+  final _colorMenu = MenuController();
+  bool _colorSheetOpen = false;
+
   // Checkbox layer: item under the mouse (hover outline, click cursor), and
   // the field's render object (looked up once, then reused while mounted).
   final _hover = ValueNotifier<int?>(null);
@@ -543,7 +556,13 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       _savedTitle = _title.text;
       _savedBody = _body.text;
       boardRefresh.value++;
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          if (_pendingColor == null) _colorIndex = saved.colorIndex;
+        });
+      }
+      unawaited(_applyPendingColor());
       return true;
     } catch (e) {
       if (mounted) setState(() => _saving = false);
@@ -596,7 +615,128 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+      unawaited(_applyPendingColor());
     }
+  }
+
+  /// What the picker should mark: a waiting pick wins over the dot.
+  int? get _pickedColor =>
+      _pendingColor != null ? _pendingColor!.index : _colorIndex;
+
+  /// Opens the picker: a sheet on phones, else the popover of the color button.
+  void _openColor() {
+    final current = _pickedColor;
+    if (MediaQuery.sizeOf(context).width < noteColorSheetBreakpoint) {
+      _colorSheetOpen = true;
+      showNoteColorSheet(
+        context,
+        current,
+        _pickColor,
+      ).whenComplete(() => _colorSheetOpen = false);
+    } else {
+      showNoteColor(context, _colorMenu, current, _pickColor);
+    }
+  }
+
+  /// A swatch was tapped. Saved and idle: sent at once (it does not touch
+  /// `updatedAt`/`version`, so the note stays "unchanged"). Otherwise it waits
+  /// for the save; a new note keeps its auto look until then.
+  void _pickColor(int? c) {
+    final id = _id;
+    if (_deleted) return;
+    if (id == null || _saving || _deleting) {
+      setState(() {
+        _pendingColor = (index: c);
+        if (id != null) _colorIndex = c;
+      });
+      return;
+    }
+    setState(() => _colorIndex = c);
+    unawaited(_sendColor(id, c));
+  }
+
+  Future<void> _applyPendingColor() async {
+    final p = _pendingColor;
+    final id = _id;
+    if (p == null || id == null || _saving || _deleting || _deleted) return;
+    _pendingColor = null;
+    if (mounted) setState(() => _colorIndex = p.index);
+    await _sendColor(id, p.index);
+  }
+
+  Future<void> _sendColor(int id, int? c) async {
+    final l = context.l;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final d = await client.document.setNoteColor(id, c);
+      _doc = d;
+      boardRefresh.value++;
+      if (mounted && _pendingColor == null) {
+        setState(() => _colorIndex = d.colorIndex);
+      }
+    } catch (e) {
+      debugPrint('set note color failed: $e');
+      if (mounted) {
+        setState(() => _colorIndex = _doc?.colorIndex);
+        _colorMenu.close();
+        if (_colorSheetOpen) Navigator.of(context, rootNavigator: true).pop();
+      }
+      if (e is DemoLimitException) {
+        showDemoLimit(messenger, l, e);
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text(l.colorFailed)));
+      }
+    }
+  }
+
+  /// The color button: dot + chevron on the right of the title's first line.
+  Widget _colorButton(BuildContext context, double gutter, double top) {
+    final l = context.l;
+    final pb = context.pb;
+    final id = _id;
+    final i = _colorIndex;
+    final label = i != null
+        ? l.noteColorOf(l.noteColorName(i))
+        : id == null
+        ? l.noteColorOf(l.noteColorAuto)
+        : l.noteColorAutoOf(l.noteColorName(id % pb.notes.length));
+    return Positioned(
+      right: gutter - 3,
+      top: top,
+      child: MenuAnchor(
+        controller: _colorMenu,
+        style: noteColorMenuStyle(pb),
+        alignmentOffset: noteColorAnchorOffset,
+        menuChildren: [
+          NoteColorPopover(current: _pickedColor, onPick: _pickColor),
+        ],
+        child: Tooltip(
+          message: l.noteColor,
+          child: PbInteractive(
+            label: label,
+            onTap: _openColor,
+            builder: (context, states) => Container(
+              key: const ValueKey('note-color-button'),
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: pbTint(pb, states),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: 2,
+                children: [
+                  NoteColorDot(index: i, noteId: id, size: 24),
+                  Icon(AppIcons.expand, size: 12, color: pb.inkMuted),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   RenderEditable? _bodyRender() {
@@ -1211,15 +1351,28 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                   ),
                   // Only a stored note can be re-indexed or deleted.
                   if (_id != null)
-                    PopupMenuButton<bool>(
+                    PopupMenuButton<_NoteAction>(
                       tooltip: l.moreActions,
                       icon: const Icon(AppIcons.more),
                       enabled: !_saving && !_deleting,
-                      onSelected: (reindex) =>
-                          reindex ? _reindex() : _confirmDelete(),
+                      onSelected: (action) => switch (action) {
+                        _NoteAction.reindex => _reindex(),
+                        _NoteAction.color => _openColor(),
+                        _NoteAction.delete => _confirmDelete(),
+                      },
                       itemBuilder: (_) => [
-                        PopupMenuItem(value: true, child: Text(l.reindex)),
-                        PopupMenuItem(value: false, child: Text(l.delete)),
+                        PopupMenuItem(
+                          value: _NoteAction.reindex,
+                          child: Text(l.reindex),
+                        ),
+                        PopupMenuItem(
+                          value: _NoteAction.color,
+                          child: Text(l.noteColor),
+                        ),
+                        PopupMenuItem(
+                          value: _NoteAction.delete,
+                          child: Text(l.delete),
+                        ),
                       ],
                     ),
                   if (_saving)
@@ -1286,24 +1439,35 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(end: _citeOn ? sp.bannerToTitle : sp.titleTop),
                   duration: reduced ? Duration.zero : _citeAnim,
-                  builder: (context, top, _) => TextField(
-                    controller: _title,
-                    style: titleStyle,
-                    scrollPadding: const EdgeInsets.all(20),
-                    decoration: InputDecoration(
-                      hintText: context.l.titleHint,
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      contentPadding: EdgeInsets.fromLTRB(
-                        sp.gutter,
-                        top,
-                        sp.gutter,
-                        sp.titleBottom,
+                  builder: (context, top, _) => Stack(
+                    children: [
+                      TextField(
+                        controller: _title,
+                        style: titleStyle,
+                        scrollPadding: const EdgeInsets.all(20),
+                        decoration: InputDecoration(
+                          hintText: context.l.titleHint,
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          // Right: room for the color button (44 hit + gap).
+                          contentPadding: EdgeInsets.fromLTRB(
+                            sp.gutter,
+                            top,
+                            sp.gutter + 48,
+                            sp.titleBottom,
+                          ),
+                        ),
                       ),
-                    ),
+                      // Centered on the title's first line (follows `top`).
+                      _colorButton(
+                        context,
+                        sp.gutter,
+                        top + sizes.title * 1.25 / 2 - 22,
+                      ),
+                    ],
                   ),
                 ),
               ),

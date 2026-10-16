@@ -111,7 +111,12 @@ Future<void> _open(WidgetTester t) async {
 
 Future<void> _choose(WidgetTester t, String label) async {
   await _open(t);
-  await t.tap(find.widgetWithText(PopupMenuItem<bool>, label));
+  await t.tap(
+    find.ancestor(
+      of: find.text(label),
+      matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+    ),
+  );
   await t.pumpAndSettle();
 }
 
@@ -206,19 +211,23 @@ void main() {
       expect(find.byIcon(AppIcons.check), findsOneWidget);
       _gate = Completer<void>();
       await _open(t);
-      await t.tap(find.widgetWithText(PopupMenuItem<bool>, _l.reindex));
+      await t.tap(
+        find.ancestor(
+          of: find.text(_l.reindex),
+          matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+        ),
+      );
       await t.pump(const Duration(milliseconds: 400)); // menu closes
       // request held by the fake server
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.byIcon(AppIcons.check), findsNothing);
       // nothing else can be started meanwhile
-      expect(find.byType(PopupMenuButton<bool>), findsOneWidget);
-      expect(
-        t
-            .widget<PopupMenuButton<bool>>(find.byType(PopupMenuButton<bool>))
-            .enabled,
-        isFalse,
+      final more = find.ancestor(
+        of: find.byIcon(AppIcons.more),
+        matching: find.byWidgetPredicate((w) => w is PopupMenuButton),
       );
+      expect(more, findsOneWidget);
+      expect(t.widget<PopupMenuButton>(more).enabled, isFalse);
       _gate!.complete();
       await t.pump();
       await t.pump();

@@ -205,7 +205,12 @@ void main() {
         await t.pump();
         await t.tap(find.byIcon(AppIcons.more)); // header menu
         await t.pumpAndSettle();
-        await t.tap(find.widgetWithText(PopupMenuItem<bool>, 'Delete'));
+        await t.tap(
+          find.ancestor(
+            of: find.text('Delete'),
+            matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+          ),
+        );
         await t.pumpAndSettle();
         expect(find.text('Delete this note?'), findsOneWidget);
         await t.tap(find.text('Cancel'));
@@ -216,7 +221,12 @@ void main() {
         // The test has no server client: the call fails, the note stays open.
         await t.tap(find.byIcon(AppIcons.more)); // header menu
         await t.pumpAndSettle();
-        await t.tap(find.widgetWithText(PopupMenuItem<bool>, 'Delete'));
+        await t.tap(
+          find.ancestor(
+            of: find.text('Delete'),
+            matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+          ),
+        );
         await t.pumpAndSettle();
         await t.tap(find.widgetWithText(FilledButton, 'Delete'));
         await t.pumpAndSettle();

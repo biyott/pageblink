@@ -112,7 +112,12 @@ void main() {
     await _pump(t, note: _doc(), controller: OpenItemController());
     await t.tap(find.byIcon(AppIcons.more));
     await t.pumpAndSettle();
-    await t.tap(find.widgetWithText(PopupMenuItem<bool>, _l.delete));
+    await t.tap(
+      find.ancestor(
+        of: find.text(_l.delete),
+        matching: find.byWidgetPredicate((w) => w is PopupMenuItem),
+      ),
+    );
     await t.pumpAndSettle();
     await t.tap(find.widgetWithText(FilledButton, _l.delete));
     await t.pumpAndSettle();
