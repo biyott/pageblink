@@ -22,6 +22,7 @@ import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
     as _iaic;
 import 'package:serverpod_client/serverpod_client.dart' as _isc;
+import 'account_info.dart' as _i1wu8vx0;
 import 'answer_event.dart' as _iiosvpvg;
 import 'ask_admin_exception.dart' as _i51waa1s;
 import 'ask_admin_filter.dart' as _iw2qnfnq;
@@ -49,6 +50,7 @@ import 'page_text.dart' as _it8u2rte;
 import 'project.dart' as _ifiazq2p;
 import 'project_member.dart' as _i7o7d07j;
 import 'sample_hint.dart' as _isfemdkk;
+export 'account_info.dart';
 export 'answer_event.dart';
 export 'ask_admin_exception.dart';
 export 'ask_admin_filter.dart';
@@ -112,6 +114,9 @@ class Protocol extends _isc.SerializationManager {
       }
     }
 
+    if (t == _i1wu8vx0.AccountInfo) {
+      return _i1wu8vx0.AccountInfo.fromJson(data) as T;
+    }
     if (t == _iiosvpvg.AnswerEvent) {
       return _iiosvpvg.AnswerEvent.fromJson(data) as T;
     }
@@ -192,6 +197,9 @@ class Protocol extends _isc.SerializationManager {
     }
     if (t == _isfemdkk.SampleHint) {
       return _isfemdkk.SampleHint.fromJson(data) as T;
+    }
+    if (t == _isc.getType<_i1wu8vx0.AccountInfo?>()) {
+      return (data != null ? _i1wu8vx0.AccountInfo.fromJson(data) : null) as T;
     }
     if (t == _isc.getType<_iiosvpvg.AnswerEvent?>()) {
       return (data != null ? _iiosvpvg.AnswerEvent.fromJson(data) : null) as T;
@@ -376,6 +384,7 @@ class Protocol extends _isc.SerializationManager {
 
   static String? getClassNameForType(Type type) {
     return switch (type) {
+      _i1wu8vx0.AccountInfo => 'AccountInfo',
       _iiosvpvg.AnswerEvent => 'AnswerEvent',
       _i51waa1s.AskAdminException => 'AskAdminException',
       _iw2qnfnq.AskAdminFilter => 'AskAdminFilter',
@@ -417,6 +426,8 @@ class Protocol extends _isc.SerializationManager {
     }
 
     switch (data) {
+      case _i1wu8vx0.AccountInfo():
+        return 'AccountInfo';
       case _iiosvpvg.AnswerEvent():
         return 'AnswerEvent';
       case _i51waa1s.AskAdminException():
@@ -492,6 +503,9 @@ class Protocol extends _isc.SerializationManager {
     var dataClassName = data['className'];
     if (dataClassName is! String) {
       return super.deserializeByClassName(data);
+    }
+    if (dataClassName == 'AccountInfo') {
+      return deserialize<_i1wu8vx0.AccountInfo>(data['data']);
     }
     if (dataClassName == 'AnswerEvent') {
       return deserialize<_iiosvpvg.AnswerEvent>(data['data']);
