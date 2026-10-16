@@ -527,6 +527,10 @@ class L {
     return _t('Source $n: $title, $en', '출처 $n: $title, $ko');
   }
 
+  /// Label of a source the server linked because the answer repeats its text.
+  String get sourceInferred =>
+      _t('Related source (auto-linked)', '관련 출처 (자동 연결)');
+
   String moreSources(int n) => _t('Show $n more', '외 $n개 더 보기');
   String get lessSources => _t('Show fewer', '접기');
   String get copy => _t('Copy', '복사');

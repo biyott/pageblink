@@ -539,7 +539,98 @@ void main() {
           .toList();
       expect(en.last.text, contains('busy'));
     });
+    group('ask: sources linked to an answer without markers', () {
+      late TestSessionBuilder user;
+      setUp(() async {
+        user = sb.copyWith(
+          authentication: AuthenticationOverride.authenticationInfo(
+            owner.toString(),
+            {},
+          ),
+        );
+        await endpoints.document.saveNote(user, null, 'Plan', _note, null);
+      });
+      tearDown(() => RagServices.debugLlm = null);
+
+      Future<List<AnswerEvent>> ask(LlmProvider llm) {
+        RagServices.debugLlm = llm;
+        return endpoints.ask
+            .ask(user, 'When is the launch date?', [], true, null)
+            .toList();
+      }
+
+      test(
+        'no marker, evidence repeated: inferred citation before done',
+        () async {
+          final llm = _ScriptedLlm((sources) async* {
+            // Repeats the first source, in the model's own list style.
+            yield LlmText('- ${sources.first.text}');
+            yield LlmDone('stop');
+          });
+          final events = await ask(llm);
+          final cites = events.where((e) => e.type == 'citation').toList();
+          expect(cites, hasLength(1));
+          final c = cites.single.citation!;
+          expect(c.inferred, isTrue);
+          expect(c.index, 1);
+          expect(c.quote, llm.sources.first.text);
+          expect(_note.startsWith(c.quote, c.quoteStart!), isTrue);
+          expect(events.last.type, 'done');
+          expect(events.indexOf(cites.single), lessThan(events.length - 1));
+        },
+      );
+
+      test(
+        'a marker in the answer: nothing is added, the citation is direct',
+        () async {
+          final events = await ask(
+            _ScriptedLlm((sources) async* {
+              yield LlmText('${sources.first.text} [1]');
+              yield LlmCitation(0, '');
+              yield LlmDone('stop');
+            }),
+          );
+          final cites = events.where((e) => e.type == 'citation').toList();
+          expect(cites, hasLength(1));
+          expect(cites.single.citation!.inferred, isNull);
+        },
+      );
+
+      test('"not found" and unrelated answers link nothing', () async {
+        final events = await ask(
+          _ScriptedLlm((sources) async* {
+            yield LlmText('It was not found in the documents.');
+            yield LlmDone('stop');
+          }),
+        );
+        expect(events.where((e) => e.type == 'citation'), isEmpty);
+        expect(events.last.type, 'done');
+      });
+
+      test('a stream that fails adds nothing', () async {
+        final events = await ask(
+          _ScriptedLlm((sources) async* {
+            yield LlmText(sources.first.text);
+            throw LlmException('boom');
+          }),
+        );
+        expect(events.where((e) => e.type == 'citation'), isEmpty);
+        expect(events.last.type, 'error');
+      });
+    });
   });
+}
+
+class _ScriptedLlm implements LlmProvider {
+  _ScriptedLlm(this._script);
+  final Stream<LlmEvent> Function(List<SourcePassage> sources) _script;
+  List<SourcePassage> sources = const [];
+
+  @override
+  Stream<LlmEvent> answer(String question, List<SourcePassage> sources) {
+    this.sources = sources;
+    return _script(sources);
+  }
 }
 
 class _BusyLlm implements LlmProvider {

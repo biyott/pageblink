@@ -664,6 +664,9 @@ class _SourceRowState extends State<SourceRow> {
     final c = widget.citation;
     final fx = widget.fx;
     final isNote = c.kind == 'note';
+    // Linked by the server because the answer repeats the text, not cited by
+    // the model: dashed border, a label, never a chip in the text.
+    final inferred = c.inferred == true;
     final sub = tones.sub;
     final radius = BorderRadius.circular(14);
     // The picked row's border (the 3:1 state signal) stays after the glow.
@@ -672,6 +675,9 @@ class _SourceRowState extends State<SourceRow> {
       borderRadius: radius,
       side: _focus
           ? BorderSide(color: pb.accent, width: 2)
+          : inferred
+          ? BorderSide
+                .none // the dashes are drawn over the row
           : BorderSide(
               color: Color.lerp(
                 tones.rowBorder,
@@ -726,103 +732,130 @@ class _SourceRowState extends State<SourceRow> {
         Semantics(
           button: true,
           selected: widget.selected,
-          label: l.sourceRowLabel(
-            c.index,
-            c.documentTitle,
-            isNote: isNote,
-            page: c.page,
-          ),
+          label:
+              l.sourceRowLabel(
+                c.index,
+                c.documentTitle,
+                isNote: isNote,
+                page: c.page,
+              ) +
+              (inferred ? '. ${l.sourceInferred}' : ''),
           excludeSemantics: true,
           onTap: widget.onTap,
-          child: Material(
-            color: Color.lerp(tones.rowFill, tones.rowPulse, fx.fill),
-            shape: shape,
-            child: InkWell(
-              customBorder: shape,
-              onTap: widget.onTap,
-              onHover: (v) => setState(() => _hover = v),
-              onHighlightChanged: (v) => setState(() => _down = v),
-              onFocusChange: (v) => setState(() => _focus = v),
-              overlayColor: WidgetStateProperty.resolveWith((s) {
-                if (s.contains(WidgetState.pressed)) return tones.rowPress;
-                if (s.contains(WidgetState.hovered)) return tones.rowHover;
-                return null;
-              }),
-              child: Stack(
-                children: [
-                  if (fx.bloomAlpha > 0)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            borderRadius: radius,
-                            gradient: _bloom(tones, fx),
+          child: _MaybeTooltip(
+            message: inferred ? l.sourceInferred : null,
+            child: Material(
+              color: Color.lerp(tones.rowFill, tones.rowPulse, fx.fill),
+              shape: shape,
+              child: InkWell(
+                customBorder: shape,
+                onTap: widget.onTap,
+                onHover: (v) => setState(() => _hover = v),
+                onHighlightChanged: (v) => setState(() => _down = v),
+                onFocusChange: (v) => setState(() => _focus = v),
+                overlayColor: WidgetStateProperty.resolveWith((s) {
+                  if (s.contains(WidgetState.pressed)) return tones.rowPress;
+                  if (s.contains(WidgetState.hovered)) return tones.rowHover;
+                  return null;
+                }),
+                child: Stack(
+                  children: [
+                    if (fx.bloomAlpha > 0)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: radius,
+                              gradient: _bloom(tones, fx),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 44),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          _Badge(c.index),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  c.documentTitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: pb.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      isNote ? AppIcons.note : AppIcons.pdf,
-                                      size: 14,
-                                      color: sub,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Flexible(
-                                      child: Text(
-                                        subtitle,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: sub,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                    if (inferred && !_focus)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: CustomPaint(
+                            key: ValueKey('source-dashed-${c.index}'),
+                            painter: _DashedBorderPainter(
+                              tones.rowBorderSelected,
+                              14,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          Icon(
-                            AppIcons.next,
-                            size: 16,
-                            color: _hover || _down ? pb.accent : sub,
-                          ),
-                        ],
+                        ),
+                      ),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            _Badge(c.index),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    c.documentTitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: pb.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        isNote ? AppIcons.note : AppIcons.pdf,
+                                        size: 14,
+                                        color: sub,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          subtitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: sub,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  if (inferred)
+                                    Text(
+                                      l.sourceInferred,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: sub,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Icon(
+                              AppIcons.next,
+                              size: 16,
+                              color: _hover || _down ? pb.accent : sub,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -830,6 +863,50 @@ class _SourceRowState extends State<SourceRow> {
       ],
     );
   }
+}
+
+/// A [Tooltip] only when there is a [message].
+class _MaybeTooltip extends StatelessWidget {
+  const _MaybeTooltip({required this.message, required this.child});
+
+  final String? message;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      message == null ? child : Tooltip(message: message, child: child);
+}
+
+/// A dashed rounded border of 1px, drawn over a row without a border.
+class _DashedBorderPainter extends CustomPainter {
+  _DashedBorderPainter(this.color, this.radius);
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Offset.zero & size,
+          Radius.circular(radius),
+        ).deflate(0.5),
+      );
+    for (final m in path.computeMetrics()) {
+      for (var d = 0.0; d < m.length; d += 7) {
+        canvas.drawPath(m.extractPath(d, math.min(d + 4, m.length)), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter old) =>
+      old.color != color || old.radius != radius;
 }
 
 /// The light that spreads from the middle of the row (an ellipse, so it

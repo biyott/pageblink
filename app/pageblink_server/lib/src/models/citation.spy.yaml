@@ -13,3 +13,7 @@ fields:
   ### since indexing. Null for PDFs and when the offset is unknown; then
   ### search for [quote] as before.
   quoteStart: int?
+  ### True when the server linked this source because the answer repeats its
+  ### text, not because the model wrote a [n] marker. Null (also from older
+  ### servers) means a direct citation. Shown in the source list only.
+  inferred: bool?

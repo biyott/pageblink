@@ -40,10 +40,13 @@ class OpenRouterLlmProvider implements LlmProvider {
     r'\[(\d{1,2})\]|【(\d{1,2})】|［(\d{1,2})］',
   );
 
-  static const _system =
+  /// The system prompt (tests read it).
+  static const systemPrompt =
       'You answer questions using only the numbered sources provided, '
       'which are excerpts from the user\'s own files. After each sentence that uses a source, '
       'cite it with its number in square brackets, like [1] or [2][3]. '
+      'Every sentence that uses information from a source must end with its [n] marker; '
+      'never answer without markers when sources are provided. '
       'Always use plain half-width brackets [n] for citations, never full-width ones such as 【1】. '
       'Each source has an EVIDENCE line (the passage to cite) and, when available, its '
       'surrounding CONTEXT. Cite only the number of the source whose EVIDENCE supports '
@@ -83,7 +86,7 @@ class OpenRouterLlmProvider implements LlmProvider {
         if (denyDataCollection) 'provider': {'data_collection': 'deny'},
         if (reasoning != null) 'reasoning': reasoning,
         'messages': [
-          {'role': 'system', 'content': _system},
+          {'role': 'system', 'content': systemPrompt},
           {
             'role': 'user',
             'content': 'Sources:\n\n$context\nQuestion: $question',

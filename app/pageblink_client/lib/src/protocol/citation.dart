@@ -23,6 +23,7 @@ abstract class Citation
     required this.page,
     required this.quote,
     this.quoteStart,
+    this.inferred,
   }) : kind = kind ?? 'pdf';
 
   factory Citation({
@@ -33,6 +34,7 @@ abstract class Citation
     required int page,
     required String quote,
     int? quoteStart,
+    bool? inferred,
   }) = _CitationImpl;
 
   factory Citation.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -44,6 +46,9 @@ abstract class Citation
       page: jsonSerialization['page'] as int,
       quote: jsonSerialization['quote'] as String,
       quoteStart: jsonSerialization['quoteStart'] as int?,
+      inferred: jsonSerialization['inferred'] == null
+          ? null
+          : _isc.BoolJsonExtension.fromJson(jsonSerialization['inferred']),
     );
   }
 
@@ -66,6 +71,11 @@ abstract class Citation
   /// search for [quote] as before.
   int? quoteStart;
 
+  /// True when the server linked this source because the answer repeats its
+  /// text, not because the model wrote a [n] marker. Null (also from older
+  /// servers) means a direct citation. Shown in the source list only.
+  bool? inferred;
+
   /// Returns a shallow copy of this [Citation]
   /// with some or all fields replaced by the given arguments.
   @_isc.useResult
@@ -77,6 +87,7 @@ abstract class Citation
     int? page,
     String? quote,
     int? quoteStart,
+    bool? inferred,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -89,6 +100,7 @@ abstract class Citation
       'page': page,
       'quote': quote,
       if (quoteStart != null) 'quoteStart': quoteStart,
+      if (inferred != null) 'inferred': inferred,
     };
   }
 
@@ -103,6 +115,7 @@ abstract class Citation
       'page': page,
       'quote': quote,
       if (quoteStart != null) 'quoteStart': quoteStart,
+      if (inferred != null) 'inferred': inferred,
     };
   }
 
@@ -123,6 +136,7 @@ class _CitationImpl extends Citation {
     required int page,
     required String quote,
     int? quoteStart,
+    bool? inferred,
   }) : super._(
          index: index,
          documentId: documentId,
@@ -131,6 +145,7 @@ class _CitationImpl extends Citation {
          page: page,
          quote: quote,
          quoteStart: quoteStart,
+         inferred: inferred,
        );
 
   /// Returns a shallow copy of this [Citation]
@@ -145,6 +160,7 @@ class _CitationImpl extends Citation {
     int? page,
     String? quote,
     Object? quoteStart = _Undefined,
+    Object? inferred = _Undefined,
   }) {
     return Citation(
       index: index ?? this.index,
@@ -154,6 +170,7 @@ class _CitationImpl extends Citation {
       page: page ?? this.page,
       quote: quote ?? this.quote,
       quoteStart: quoteStart is int? ? quoteStart : this.quoteStart,
+      inferred: inferred is bool? ? inferred : this.inferred,
     );
   }
 }

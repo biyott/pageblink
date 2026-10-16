@@ -3,6 +3,7 @@ import 'package:serverpod/serverpod.dart';
 import '../generated/protocol.dart';
 import '../providers/embedding_provider.dart';
 import '../providers/llm_provider.dart';
+import '../rag/citation_infer.dart';
 import '../rag/context_builder.dart';
 import '../rag/embedding_spec.dart';
 import '../demo/demo_guard.dart';
@@ -164,12 +165,29 @@ class AskEndpoint extends Endpoint {
       ];
 
       final cited = <int>{};
+      final answerText = StringBuffer();
+      Citation citationFor(int sourceIndex, String citedText) {
+        final hit = hits[sourceIndex];
+        final q = citationQuote(plans[sourceIndex], citedText);
+        return Citation(
+          // Matches the [n] marker the model writes (n = sourceIndex + 1).
+          index: sourceIndex + 1,
+          documentId: hit.documentId,
+          documentTitle: titleOf(hit),
+          kind: documents[hit.documentId]?.kind ?? 'pdf',
+          page: hit.page,
+          quote: q.quote,
+          quoteStart: q.start,
+        );
+      }
+
       await for (final event in RagServices.llm(
         session,
         modelId: modelId,
       ).answer(question, sources)) {
         switch (event) {
           case LlmText(:final text):
+            answerText.write(text);
             yield AnswerEvent(type: 'token', text: text);
           case LlmCitation(:final sourceIndex, :final citedText):
             if (sourceIndex < 0 ||
@@ -177,24 +195,30 @@ class AskEndpoint extends Endpoint {
                 !cited.add(sourceIndex)) {
               break;
             }
-            final hit = hits[sourceIndex];
-            final q = citationQuote(plans[sourceIndex], citedText);
             yield AnswerEvent(
               type: 'citation',
-              citation: Citation(
-                // Matches the [n] marker the model writes (n = sourceIndex + 1).
-                index: sourceIndex + 1,
-                documentId: hit.documentId,
-                documentTitle: titleOf(hit),
-                kind: documents[hit.documentId]?.kind ?? 'pdf',
-                page: hit.page,
-                quote: q.quote,
-                quoteStart: q.start,
-              ),
+              citation: citationFor(sourceIndex, citedText),
             );
           case LlmModelUsed(:final modelId):
             yield AnswerEvent(type: 'model', text: modelId);
           case LlmDone():
+            // The model wrote no marker at all: link the sources whose
+            // evidence the answer repeats. Only on a finished answer (an
+            // error skips this), before the done event.
+            if (cited.isEmpty) {
+              final inferred = inferCitations(answerText.toString(), [
+                for (final p in plans) p.evidence,
+              ]);
+              if (inferred.isNotEmpty) {
+                session.log('ask: inferred citations n=${inferred.length}');
+                for (final i in inferred) {
+                  yield AnswerEvent(
+                    type: 'citation',
+                    citation: citationFor(i, '').copyWith(inferred: true),
+                  );
+                }
+              }
+            }
             yield AnswerEvent(type: 'done');
         }
       }
