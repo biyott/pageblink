@@ -497,23 +497,40 @@ Color pbTint(
 /// the way [PopupMenuButton] does. The control is a [PbInteractive] so that
 /// its own states are visible; a [PopupMenuButton] around it would put its
 /// ink under the control's face and a second tab stop on it.
+///
+/// [constraints] (e.g. a tight width) replace the menu's default 112-280 px.
+/// [below] opens it under the control instead of over it; with
+/// [alignEnd] and a tight width in [constraints] its right edge lines up with
+/// the control's (the screen edge still wins).
 Future<T?> pbShowMenu<T>(
   BuildContext context,
   GlobalKey anchor,
-  List<PopupMenuEntry<T>> items,
-) async {
+  List<PopupMenuEntry<T>> items, {
+  BoxConstraints? constraints,
+  bool below = false,
+  bool alignEnd = false,
+}) async {
   final box = anchor.currentContext?.findRenderObject();
   final overlay = Navigator.of(context).overlay?.context.findRenderObject();
   if (box is! RenderBox || overlay is! RenderBox) return null;
+  final topLeft = box.localToGlobal(Offset.zero, ancestor: overlay);
+  final bottomRight = box.localToGlobal(
+    box.size.bottomRight(Offset.zero),
+    ancestor: overlay,
+  );
+  final left = alignEnd && constraints != null && constraints.hasTightWidth
+      ? bottomRight.dx - constraints.maxWidth
+      : topLeft.dx;
   return showMenu<T>(
     context: context,
     position: RelativeRect.fromRect(
       Rect.fromPoints(
-        box.localToGlobal(Offset.zero, ancestor: overlay),
-        box.localToGlobal(box.size.bottomRight(Offset.zero), ancestor: overlay),
+        Offset(left, below ? bottomRight.dy + 4 : topLeft.dy),
+        Offset(bottomRight.dx, below ? bottomRight.dy + 4 : bottomRight.dy),
       ),
       Offset.zero & overlay.size,
     ),
     items: items,
+    constraints: constraints,
   );
 }

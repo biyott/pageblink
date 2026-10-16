@@ -249,12 +249,18 @@ void main() {
     await send(t, 'Q3');
     final banner = find.byKey(const ValueKey('ask-limit-banner'));
     expect(banner, findsOneWidget);
+    // the card ends the thread (inside the list, not the input panel)
+    expect(
+      find.descendant(of: find.byType(ListView), matching: banner),
+      findsOneWidget,
+    );
+    expect(countChip('Question 10/10'), findsOneWidget);
     expect(find.textContaining('asked 10 questions'), findsOneWidget);
     expect(t.widget<TextField>(find.byType(TextField)).enabled, isFalse);
     expect(find.text('Start a new conversation'), findsOneWidget);
     // the banner's button starts over
     await t.tap(
-      find.descendant(of: banner, matching: find.text('New conversation')),
+      find.descendant(of: banner, matching: find.text('New chat')),
     );
     await settle(t);
     expect(banner, findsNothing);
@@ -340,10 +346,23 @@ void main() {
     );
     await send(t, 'One more');
     expect(find.byKey(const ValueKey('ask-limit-banner')), findsOneWidget);
+    // the only turn was dropped: a thread with just the card, no examples
+    expect(find.byType(AskEmptyHint), findsNothing);
     expect(
       t.widget<TextField>(find.byType(TextField)).controller!.text,
       'One more',
     );
+    expect(t.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+    // its button starts over: the examples come back
+    await t.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('ask-limit-banner')),
+        matching: find.text('New chat'),
+      ),
+    );
+    await settle(t);
+    expect(find.byType(AskEmptyHint), findsOneWidget);
+    expect(find.byKey(const ValueKey('ask-limit-banner')), findsNothing);
   });
 
   for (final off in <String, Future<AskHistoryStatus> Function()>{
@@ -362,6 +381,8 @@ void main() {
       await pump(t);
       expect(find.byKey(const ValueKey('ask-recent')), findsNothing);
       expect(find.byKey(const ValueKey('ask-new-chat')), findsNothing);
+      expect(find.byKey(const ValueKey('ask-count')), findsNothing);
+      expect(find.byTooltip('New question'), findsNothing); // 800 wide: none
       expect(find.textContaining('kept on the server'), findsNothing);
       await send(t, 'Q');
       expect(requests.single.sessionId, isNull);
@@ -409,7 +430,7 @@ void main() {
     expect(find.textContaining('kept on the server'), findsNothing);
   });
 
-  testWidgets('recent list: rows, open, remove from list', (t) async {
+  testWidgets('recent list: rows, hide with confirmation, open', (t) async {
     final now = DateTime.now().toUtc();
     var recent = [
       AskSessionSummary(
@@ -434,16 +455,29 @@ void main() {
     await t.tap(find.byKey(const ValueKey('ask-recent')));
     await settle(t);
     expect(find.text('Plan talk'), findsOneWidget);
-    expect(find.textContaining('3 questions · 12 min ago'), findsOneWidget);
+    expect(find.textContaining('Question 3/10 · 12 min ago'), findsOneWidget);
     expect(find.textContaining('Shown for 30 minutes'), findsOneWidget);
+    expect(find.textContaining('kept on the server for 30 days'), findsWidgets);
 
-    // remove one
-    await t.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('recent-5')),
-        matching: find.byIcon(AppIcons.delete),
-      ),
+    // hide one: the icon asks first, Cancel changes nothing
+    Finder hideIcon(int id) => find.descendant(
+      of: find.byKey(ValueKey('recent-$id')),
+      matching: find.byIcon(AppIcons.hideChat),
     );
+    await t.tap(hideIcon(5));
+    await settle(t);
+    expect(find.text('Hide this chat from the list?'), findsOneWidget);
+    expect(hidden, isEmpty);
+    await t.tap(find.byKey(const ValueKey('hide-cancel')));
+    await settle(t);
+    expect(find.text('Hide this chat from the list?'), findsNothing);
+    expect(hidden, isEmpty);
+    expect(find.text('Plan talk'), findsOneWidget);
+
+    // ... and Hide does it
+    await t.tap(hideIcon(5));
+    await settle(t);
+    await t.tap(find.byKey(const ValueKey('hide-confirm')));
     await settle(t);
     expect(hidden, [5]);
     expect(find.text('Plan talk'), findsNothing);
@@ -453,6 +487,7 @@ void main() {
     await settle(t);
     expect(find.byType(AskTurnView), findsOneWidget); // now the turn
     expect(countChip('Question 1/10'), findsOneWidget);
+    expect(find.text('Plan talk'), findsNothing); // the popover is closed
   });
 
   testWidgets('opening a conversation that is gone says so', (t) async {
@@ -498,6 +533,8 @@ void main() {
     );
     await pump(t, size: const Size(360, 780));
     expect(countChip('Question 9/10'), findsOneWidget);
+    expect(find.byKey(const ValueKey('ask-recent')), findsOneWidget);
+    expect(find.byKey(const ValueKey('ask-new-chat')), findsOneWidget);
     expect(t.takeException(), isNull);
   });
 

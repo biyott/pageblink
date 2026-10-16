@@ -717,32 +717,49 @@ class L {
     '이 대화에서 질문 $limit개를 모두 사용했어요. 새 대화를 시작해 계속 질문하세요.',
   );
   String get askLimitHint => _t('Start a new conversation', '새 대화를 시작하세요');
-  String get newConversation => _t('New conversation', '새 대화');
-  String get recentChats => _t('Recent conversations', '최근 대화');
+  String get newConversation => _t('New chat', '새 대화');
+  // Header button (short) and the popover / sheet title and screen-reader name.
+  String get recentShort => _t('Recent', '최근 대화');
+  String get recentChats => _t('Recent chats', '최근 대화');
   String recentChatsNote(int minutes) => _t(
     'Shown for $minutes minutes after your last question',
     '마지막 질문 후 $minutes분 동안 보여요',
   );
   String recentChatsEmpty(int minutes) => _t(
-    'No conversations in the last $minutes minutes',
+    'No chats in the last $minutes minutes',
     '최근 $minutes분 안의 대화가 없어요',
   );
+  String recentFooter(int minutes, int days) => _t(
+    'Shown for $minutes minutes after your last question. Hidden chats are '
+        'still kept on the server for $days days.',
+    '마지막 질문 후 $minutes분 동안 보여요. 목록에서 숨겨도 서버에는 $days일 보관돼요.',
+  );
   String get currentChat => _t('Current', '현재');
-  String get removeFromList => _t('Remove from list', '목록에서 지우기');
-  String chatMeta(int questions, int minutesAgo) {
-    final ago = minutesAgo < 1
-        ? _t('just now', '방금')
-        : minutesAgo < 60
-        ? _t('$minutesAgo min ago', '$minutesAgo분 전')
-        : _t('${minutesAgo ~/ 60} h ago', '${minutesAgo ~/ 60}시간 전');
-    return _t(
-      '$questions ${questions == 1 ? 'question' : 'questions'} · $ago',
-      '질문 $questions개 · $ago',
-    );
-  }
+  String get hideFromList => _t('Hide from list', '목록에서 숨기기');
+  String hideFromListTitle(String title) =>
+      _t('Hide from list: $title', '목록에서 숨기기: $title');
+  String get hideAsk => _t('Hide this chat from the list?', '이 대화를 목록에서 숨길까요?');
+  String get hideAskCurrent => _t(
+    'This is the chat you are viewing. Hiding it starts a new chat.',
+    '지금 보고 있는 대화예요. 숨기면 새 대화로 바뀌어요.',
+  );
+  String get hide => _t('Hide', '숨기기');
+  String chatAgo(int minutesAgo) => minutesAgo < 1
+      ? _t('just now', '방금')
+      : minutesAgo < 60
+      ? _t('$minutesAgo min ago', '$minutesAgo분 전')
+      : _t('${minutesAgo ~/ 60} h ago', '${minutesAgo ~/ 60}시간 전');
+  String chatMeta(int questions, int limit, int minutesAgo) => _t(
+    'Question $questions/$limit · ${chatAgo(minutesAgo)}',
+    '질문 $questions/$limit · ${chatAgo(minutesAgo)}',
+  );
+  String chatRowLabel(String title, String meta, bool current) => current
+      ? _t('$title, $meta, current chat', '$title, $meta, 현재 대화')
+      : '$title, $meta';
 
   String get askInterrupted => _t('This answer was cut off.', '답변이 중간에 끊겼어요.');
   String get askAskAgain => _t('Ask again', '다시 질문');
+  String get askAskAgainHint => _t('Fills the question box', '질문을 입력창에 채워 줘요');
   String get askBusy => _t(
     'An answer is still being written. Please wait a moment.',
     '아직 답변을 쓰는 중이에요. 잠시만 기다려 주세요.',

@@ -39,6 +39,9 @@ abstract final class AppIcons {
   static const upload = LucideIcons.upload;
   static const edit = LucideIcons.pencil;
   static const delete = LucideIcons.trash2;
+  // Ask: recent conversations, and "hide from list" (not a delete).
+  static const history = LucideIcons.history;
+  static const hideChat = LucideIcons.eyeOff;
   static const more = LucideIcons.ellipsisVertical;
   static const preview = LucideIcons.bookOpen;
   static const search = LucideIcons.search;
