@@ -199,6 +199,10 @@ class DemoSeed {
       path: path,
       byteData: ByteData.sublistView(bytes),
     );
-    await Document.db.updateRow(session, pdf.copyWith(storagePath: path));
+    await Document.db.updateRow(
+      session,
+      pdf.copyWith(storagePath: path),
+      columns: (t) => [t.storagePath],
+    );
   }
 }

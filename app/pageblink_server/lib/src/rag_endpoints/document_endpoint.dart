@@ -105,6 +105,7 @@ class DocumentEndpoint extends Endpoint {
         ? await Document.db.updateRow(
             session,
             existing.copyWith(status: 'indexing', updatedAt: now),
+            columns: (t) => [t.status, t.updatedAt],
           )
         : await Document.db.insertRow(
             session,
@@ -200,6 +201,16 @@ class DocumentEndpoint extends Endpoint {
           status: 'indexing',
           updatedAt: now,
         ),
+        // Not the whole row: a color set meanwhile must survive.
+        columns: (t) => [
+          t.title,
+          t.body,
+          t.contentHash,
+          t.version,
+          t.lastError,
+          t.status,
+          t.updatedAt,
+        ],
       );
     }
     return _index(session, document, [PageText(page: 1, text: body)]);
@@ -348,6 +359,7 @@ class DocumentEndpoint extends Endpoint {
       await Document.db.updateRow(
         session,
         document.copyWith(storagePath: path),
+        columns: (t) => [t.storagePath],
       );
     }
     return ok;
@@ -391,6 +403,7 @@ class DocumentEndpoint extends Endpoint {
           status: 'failed',
           lastError: 'no_source',
         ),
+        columns: (t) => [t.status, t.lastError],
       );
     }
     final indexing = await Document.db.updateRow(
@@ -399,6 +412,7 @@ class DocumentEndpoint extends Endpoint {
         status: 'indexing',
         updatedAt: DateTime.now().toUtc(),
       ),
+      columns: (t) => [t.status, t.updatedAt],
     );
     return _index(session, indexing, texts);
   }
@@ -537,7 +551,13 @@ class DocumentEndpoint extends Endpoint {
       );
     }
     try {
-      return await Document.db.updateRow(session, document);
+      // Only what indexing decides: the row may have changed in the seconds
+      // it took (e.g. the card color), so never write it back whole.
+      return await Document.db.updateRow(
+        session,
+        document,
+        columns: (t) => [t.status, t.embeddingModel, t.lastError, t.updatedAt],
+      );
     } catch (e, st) {
       // Last resort: the row may stay `indexing`; `list` recovers it as
       // `failed`/`interrupted` after [_staleIndexing].
