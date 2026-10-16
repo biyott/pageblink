@@ -36,7 +36,10 @@ serverpod:
       posix: |
         rm -rf ../pageblink_server/web/app
         cd ../pageblink_flutter
-        set -- web --base-href / --output ../pageblink_server/web/app
+        # Build id for the Settings version line: the git short hash, empty
+        # (just the version) when there is no git checkout.
+        build_id=$(git rev-parse --short HEAD 2>/dev/null || true)
+        set -- web --base-href / --output ../pageblink_server/web/app --dart-define=APP_BUILD="$build_id"
         flutter build "$@" || { flutter clean && flutter build "$@"; }
 
   # Companion Flutter apps that `serverpod start` can launch (Ctrl+R), keyed

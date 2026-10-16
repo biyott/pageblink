@@ -106,17 +106,20 @@ void main() {
         null,
       ),
     );
+    historyStatus.value = _status(admin: true);
     await pump(t, settings());
-    await t.tap(find.text('Copy account ID'));
+    await t.tap(find.byTooltip('Copy account ID'));
     await t.pump();
     expect(copied, ['user-uuid-1']);
     expect(find.text('Copied account ID'), findsOneWidget);
   });
 
-  testWidgets('no account id: no copy tile', (t) async {
+  testWidgets('no account id: no copy row', (t) async {
     accountIdCall = () => null;
+    historyStatus.value = _status(admin: true);
     await pump(t, settings());
-    expect(find.text('Copy account ID'), findsNothing);
+    expect(find.byTooltip('Copy account ID'), findsNothing);
+    expect(find.text('Account ID'), findsNothing);
   });
 
   testWidgets('history on: the permanent notice line; off: nothing', (t) async {
@@ -138,7 +141,7 @@ void main() {
     historyStatus.value = _status(admin: true);
     await pump(t, settings(), lang: 'ko');
     expect(find.text('대화 기록'), findsOneWidget);
-    expect(find.text('계정 ID 복사'), findsOneWidget);
+    expect(find.byTooltip('계정 ID 복사'), findsOneWidget);
   });
 
   testWidgets('admin list: models, expand, filters, load more', (t) async {
