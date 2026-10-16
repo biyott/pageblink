@@ -3,6 +3,7 @@ import 'package:serverpod/serverpod.dart';
 import '../generated/protocol.dart';
 import '../providers/embedding_provider.dart';
 import '../providers/llm_provider.dart';
+import '../rag/context_builder.dart';
 import '../rag/embedding_spec.dart';
 import '../demo/demo_guard.dart';
 import '../services/acl.dart';
@@ -13,7 +14,9 @@ class AskEndpoint extends Endpoint {
   @override
   bool get requireLogin => true;
 
-  static const _topK = 8;
+  /// Small units (chunks) retrieved. Lines are short, so more of them fit
+  /// the same context budget than the old 900-char chunks did.
+  static const _topK = 16;
 
   /// Streams an answer to [question] over the user's personal documents and
   /// the requested projects they are a member of.
@@ -110,13 +113,53 @@ class AskEndpoint extends Endpoint {
       String titleOf(DocChunk h) =>
           documents[h.documentId]?.title ?? 'Document';
 
-      final sources = [
+      // Large units are computed from the stored text, not stored (design
+      // 029 §4.4). PDF pages are read only for the pages that were hit.
+      final pdfHits = [
         for (final h in hits)
+          if (documents[h.documentId] != null &&
+              documents[h.documentId]!.kind != 'note')
+            h,
+      ];
+      final pageTexts = pdfHits.isEmpty
+          ? <String, String>{}
+          : {
+              for (final p in await DocPage.db.find(
+                session,
+                where: (t) =>
+                    t.documentId.inSet({
+                      for (final h in pdfHits) h.documentId,
+                    }) &
+                    t.page.inSet({for (final h in pdfHits) h.page}),
+              ))
+                '${p.documentId}:${p.page}': p.text,
+            };
+      final plans = planSources(
+        [
+          for (final h in hits)
+            HitInput(
+              documentId: h.documentId,
+              page: h.page,
+              ordinal: h.ordinal,
+              text: h.text,
+            ),
+        ],
+        doc: (id) {
+          final d = documents[id];
+          return d == null
+              ? null
+              : DocInput(kind: d.kind, title: d.title, body: d.body);
+        },
+        pageText: (id, page) => pageTexts['$id:$page'],
+      );
+      // `[n]` is plans[n - 1]; plans is a prefix of hits (budget).
+      final sources = [
+        for (final p in plans)
           SourcePassage(
-            title: documents[h.documentId]?.kind == 'note'
-                ? '${titleOf(h)} (note)'
-                : '${titleOf(h)} (p.${h.page})',
-            text: h.text,
+            title: p.title,
+            text: p.evidence,
+            context: p.context,
+            contextOf: p.contextRef == null ? null : p.contextRef! + 1,
           ),
       ];
 
@@ -130,11 +173,12 @@ class AskEndpoint extends Endpoint {
             yield AnswerEvent(type: 'token', text: text);
           case LlmCitation(:final sourceIndex, :final citedText):
             if (sourceIndex < 0 ||
-                sourceIndex >= hits.length ||
+                sourceIndex >= plans.length ||
                 !cited.add(sourceIndex)) {
               break;
             }
             final hit = hits[sourceIndex];
+            final q = citationQuote(plans[sourceIndex], citedText);
             yield AnswerEvent(
               type: 'citation',
               citation: Citation(
@@ -144,7 +188,8 @@ class AskEndpoint extends Endpoint {
                 documentTitle: titleOf(hit),
                 kind: documents[hit.documentId]?.kind ?? 'pdf',
                 page: hit.page,
-                quote: citedText.isEmpty ? hit.text : citedText,
+                quote: q.quote,
+                quoteStart: q.start,
               ),
             );
           case LlmModelUsed(:final modelId):

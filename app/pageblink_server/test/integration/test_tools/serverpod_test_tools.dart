@@ -23,6 +23,7 @@ import 'package:pageblink_server/src/generated/page_text.dart' as _ibhttuac;
 import 'package:pageblink_server/src/generated/project.dart' as _ik18e4tv;
 import 'package:pageblink_server/src/generated/project_member.dart'
     as _i6s9o0ma;
+import 'package:pageblink_server/src/generated/sample_hint.dart' as _iejty6dv;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
     as _iacs;
@@ -578,8 +579,9 @@ class _DemoEndpoint {
   }
 
   _ida.Future<_iacs.AuthSuccess> signIn(
-    _ist.TestSessionBuilder sessionBuilder,
-  ) async {
+    _ist.TestSessionBuilder sessionBuilder, [
+    String? locale,
+  ]) async {
     return _ist.callAwaitableFunctionAndHandleExceptions(() async {
       var _localUniqueSession =
           (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
@@ -591,7 +593,7 @@ class _DemoEndpoint {
           createSessionCallback: (_) => _localUniqueSession,
           endpointPath: 'demo',
           methodName: 'signIn',
-          parameters: _ist.testObjectToJson({}),
+          parameters: _ist.testObjectToJson({'locale': locale}),
           serializationManager: _serializationManager,
         );
         var _localReturnValue =
@@ -816,6 +818,36 @@ class _DocumentEndpoint {
                   _localCallContext.arguments,
                 )
                 as _ida.Future<int?>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<List<_iejty6dv.SampleHint>> sampleHints(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'document',
+            method: 'sampleHints',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'document',
+          methodName: 'sampleHints',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<List<_iejty6dv.SampleHint>>);
         return _localReturnValue;
       } finally {
         await _localUniqueSession.close();

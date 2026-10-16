@@ -10,6 +10,7 @@ import 'app/open_item_controller.dart';
 import 'app/theme.dart';
 import 'client.dart';
 import 'features/ask/ask_screen.dart';
+import 'features/ask/ask_suggestions.dart';
 import 'features/documents/documents_screen.dart';
 import 'features/documents/drop_zone.dart';
 import 'features/documents/upload_controller.dart';
@@ -109,6 +110,11 @@ class _HomeShellState extends State<HomeShell> {
     resetDemoStatus();
     refreshDemoStatus();
     boardRefresh.addListener(refreshDemoStatus);
+    // Example questions follow the sample note's state (ready, edited,
+    // deleted: all bump boardRefresh).
+    resetSampleHints();
+    refreshSampleHints();
+    boardRefresh.addListener(refreshSampleHints);
   }
 
   /// Once per signed-in session (this shell only exists while signed in).
@@ -135,6 +141,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void dispose() {
     boardRefresh.removeListener(refreshDemoStatus);
+    boardRefresh.removeListener(refreshSampleHints);
     _open.dispose();
     _uploads.dispose();
     _projects.dispose();

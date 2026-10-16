@@ -300,13 +300,21 @@ class Endpoints extends _is.EndpointDispatch {
         ),
         'signIn': _is.MethodConnector(
           name: 'signIn',
-          params: {},
+          params: {
+            'locale': _is.ParameterDescription(
+              name: 'locale',
+              type: _is.getType<String?>(),
+              nullable: true,
+            ),
+          },
           call:
               (
                 _is.Session session,
                 Map<String, dynamic> params,
-              ) async =>
-                  (endpoints['demo'] as _i46mxkwc.DemoEndpoint).signIn(session),
+              ) async => (endpoints['demo'] as _i46mxkwc.DemoEndpoint).signIn(
+                session,
+                params['locale'],
+              ),
         ),
       },
     );
@@ -482,6 +490,16 @@ class Endpoints extends _is.EndpointDispatch {
                     session,
                     params['locale'],
                   ),
+        ),
+        'sampleHints': _is.MethodConnector(
+          name: 'sampleHints',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async => (endpoints['document'] as _iw2avhc4.DocumentEndpoint)
+                  .sampleHints(session),
         ),
         'get': _is.MethodConnector(
           name: 'get',

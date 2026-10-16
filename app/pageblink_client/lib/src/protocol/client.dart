@@ -21,6 +21,7 @@ import 'package:pageblink_client/src/protocol/llm_model.dart' as _ikmj492w;
 import 'package:pageblink_client/src/protocol/page_text.dart' as _iu4vwvb3;
 import 'package:pageblink_client/src/protocol/project.dart' as _id2xbn90;
 import 'package:pageblink_client/src/protocol/project_member.dart' as _ijtrgq11;
+import 'package:pageblink_client/src/protocol/sample_hint.dart' as _ilp4f5ys;
 import 'package:serverpod_auth_core_client/serverpod_auth_core_client.dart'
     as _iacc;
 import 'package:serverpod_auth_idp_client/serverpod_auth_idp_client.dart'
@@ -253,8 +254,8 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
       );
 }
 
-/// "Try the demo": a shared, fully working account with sample content
-/// (ADR 020, plan 014). Both methods are public; with `demoEnabled` off the
+/// "Try the demo": a shared, fully working account with sample content, one
+/// per language (ADR 020, plan 014, research 028). Both methods are public; with `demoEnabled` off the
 /// feature does not exist (`status().enabled == false`, `signIn` refuses).
 /// {@category Endpoint}
 class EndpointDemo extends _isc.EndpointRef {
@@ -272,17 +273,20 @@ class EndpointDemo extends _isc.EndpointRef {
         {},
       );
 
-  /// Signs in as the demo account. Refused when the flag is off.
+  /// Signs in as the demo account of [locale]'s language (`ko*` is Korean,
+  /// anything else, or none, is English: what an older app sends). If that
+  /// account cannot be found or created, the English one is used instead.
+  /// Refused when the flag is off.
   ///
   /// The caller must not be signed in as someone else: the server then throws
   /// `SignInWhileAuthenticatedException`, so the app signs out first
   /// (`client.auth.signOutDevice()`) and then hands the result to
   /// `client.auth.updateSignedInUser`.
-  _ida.Future<_iacc.AuthSuccess> signIn() =>
+  _ida.Future<_iacc.AuthSuccess> signIn([String? locale]) =>
       caller.callServerEndpoint<_iacc.AuthSuccess>(
         'demo',
         'signIn',
-        {},
+        {'locale': locale},
       );
 }
 
@@ -388,6 +392,18 @@ class EndpointDocument extends _isc.EndpointRef {
         'document',
         'ensureSample',
         {'locale': locale},
+      );
+
+  /// Example questions for the sample content the caller holds, in the
+  /// language of that content (research 028 §4.2). A sign-up sample counts
+  /// only while its note is untouched (body hash) and `ready`: before that,
+  /// or after an edit or delete, its questions would find nothing. A demo
+  /// account gets its pack's questions directly.
+  _ida.Future<List<_ilp4f5ys.SampleHint>> sampleHints() =>
+      caller.callServerEndpoint<List<_ilp4f5ys.SampleHint>>(
+        'document',
+        'sampleHints',
+        {},
       );
 
   /// One document the user can read (notes are opened in the editor).

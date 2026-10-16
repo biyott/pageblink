@@ -12,7 +12,6 @@ import '../../client.dart';
 import '../demo/demo.dart' show demoLimitText, demoStatus;
 import '../viewer/citation_sheet.dart';
 import '../../app/open_item_controller.dart';
-import '../documents/documents_screen.dart' show documentsNotifier;
 import '../open_item/open_item_view.dart';
 import 'ask_markers.dart';
 import 'ask_sources.dart';
@@ -199,12 +198,16 @@ class _AskScreenState extends State<AskScreen> {
         all.indexOf(citation),
         onOpen: (c) {
           if (mounted) {
-            openItem(context, OpenItem.citation(c), inNotesTab: true);
+            openItem(
+              context,
+              OpenItem.citation(c, related: all),
+              inNotesTab: true,
+            );
           }
         },
       );
     } else {
-      openItem(context, OpenItem.citation(citation));
+      openItem(context, OpenItem.citation(citation, related: all));
     }
   }
 
@@ -1097,16 +1100,14 @@ class AskEmptyHint extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            // demoStatus can arrive after this screen is built.
+            // demoStatus and the hints can arrive after this screen is built.
             ListenableBuilder(
-              listenable: Listenable.merge([documentsNotifier, demoStatus]),
+              listenable: Listenable.merge([sampleHints, demoStatus]),
               builder: (context, _) => Column(
                 children: [
                   for (final s in orderedSuggestions(
                     context.l,
-                    includePersonal
-                        ? personalNoteTitles(documentsNotifier.value)
-                        : const [],
+                    includePersonal ? sampleHints.value : const [],
                     isDemo: demoStatus.value?.isDemo ?? false,
                   ))
                     _SuggestionCard(text: s, onTap: () => onPick(s)),

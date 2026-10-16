@@ -159,7 +159,7 @@ void main() {
       );
       expect(L.en.aiDisclaimer, isNot(contains(wj)));
       // Suggested questions are sent to the server as-is.
-      for (final q in [...L.ko.askSuggestions, ...L.ko.sampleSuggestions]) {
+      for (final q in L.ko.askSuggestions) {
         expect(q, isNot(contains(wj)));
       }
     });

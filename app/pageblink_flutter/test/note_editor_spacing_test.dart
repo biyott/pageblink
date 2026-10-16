@@ -215,30 +215,30 @@ void main() {
     }
   });
 
-  testWidgets('T8 citation banner: 16 from the header, 16 to the title', (
+  testWidgets('T8 citation bar: 16 from the header, 16 to the title', (
     t,
   ) async {
     await _pump(t, width: 724, highlight: 'cited passage');
     // the painted box (the Container's own rect would include its margin)
-    final banner = find
-        .ancestor(
-          of: find.textContaining('⚡'),
+    final bar = find
+        .descendant(
+          of: find.byKey(const ValueKey('cite-bar')),
           matching: find.byType(DecoratedBox),
         )
         .first;
     final header = t.getBottomLeft(find.byType(PaneHeader)).dy;
-    final rect = t.getRect(banner);
+    final rect = t.getRect(bar);
     expect(rect.top - header, closeTo(16, 0.01));
     expect(t.getTopLeft(_title).dy - rect.bottom, closeTo(16, 0.01));
-    // box is gutter - 12 from the column edge, its text on the gutter line
+    // box is gutter - 12 from the column edge, its icon on the gutter line
     final left = _columnLeft(724);
     expect(rect.left - left, closeTo(32 - 12, 0.01));
     expect(
-      t.getTopLeft(find.textContaining('⚡')).dx - left,
+      t.getTopLeft(find.byIcon(AppIcons.citationMarker)).dx - left,
       closeTo(32, 0.01),
     );
     expect(NoteSpacing.bannerRadius, 12);
-    final deco = t.widget<DecoratedBox>(banner).decoration as BoxDecoration;
+    final deco = t.widget<DecoratedBox>(bar).decoration as BoxDecoration;
     expect(deco.borderRadius, BorderRadius.circular(12));
   });
 

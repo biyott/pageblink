@@ -63,6 +63,7 @@ class OpenItemView extends StatelessWidget {
     if (c.kind == 'note') {
       return _CitedNote(
         citation: c,
+        related: item.related,
         embedded: embedded,
         onClose: onClose,
         controller: controller,
@@ -73,22 +74,38 @@ class OpenItemView extends StatelessWidget {
       title: c.documentTitle,
       page: c.page,
       quote: c.quote,
+      number: c.index,
+      related: [
+        for (final r in item.related)
+          if (r.kind != 'note' && r.documentId == c.documentId) r,
+      ],
       embedded: embedded,
       onClose: onClose,
     );
   }
 }
 
-/// A cited note opens in the editor with the cited passage on top.
+/// The citations of [c]'s note among [all] (the answer's citations), as the
+/// editor's bar steps through them.
+@visibleForTesting
+List<CiteRef> relatedNoteCites(Citation c, List<Citation> all) => [
+  for (final r in all)
+    if (r.kind == 'note' && r.documentId == c.documentId)
+      (number: r.index, quote: r.quote, start: r.quoteStart),
+];
+
+/// A cited note opens in the editor with the cited passage highlighted.
 class _CitedNote extends StatefulWidget {
   const _CitedNote({
     required this.citation,
+    required this.related,
     required this.embedded,
     required this.onClose,
     required this.controller,
   });
 
   final Citation citation;
+  final List<Citation> related;
   final bool embedded;
   final VoidCallback onClose;
   final OpenItemController? controller;
@@ -127,6 +144,9 @@ class _CitedNoteState extends State<_CitedNote> {
       return NoteEditorView(
         note: note,
         highlight: widget.citation.quote,
+        highlightNumber: widget.citation.index,
+        highlightStart: widget.citation.quoteStart,
+        relatedCites: relatedNoteCites(widget.citation, widget.related),
         embedded: widget.embedded,
         onClose: widget.onClose,
         controller: widget.controller,

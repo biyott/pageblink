@@ -2,7 +2,7 @@ import 'package:serverpod/serverpod.dart';
 
 import '../generated/protocol.dart';
 import '../rag/embedding_spec.dart';
-import 'sample_note.dart';
+import 'sample_pack.dart';
 
 /// `onAfterAccountCreated` hook: inserts the English sample note for a new
 /// account. It runs inside the sign-up transaction, so it only writes one row
@@ -19,14 +19,15 @@ Future<void> seedSampleNote(
   try {
     savepoint = await transaction?.createSavepoint();
     final now = DateTime.now().toUtc();
+    final sample = SamplePacks.signupEn.notes.first;
     await Document.db.insertRow(
       session,
       Document(
         ownerId: authUserId,
         kind: 'note',
-        title: SampleNote.en.title,
-        body: SampleNote.en.body,
-        contentHash: SampleNote.seedHash,
+        title: sample.title,
+        body: sample.body,
+        contentHash: sample.hash,
         version: 1,
         pageCount: 1,
         status: 'indexing',

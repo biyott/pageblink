@@ -10,6 +10,7 @@ class OpenItem {
   /// A note to edit ([note] null = a new note in [projectId]'s tier).
   OpenItem.note({this.note, this.projectId, this.highlight})
     : citation = null,
+      related = const [],
       isSettings = false;
 
   /// The settings, opened like any other item.
@@ -18,10 +19,13 @@ class OpenItem {
       projectId = null,
       highlight = null,
       citation = null,
+      related = const [],
       isSettings = true;
 
-  /// An Ask citation: a cited note (with quote banner) or a PDF page.
-  OpenItem.citation(Citation this.citation)
+  /// An Ask citation: a cited note or a PDF page, with the cited passage
+  /// highlighted. [related] are all the citations of the answer it came from
+  /// (the viewer steps through those of the same document).
+  OpenItem.citation(Citation this.citation, {this.related = const []})
     : note = null,
       projectId = null,
       highlight = null,
@@ -31,6 +35,7 @@ class OpenItem {
   final int? projectId;
   final String? highlight;
   final Citation? citation;
+  final List<Citation> related;
   final bool isSettings;
 
   bool get isNote =>

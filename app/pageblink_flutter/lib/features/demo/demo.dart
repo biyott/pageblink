@@ -16,11 +16,12 @@ import '../../client.dart';
 /// simply shows no demo button (the default call timeout is 120 s).
 const demoStatusTimeout = Duration(seconds: 8);
 
-/// Test hooks: replace the two server calls.
+/// Test hooks: replace the two server calls (the sign-in one gets the locale
+/// the app asked for).
 @visibleForTesting
 Future<DemoStatus> Function()? demoStatusCall;
 @visibleForTesting
-Future<void> Function()? demoSignInCall;
+Future<void> Function(String locale)? demoSignInCall;
 
 /// `demo.status()`, or null when it fails, times out or the server is too old
 /// to know the endpoint. Never throws.
@@ -35,14 +36,16 @@ Future<DemoStatus?> fetchDemoStatus() async {
   }
 }
 
-/// Signs in as the demo account: leave a current session first (the server
-/// refuses a sign-in over another user), then hand the result to the session
-/// manager. Throws on failure.
-Future<void> signInAsDemo() async {
+/// Signs in as the demo account of [locale] (`ko` or `en`, the UI language:
+/// the server holds one account per language, with samples and example
+/// questions in it): leave a current session first (the server refuses a
+/// sign-in over another user), then hand the result to the session manager.
+/// Throws on failure.
+Future<void> signInAsDemo({required String locale}) async {
   final hook = demoSignInCall;
-  if (hook != null) return hook();
+  if (hook != null) return hook(locale);
   if (client.auth.isAuthenticated) await client.auth.signOutDevice();
-  final success = await client.demo.signIn();
+  final success = await client.demo.signIn(locale);
   await client.auth.updateSignedInUser(success);
 }
 

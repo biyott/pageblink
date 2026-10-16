@@ -69,6 +69,41 @@ void main() {
     expect(sentBody['fallbacks'], 'default');
   });
 
+  test('sends the surrounding text as an uncited document context', () async {
+    late Map<String, dynamic> sent;
+    final client = MockClient.streaming((request, bodyStream) async {
+      sent =
+          jsonDecode(await utf8.decodeStream(bodyStream))
+              as Map<String, dynamic>;
+      return http.StreamedResponse(
+        Stream.value(
+          utf8.encode(
+            _sse([
+              {
+                'type': 'message_delta',
+                'delta': {'stop_reason': 'end_turn'},
+              },
+            ]),
+          ),
+        ),
+        200,
+      );
+    });
+    await ClaudeLlmProvider('k', client: client).answer('q', [
+      SourcePassage(title: 'a', text: 'line', context: 'the whole section'),
+      SourcePassage(title: 'b', text: 'other line', contextOf: 1),
+      SourcePassage(title: 'c', text: 'plain'),
+    ]).toList();
+    final docs = ((sent['messages'] as List).single['content'] as List)
+        .where((b) => b['type'] == 'document')
+        .toList();
+    expect(docs[0]['source']['data'], 'line');
+    expect(docs[0]['context'], 'the whole section');
+    expect(docs[1]['context'], contains('document 1'));
+    expect(docs[2].containsKey('context'), isFalse);
+    expect(docs[0]['citations'], {'enabled': true});
+  });
+
   test('throws on refusal stop reason', () async {
     final client = MockClient.streaming(
       (request, _) async => http.StreamedResponse(

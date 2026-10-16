@@ -20,6 +20,7 @@ document:
   - upload:
   - saveNote:
   - ensureSample:
+  - sampleHints:
   - get:
   - pdfUploadDescription:
   - confirmPdfUpload:

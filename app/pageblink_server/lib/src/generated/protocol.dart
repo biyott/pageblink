@@ -17,6 +17,7 @@ import 'package:pageblink_server/src/generated/page_text.dart' as _ibhttuac;
 import 'package:pageblink_server/src/generated/project.dart' as _ik18e4tv;
 import 'package:pageblink_server/src/generated/project_member.dart'
     as _i6s9o0ma;
+import 'package:pageblink_server/src/generated/sample_hint.dart' as _iejty6dv;
 import 'package:serverpod/protocol.dart' as _isp;
 import 'package:serverpod/serverpod.dart' as _is;
 import 'package:serverpod_auth_core_server/serverpod_auth_core_server.dart'
@@ -36,6 +37,7 @@ import 'llm_model.dart' as _i52zzt9e;
 import 'page_text.dart' as _it8u2rte;
 import 'project.dart' as _ifiazq2p;
 import 'project_member.dart' as _i7o7d07j;
+import 'sample_hint.dart' as _isfemdkk;
 export 'answer_event.dart';
 export 'citation.dart';
 export 'demo_limit_exception.dart';
@@ -49,6 +51,7 @@ export 'llm_model.dart';
 export 'page_text.dart';
 export 'project.dart';
 export 'project_member.dart';
+export 'sample_hint.dart';
 
 class Protocol extends _is.DatabaseSerializationManager {
   Protocol._();
@@ -512,6 +515,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _i7o7d07j.ProjectMember) {
       return _i7o7d07j.ProjectMember.fromJson(data) as T;
     }
+    if (t == _isfemdkk.SampleHint) {
+      return _isfemdkk.SampleHint.fromJson(data) as T;
+    }
     if (t == _is.getType<_iiosvpvg.AnswerEvent?>()) {
       return (data != null ? _iiosvpvg.AnswerEvent.fromJson(data) : null) as T;
     }
@@ -554,12 +560,24 @@ class Protocol extends _is.DatabaseSerializationManager {
       return (data != null ? _i7o7d07j.ProjectMember.fromJson(data) : null)
           as T;
     }
+    if (t == _is.getType<_isfemdkk.SampleHint?>()) {
+      return (data != null ? _isfemdkk.SampleHint.fromJson(data) : null) as T;
+    }
+    if (t == List<String>) {
+      return (data as List).map((e) => deserialize<String>(e)).toList() as T;
+    }
     if (t == List<int>) {
       return (data as List).map((e) => deserialize<int>(e)).toList() as T;
     }
     if (t == List<_ibhttuac.PageText>) {
       return (data as List)
               .map((e) => deserialize<_ibhttuac.PageText>(e))
+              .toList()
+          as T;
+    }
+    if (t == List<_iejty6dv.SampleHint>) {
+      return (data as List)
+              .map((e) => deserialize<_iejty6dv.SampleHint>(e))
               .toList()
           as T;
     }
@@ -620,6 +638,7 @@ class Protocol extends _is.DatabaseSerializationManager {
       _it8u2rte.PageText => 'PageText',
       _ifiazq2p.Project => 'Project',
       _i7o7d07j.ProjectMember => 'ProjectMember',
+      _isfemdkk.SampleHint => 'SampleHint',
       _ => null,
     };
   }
@@ -660,6 +679,8 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'Project';
       case _i7o7d07j.ProjectMember():
         return 'ProjectMember';
+      case _isfemdkk.SampleHint():
+        return 'SampleHint';
     }
     className = _iais.Protocol().getClassNameForObject(data);
     if (className != null) {
@@ -724,6 +745,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'ProjectMember') {
       return deserialize<_i7o7d07j.ProjectMember>(data['data']);
+    }
+    if (dataClassName == 'SampleHint') {
+      return deserialize<_isfemdkk.SampleHint>(data['data']);
     }
     if (dataClassName.startsWith('serverpod_auth_idp.')) {
       data['className'] = dataClassName.substring(19);

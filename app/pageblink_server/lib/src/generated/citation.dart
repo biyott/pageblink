@@ -22,6 +22,7 @@ abstract class Citation
     String? kind,
     required this.page,
     required this.quote,
+    this.quoteStart,
   }) : kind = kind ?? 'pdf';
 
   factory Citation({
@@ -31,6 +32,7 @@ abstract class Citation
     String? kind,
     required int page,
     required String quote,
+    int? quoteStart,
   }) = _CitationImpl;
 
   factory Citation.fromJson(Map<String, dynamic> jsonSerialization) {
@@ -41,6 +43,7 @@ abstract class Citation
       kind: jsonSerialization['kind'] as String?,
       page: jsonSerialization['page'] as int,
       quote: jsonSerialization['quote'] as String,
+      quoteStart: jsonSerialization['quoteStart'] as int?,
     );
   }
 
@@ -57,6 +60,12 @@ abstract class Citation
 
   String quote;
 
+  /// Where [quote] starts in the note body (UTF-16 units), for notes only:
+  /// `body.startsWith(quote, quoteStart)` holds when the note is unchanged
+  /// since indexing. Null for PDFs and when the offset is unknown; then
+  /// search for [quote] as before.
+  int? quoteStart;
+
   /// Returns a shallow copy of this [Citation]
   /// with some or all fields replaced by the given arguments.
   @_is.useResult
@@ -67,6 +76,7 @@ abstract class Citation
     String? kind,
     int? page,
     String? quote,
+    int? quoteStart,
   });
   @override
   Map<String, dynamic> toJson() {
@@ -78,6 +88,7 @@ abstract class Citation
       'kind': kind,
       'page': page,
       'quote': quote,
+      if (quoteStart != null) 'quoteStart': quoteStart,
     };
   }
 
@@ -91,6 +102,7 @@ abstract class Citation
       'kind': kind,
       'page': page,
       'quote': quote,
+      if (quoteStart != null) 'quoteStart': quoteStart,
     };
   }
 
@@ -100,6 +112,8 @@ abstract class Citation
   }
 }
 
+class _Undefined {}
+
 class _CitationImpl extends Citation {
   _CitationImpl({
     required int index,
@@ -108,6 +122,7 @@ class _CitationImpl extends Citation {
     String? kind,
     required int page,
     required String quote,
+    int? quoteStart,
   }) : super._(
          index: index,
          documentId: documentId,
@@ -115,6 +130,7 @@ class _CitationImpl extends Citation {
          kind: kind,
          page: page,
          quote: quote,
+         quoteStart: quoteStart,
        );
 
   /// Returns a shallow copy of this [Citation]
@@ -128,6 +144,7 @@ class _CitationImpl extends Citation {
     String? kind,
     int? page,
     String? quote,
+    Object? quoteStart = _Undefined,
   }) {
     return Citation(
       index: index ?? this.index,
@@ -136,6 +153,7 @@ class _CitationImpl extends Citation {
       kind: kind ?? this.kind,
       page: page ?? this.page,
       quote: quote ?? this.quote,
+      quoteStart: quoteStart is int? ? quoteStart : this.quoteStart,
     );
   }
 }

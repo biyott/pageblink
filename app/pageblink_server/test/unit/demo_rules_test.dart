@@ -1,50 +1,8 @@
 import 'package:pageblink_server/src/demo/demo_config.dart';
 import 'package:pageblink_server/src/demo/demo_guard.dart';
-import 'package:pageblink_server/src/demo/demo_samples.dart';
-import 'package:pageblink_server/src/rag/chunker.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('sample content', () {
-    test('every note fits one chunk and avoids the to-do sample prefix', () {
-      for (final n in DemoSamples.notes) {
-        expect(n.body.length, lessThan(900));
-        expect(chunkPages([(page: 1, text: n.body)]), hasLength(1));
-        expect(n.title, isNot(startsWith('Sample · ')));
-        expect(n.title, isNot(startsWith('샘플 · ')));
-      }
-    });
-
-    test('markers: three notes plus the PDF, all different', () {
-      expect(DemoSamples.notes, hasLength(3));
-      expect(DemoSamples.markers, hasLength(4));
-      for (final n in DemoSamples.notes) {
-        expect(DemoSamples.isSampleHash(sha256Hex(n.body)), isTrue);
-      }
-      expect(DemoSamples.isSampleHash(DemoSamples.pdfHash), isTrue);
-      expect(DemoSamples.isSampleHash(sha256Hex('my own note')), isFalse);
-    });
-
-    test('legacy hashes are not sample markers', () {
-      expect(DemoSamples.legacy, hasLength(2));
-      expect(DemoSamples.legacy.intersection(DemoSamples.markers), isEmpty);
-      for (final h in DemoSamples.legacy) {
-        expect(DemoSamples.isSampleHash(h), isFalse);
-      }
-    });
-
-    test('the PDF has several pages with different text', () {
-      expect(DemoSamples.pdfPages.length, greaterThanOrEqualTo(2));
-      expect(
-        DemoSamples.pdfPages.toSet(),
-        hasLength(DemoSamples.pdfPages.length),
-      );
-      for (final p in DemoSamples.pdfPages) {
-        expect(chunkPages([(page: 1, text: p)]), isNotEmpty);
-      }
-    });
-  });
-
   group('DailyCounter', () {
     test('stops at the limit and tells how many are left', () {
       final c = DailyCounter(2, now: () => DateTime.utc(2026, 10, 16, 3));

@@ -35,6 +35,9 @@ class OpenRouterLlmProvider implements LlmProvider {
       'You answer questions using only the numbered sources provided, '
       'which are excerpts from the user\'s own files. After each sentence that uses a source, '
       'cite it with its number in square brackets, like [1] or [2][3]. '
+      'Each source has an EVIDENCE line (the passage to cite) and, when available, its '
+      'surrounding CONTEXT. Cite only the number of the source whose EVIDENCE supports '
+      'the sentence; use CONTEXT only to understand it. '
       'If the sources do not contain the answer, say that it was not found in the documents '
       'instead of guessing. Answer in the language of the question, concisely, using Markdown.';
 
@@ -42,10 +45,18 @@ class OpenRouterLlmProvider implements LlmProvider {
   Stream<LlmEvent> answer(String question, List<SourcePassage> sources) async* {
     final context = StringBuffer();
     for (var i = 0; i < sources.length; i++) {
+      final s = sources[i];
       context
-        ..writeln('[${i + 1}] ${sources[i].title}')
-        ..writeln(sources[i].text)
-        ..writeln();
+        ..writeln('[${i + 1}] ${s.title}')
+        ..writeln('EVIDENCE: ${s.text}');
+      if (s.context != null) {
+        context
+          ..writeln('CONTEXT:')
+          ..writeln(s.context);
+      } else if (s.contextOf != null) {
+        context.writeln('(same context as [${s.contextOf}])');
+      }
+      context.writeln();
     }
 
     final request = http.Request('POST', _endpoint)

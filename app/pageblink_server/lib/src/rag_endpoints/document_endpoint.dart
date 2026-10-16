@@ -3,11 +3,15 @@ import 'package:serverpod/serverpod.dart';
 import '../generated/protocol.dart';
 import '../rag/chunker.dart';
 import '../rag/embedding_spec.dart';
+import '../rag/index_chunks.dart';
 import '../rag/text_norm.dart';
-import '../sample/sample_note.dart';
+import '../sample/sample_pack.dart';
 import '../providers/embedding_provider.dart';
 import '../demo/demo_guard.dart';
+import '../demo/demo_user.dart';
 import '../services/acl.dart';
+import '../services/chunk_indexer.dart';
+import '../services/index_config.dart';
 import '../services/document_cleanup.dart';
 import '../services/rag_services.dart';
 
@@ -189,8 +193,13 @@ class DocumentEndpoint extends Endpoint {
   /// edited, deleted). Safe to call on every app start and from two tabs.
   Future<int?> ensureSample(Session session, String locale) async {
     final userId = Acl.requireUser(session);
-    final sample = SampleNote.forLocale(locale);
-    final localize = sample.body != SampleNote.en.body;
+    // The hook always inserts the English note: that hash marks "unprocessed".
+    final seed = SamplePacks.signupEn.notes.first;
+    final sample = SamplePacks.forLocale(
+      locale,
+      SampleAudience.signup,
+    ).notes.first;
+    final localize = sample.hash != seed.hash;
     // Claim atomically: bumping version 1 -> 2 is what makes this idempotent.
     final claimed = await Document.db.updateWhere(
       session,
@@ -200,7 +209,7 @@ class DocumentEndpoint extends Endpoint {
         if (localize) ...[
           t.title(sample.title),
           t.body(sample.body),
-          t.contentHash(sha256Hex(sample.body)),
+          t.contentHash(sample.hash),
         ],
       ],
       where: (t) =>
@@ -209,7 +218,7 @@ class DocumentEndpoint extends Endpoint {
           t.kind.equals('note') &
           t.version.equals(1) &
           t.status.equals('indexing') &
-          t.contentHash.equals(SampleNote.seedHash),
+          t.contentHash.equals(seed.hash),
     );
     if (claimed.isEmpty) return null;
     final document = claimed.first;
@@ -218,6 +227,40 @@ class DocumentEndpoint extends Endpoint {
     ]);
     return document.id;
   }
+
+  /// Example questions for the sample content the caller holds, in the
+  /// language of that content (research 028 §4.2). A sign-up sample counts
+  /// only while its note is untouched (body hash) and `ready`: before that,
+  /// or after an edit or delete, its questions would find nothing. A demo
+  /// account gets its pack's questions directly.
+  Future<List<SampleHint>> sampleHints(Session session) async {
+    final userId = Acl.requireUser(session);
+    final demo = DemoUser.packOf(userId);
+    if (demo != null) return [_hint(demo)];
+    final rows = await Document.db.find(
+      session,
+      where: (t) =>
+          t.ownerId.equals(userId) &
+          t.projectId.equals(null) &
+          t.kind.equals('note') &
+          t.status.equals('ready') &
+          t.contentHash.inSet(SamplePacks.signupMarkers),
+    );
+    final held = {
+      for (final d in rows)
+        ?SamplePacks.byHash(d.contentHash, audience: SampleAudience.signup),
+    };
+    return [
+      for (final p in SamplePacks.all)
+        if (held.contains(p)) _hint(p),
+    ];
+  }
+
+  static SampleHint _hint(SamplePack p) => SampleHint(
+    packId: p.id,
+    locale: p.locale,
+    questions: [for (final q in p.questions) q.text],
+  );
 
   /// One document the user can read (notes are opened in the editor).
   Future<Document?> get(Session session, int documentId) async {
@@ -384,48 +427,35 @@ class DocumentEndpoint extends Endpoint {
       );
     });
     try {
-      final chunks = chunkPages([
-        for (final p in pages) (page: p.page, text: p.text),
-      ]);
+      final version = IndexConfig.chunkerVersion(session);
       final embedder = RagServices.embedding(session);
-      final vectors = chunks.isEmpty
-          ? <List<double>>[]
-          : await embedder.embed([
-              for (final c in chunks)
-                EmbeddingSpec.document(document.title, c.text),
-            ]);
+      final tag = ChunkSpec.tag(embedder.modelId, version);
+      final chunks = buildIndexChunks(
+        kind: document.kind,
+        title: document.title,
+        pages: [for (final p in pages) (page: p.page, text: p.text)],
+        version: version,
+      );
+      // Unchanged lines of an edited note keep their vectors.
+      final vectors = await ChunkIndexer.vectorsFor(
+        embedder,
+        chunks,
+        tag,
+        known: chunks.isEmpty
+            ? const {}
+            : await ChunkIndexer.knownVectors(session, document.id!),
+      );
 
-      await session.db.transaction((tx) async {
-        await DocChunk.db.deleteWhere(
-          session,
-          where: (t) => t.documentId.equals(document.id!),
-          transaction: tx,
-        );
-        if (chunks.isEmpty) return;
-        await DocChunk.db.insert(
-          session,
-          [
-            for (var i = 0; i < chunks.length; i++)
-              DocChunk(
-                documentId: document.id!,
-                projectId: document.projectId,
-                ownerId: document.ownerId,
-                page: chunks[i].page,
-                ordinal: chunks[i].ordinal,
-                text: chunks[i].text,
-                contentHash: chunks[i].contentHash,
-                embedding: Vector(vectors[i]),
-              ),
-          ],
-          transaction: tx,
-        );
-      });
+      await session.db.transaction(
+        (tx) =>
+            ChunkIndexer.replace(session, tx, document, chunks, tag, vectors),
+      );
       if (isNoTextFailure(document.kind, chunks.length)) {
         throw NoTextException();
       }
       document = document.copyWith(
         status: 'ready',
-        embeddingModel: embedder.modelId,
+        embeddingModel: tag,
         lastError: null,
         updatedAt: DateTime.now().toUtc(),
       );

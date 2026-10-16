@@ -400,37 +400,6 @@ class L {
           'What are the budget and the deadline?',
         ];
 
-  /// The demo account's own content (launch notes, weekly decisions, how-to
-  /// PDF): only these fit it, so they replace the general ones.
-  List<String> get demoSuggestions => _ko
-      ? const [
-          '출시일이 언제고 예산은 얼마야?',
-          '출시 전에 남은 일이 뭐야?',
-          '이번 주 결정에서 바뀐 게 뭐야?',
-          'PDF는 어떻게 올려?',
-        ]
-      : const [
-          'When is the launch, and what is the budget?',
-          'What is left to do before the launch?',
-          "What changed in this week's decisions?",
-          'How do I upload a PDF?',
-        ];
-
-  /// Questions the sign-up sample note answers; shown first while it exists.
-  List<String> get sampleSuggestions => _ko
-      ? const [
-          '이번 주에 남은 일은 뭐야?',
-          '이미 끝낸 일은 뭐야?',
-          '오늘 마감인 일은?',
-          '여권 갱신에 뭐가 필요해?',
-        ]
-      : const [
-          'What is left to do this week?',
-          'What have I already finished?',
-          'What is due today?',
-          'What do I need to renew my passport?',
-        ];
-
   // ── Landing / sign-in (docs/plan/007) ─────────────────────────────────
   String get landingHeadline => _t(
     'Ask your notes. Every answer shows its source.',
@@ -630,6 +599,11 @@ class L {
   String get citedInAnswer => _t('Cited in AI answer', 'AI 답변에서 인용됨');
   String sourceNofM(int n, int m) => _t('Source $n of $m', '출처 $n / $m');
   String get openFullPage => _t('Open full page', '전체 페이지 열기');
+  // Cited-passage bar above a note / PDF opened from an answer.
+  String get citeEvidence => _t('Evidence for the answer', '답변의 근거');
+  String get citePrevious => _t('Previous source', '이전 출처');
+  String get citeNext => _t('Next source', '다음 출처');
+  String get citeDismiss => _t('Hide highlight', '하이라이트 닫기');
   String pageN(int n) => _t('Page $n', '$n쪽');
   String get kindNote => _t('Note', '노트');
   String get kindPdf => 'PDF';

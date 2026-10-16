@@ -247,7 +247,7 @@ void main() {
       demoStatusCall = () async => DemoStatus(enabled: true);
       var attempts = 0;
       final gate = Completer<void>();
-      demoSignInCall = () async {
+      demoSignInCall = (_) async {
         attempts++;
         if (attempts == 1) {
           await gate.future;
@@ -290,6 +290,28 @@ void main() {
         findsNothing,
       );
     });
+
+    for (final (lang, sent) in [('en', 'en'), ('ko', 'ko')]) {
+      testWidgets('signs in as the demo of the UI language ($lang)', (
+        tester,
+      ) async {
+        demoStatusCall = () async => DemoStatus(enabled: true);
+        final locales = <String>[];
+        demoSignInCall = (locale) async => locales.add(locale);
+        tester.view
+          ..physicalSize = const Size(800, 1000)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          _app(const SignInScreen(child: SizedBox()), lang: lang),
+        );
+        await tester.pump(const Duration(milliseconds: 700));
+        await tester.tap(find.byType(OutlinedButton));
+        await tester.pump();
+        await tester.pump();
+        expect(locales, [sent]);
+      });
+    }
 
     testWidgets('after Sign up the card opens on the registration form', (
       tester,

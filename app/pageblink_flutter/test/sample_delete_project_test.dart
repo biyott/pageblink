@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pageblink_client/pageblink_client.dart';
@@ -33,71 +35,83 @@ Document _doc(
 
 void main() {
   group('ask suggestions', () {
-    test('sample questions come first only while the sample exists', () {
+    final signup = SampleHint(
+      packId: 'signup-en',
+      locale: 'en',
+      questions: ['What is due today?', 'What have I already finished?'],
+    );
+    final signupKo = SampleHint(
+      packId: 'signup-ko',
+      locale: 'ko',
+      questions: ['오늘 마감인 일은?'],
+    );
+    final demo = SampleHint(
+      packId: 'demo-ko',
+      locale: 'ko',
+      questions: ['출시일이 언제고 예산은 얼마야?', 'PDF는 어떻게 올려?'],
+    );
+
+    test('no hints: only the general questions, in the UI language', () {
       for (final l in [L.en, L.ko]) {
-        expect(orderedSuggestions(l, ['Groceries']), l.askSuggestions);
         expect(orderedSuggestions(l, const []), l.askSuggestions);
-        final sampleTitle = l.isKorean
-            ? '샘플 · 할 일 목록'
-            : 'Sample · My to-do list';
-        expect(orderedSuggestions(l, ['Groceries', sampleTitle]), [
-          ...l.sampleSuggestions,
-          ...l.askSuggestions,
-        ]);
       }
     });
 
-    test('demo account gets only the demo questions', () {
-      expect(L.en.demoSuggestions, [
-        'When is the launch, and what is the budget?',
-        'What is left to do before the launch?',
-        "What changed in this week's decisions?",
-        'How do I upload a PDF?',
+    test('the sample questions come first, whatever the UI language', () {
+      // Content language, not UI language: the sample is answerable.
+      expect(orderedSuggestions(L.ko, [signup]), [
+        ...signup.questions,
+        ...L.ko.askSuggestions,
       ]);
-      expect(L.ko.demoSuggestions, [
-        '출시일이 언제고 예산은 얼마야?',
-        '출시 전에 남은 일이 뭐야?',
-        '이번 주 결정에서 바뀐 게 뭐야?',
-        'PDF는 어떻게 올려?',
+      expect(orderedSuggestions(L.en, [signupKo]), [
+        ...signupKo.questions,
+        ...L.en.askSuggestions,
       ]);
+    });
+
+    test('demo account gets only its pack\'s questions', () {
       for (final l in [L.en, L.ko]) {
-        final sampleTitle = l.isKorean ? '샘플 · 할 일 목록' : 'Sample · x';
-        expect(
-          orderedSuggestions(l, const [], isDemo: true),
-          l.demoSuggestions,
-        );
-        expect(
-          orderedSuggestions(l, ['Groceries', sampleTitle], isDemo: true),
-          l.demoSuggestions,
-        );
-        expect(
-          orderedSuggestions(l, ['Groceries'], isDemo: false),
-          l.askSuggestions,
-        );
+        expect(orderedSuggestions(l, [demo], isDemo: true), demo.questions);
+        expect(orderedSuggestions(l, const [], isDemo: true), isEmpty);
       }
     });
 
-    test('either language title counts; lookalikes do not', () {
-      expect(isSampleTitle('Sample · My to-do list'), isTrue);
-      expect(isSampleTitle('샘플 · 할 일 목록'), isTrue);
-      expect(isSampleTitle('Sample notes'), isFalse);
-      expect(isSampleTitle('My Sample · x'), isFalse);
-    });
+    group('refreshSampleHints', () {
+      tearDown(() {
+        sampleHintsCall = null;
+        resetSampleHints();
+      });
 
-    test('only personal notes can be the sample', () {
-      final titles = personalNoteTitles([
-        _doc('Sample · mine'),
-        _doc('Sample · in project', projectId: 3),
-        _doc('Sample · pdf', kind: 'pdf'),
-      ]);
-      expect(titles, ['Sample · mine']);
-    });
+      test('publishes the answer, keeps it when a later read fails', () async {
+        sampleHintsCall = () async => [signup];
+        await refreshSampleHints();
+        expect(sampleHints.value, [signup]);
 
-    test('sample question texts', () {
-      expect(L.en.sampleSuggestions.first, 'What is left to do this week?');
-      expect(L.ko.sampleSuggestions.last, '여권 갱신에 뭐가 필요해?');
-      expect(L.en.sampleSuggestions, hasLength(4));
-      expect(L.ko.sampleSuggestions, hasLength(4));
+        sampleHintsCall = () async => throw Exception('offline');
+        await refreshSampleHints();
+        expect(sampleHints.value, [signup]);
+      });
+
+      test('a reset drops an answer that was still on its way', () async {
+        final gate = Completer<List<SampleHint>>();
+        sampleHintsCall = () => gate.future;
+        final pending = refreshSampleHints();
+        resetSampleHints();
+        gate.complete([demo]);
+        await pending;
+        expect(sampleHints.value, isEmpty);
+      });
+
+      test('the newest read wins over an older, slower one', () async {
+        final slow = Completer<List<SampleHint>>();
+        sampleHintsCall = () => slow.future;
+        final first = refreshSampleHints();
+        sampleHintsCall = () async => [signupKo];
+        await refreshSampleHints();
+        slow.complete([signup]);
+        await first;
+        expect(sampleHints.value, [signupKo]);
+      });
     });
   });
 

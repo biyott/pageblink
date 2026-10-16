@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
@@ -15,6 +17,8 @@ import '../../app/pane_header.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
 import '../demo/demo.dart';
+import '../viewer/cite_bar.dart';
+import 'cite_layer.dart';
 import 'link_popover.dart';
 import 'live_check_layer.dart';
 import 'live_code_layer.dart';
@@ -258,10 +262,24 @@ LiveStyles liveStylesFor(BuildContext context, TextStyle base) {
       color: theme.colorScheme.primary,
       fontWeight: FontWeight.w700,
     ),
-    // Same tint as the citation banner above the note.
-    highlight: theme.colorScheme.secondaryContainer,
   );
 }
+
+const _citeAnim = Duration(milliseconds: 160);
+
+/// Folds [child]'s height when it changes (not at all when motion is reduced:
+/// `AnimatedSize` with a zero duration asserts in layout).
+Widget _fold({required bool reduced, required Widget child}) => reduced
+    ? child
+    : AnimatedSize(
+        duration: _citeAnim,
+        alignment: Alignment.topCenter,
+        child: child,
+      );
+
+/// A citation of the opened note in the answer: its number (`⚡n`) and quote.
+/// [start]: the server's offset of the quote in the body (null: unknown).
+typedef CiteRef = ({int number, String quote, int? start});
 
 /// Keep-style note editor: title + Markdown body with live styling (or plain
 /// source), and a formatting toolbar. Saves (and re-indexes) on close.
@@ -274,6 +292,9 @@ class NoteEditorView extends StatefulWidget {
     this.note,
     this.projectId,
     this.highlight,
+    this.highlightNumber,
+    this.highlightStart,
+    this.relatedCites = const [],
     required this.embedded,
     required this.onClose,
     this.controller,
@@ -283,8 +304,20 @@ class NoteEditorView extends StatefulWidget {
   final Document? note;
   final int? projectId;
 
-  /// A cited passage to show above the note (opened from an answer).
+  /// A cited passage to show in the note (opened from an answer): a block
+  /// behind the text, scrolled into view, with a bar above (research 027).
   final String? highlight;
+
+  /// The citation number of [highlight] (`⚡n` on the bar), if it has one.
+  final int? highlightNumber;
+
+  /// `Citation.quoteStart` of [highlight]: where it starts in the body the
+  /// server indexed. Used when it still matches, else the quote is searched.
+  final int? highlightStart;
+
+  /// All citations of this note in the same answer (including [highlight]):
+  /// the bar steps through them in place.
+  final List<CiteRef> relatedCites;
 
   final bool embedded;
 
@@ -303,6 +336,16 @@ class NoteEditorView extends StatefulWidget {
 }
 
 class _NoteEditorViewState extends State<NoteEditorView> {
+  // Cited passage: the citations of this note, the one shown, whether the
+  // highlight is still on (typing or the close button turn it off), and the
+  // text it was found in.
+  var _cites = <CiteRef>[];
+  var _citeAt = 0;
+  var _citeOn = false;
+  var _citeText = '';
+  var _citePulse = 0;
+  Timer? _citeTimer;
+
   late final _title = TextEditingController(text: widget.note?.title ?? '');
   late final _body = LiveMarkdownController(
     text: widget.note?.body ?? '',
@@ -368,17 +411,108 @@ class _NoteEditorViewState extends State<NoteEditorView> {
   void initState() {
     super.initState();
     widget.controller?.flushHandler = _flush;
-    _body.quote = widget.highlight;
+    _initCites();
+    _body.addListener(_onBodyChanged);
     _body.addListener(_syncBar);
     _bodyFocus.addListener(_syncBar);
     _bodyScroll.addListener(_syncBar);
+  }
+
+  void _initCites() {
+    final q = widget.highlight;
+    if (q == null || q.trim().isEmpty) return;
+    final n = widget.highlightNumber ?? 0;
+    final list = [...widget.relatedCites];
+    if (!list.any((c) => c.number == n)) {
+      list.add((number: n, quote: q, start: widget.highlightStart));
+    }
+    list.sort((a, b) => a.number.compareTo(b.number));
+    _cites = list;
+    _citeAt = list.indexWhere((c) => c.number == n);
+    _citeOn = true;
+    _citeText = _body.text;
+    _showCite();
+    _revealCite();
+  }
+
+  /// The shown citation is the body's quote; the other citations of this note
+  /// join its block where their lines touch.
+  void _showCite() {
+    final c = _cites[_citeAt];
+    _body.setQuote(
+      c.quote,
+      start: c.start,
+      also: [
+        for (var i = 0; i < _cites.length; i++)
+          if (i != _citeAt) (quote: _cites[i].quote, start: _cites[i].start),
+      ],
+    );
+  }
+
+  /// Typing (any change of the text) turns the highlight off: the block fades
+  /// and the bar folds away. Selection and caret moves do not.
+  void _onBodyChanged() {
+    if (_citeOn && _body.text != _citeText) _dismissCite();
+  }
+
+  void _dismissCite() {
+    if (!_citeOn) return;
+    setState(() => _citeOn = false);
+    // Once the block has faded, stop looking for the quote on every edit.
+    _citeTimer?.cancel();
+    _citeTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted && !_citeOn) _body.quote = null;
+    });
+  }
+
+  void _stepCite(int d) {
+    final i = _citeAt + d;
+    if (!_citeOn || i < 0 || i >= _cites.length) return;
+    setState(() {
+      _citeAt = i;
+      _citePulse++;
+    });
+    _showCite();
+    _revealCite(animate: true);
+  }
+
+  /// Scrolls the cited block to the middle of the field (top-aligned when it
+  /// is taller than the field). Runs after the layout of this frame.
+  void _revealCite({bool animate = false}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_citeOn || !_bodyScroll.hasClients) return;
+      final r = _bodyRender(), range = _body.quoteRange;
+      if (r == null || range == null) return;
+      final local = citeLocalBounds(r, _body.text, range);
+      if (local == null) return;
+      final pos = _bodyScroll.position;
+      final target = citeScrollTarget(
+        top: local.top + pos.pixels - kCitePadY,
+        height: local.height + 2 * kCitePadY,
+        viewport: r.size.height,
+        min: pos.minScrollExtent,
+        max: pos.maxScrollExtent,
+      );
+      if ((target - pos.pixels).abs() < 1) return;
+      if (animate && !MediaQuery.disableAnimationsOf(context)) {
+        _bodyScroll.animateTo(
+          target,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
+      } else {
+        _bodyScroll.jumpTo(target);
+      }
+    });
   }
 
   @override
   void dispose() {
     final c = widget.controller;
     if (c != null && c.flushHandler == _flush) c.flushHandler = null;
+    _citeTimer?.cancel();
     _title.dispose();
+    _body.removeListener(_onBodyChanged);
     _body.dispose();
     _hover.dispose();
     _codeUi.dispose();
@@ -947,6 +1081,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     final l = context.l;
     final theme = Theme.of(context);
     final width = MediaQuery.sizeOf(context).width;
+    final reduced = MediaQuery.disableAnimationsOf(context);
     final sizes = noteSizes(width);
     final titleStyle = theme.textTheme.titleLarge?.copyWith(
       fontSize: sizes.title,
@@ -1093,53 +1228,71 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                     ),
                 ],
               ),
-              // Title, quote banner and body share one column (Column centers it).
-              // Everything starts on the gutter line (text, not box).
-              if (widget.highlight != null)
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: noteColumnWidth),
-                  child: Container(
-                    width: double.infinity,
-                    margin: EdgeInsets.fromLTRB(
-                      sp.gutter - NoteSpacing.bannerRadius,
-                      sp.bannerTop,
-                      sp.gutter - NoteSpacing.bannerRadius,
-                      0,
-                    ),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(
-                        NoteSpacing.bannerRadius,
+              // Title, citation bar and body share one column (Column centers it).
+              // Everything starts on the gutter line (text, not box). The bar
+              // folds away (and the title's top air grows) once the highlight
+              // is off, so typing does not make the page jump.
+              _fold(
+                reduced: reduced,
+                child: !_citeOn
+                    ? const SizedBox(width: double.infinity)
+                    : ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: noteColumnWidth,
+                        ),
+                        child: Container(
+                          key: const ValueKey('cite-bar'),
+                          width: double.infinity,
+                          margin: EdgeInsets.fromLTRB(
+                            sp.gutter - NoteSpacing.bannerRadius,
+                            sp.bannerTop,
+                            sp.gutter - NoteSpacing.bannerRadius,
+                            0,
+                          ),
+                          child: CiteBar(
+                            number: _cites[_citeAt].number == 0
+                                ? null
+                                : _cites[_citeAt].number,
+                            text: _body.quoteRange == null
+                                ? _cites[_citeAt].quote
+                                : null,
+                            position: _citeAt + 1,
+                            count: _cites.length,
+                            onPrevious: _citeAt > 0
+                                ? () => _stepCite(-1)
+                                : null,
+                            onNext: _citeAt < _cites.length - 1
+                                ? () => _stepCite(1)
+                                : null,
+                            onDismiss: _dismissCite,
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      '⚡ “${widget.highlight}”',
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
+              ),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: noteColumnWidth),
                 // The field's contentPadding is the only padding (the theme's 18/14
-                // would otherwise leak in): top is the gap to the header or banner.
-                child: TextField(
-                  controller: _title,
-                  style: titleStyle,
-                  scrollPadding: const EdgeInsets.all(20),
-                  decoration: InputDecoration(
-                    hintText: context.l.titleHint,
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.fromLTRB(
-                      sp.gutter,
-                      widget.highlight != null ? sp.bannerToTitle : sp.titleTop,
-                      sp.gutter,
-                      sp.titleBottom,
+                // would otherwise leak in): top is the gap to the header or bar.
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(end: _citeOn ? sp.bannerToTitle : sp.titleTop),
+                  duration: reduced ? Duration.zero : _citeAnim,
+                  builder: (context, top, _) => TextField(
+                    controller: _title,
+                    style: titleStyle,
+                    scrollPadding: const EdgeInsets.all(20),
+                    decoration: InputDecoration(
+                      hintText: context.l.titleHint,
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.fromLTRB(
+                        sp.gutter,
+                        top,
+                        sp.gutter,
+                        sp.titleBottom,
+                      ),
                     ),
                   ),
                 ),
@@ -1223,6 +1376,21 @@ class _NoteEditorViewState extends State<NoteEditorView> {
                             copyEnabled: !_touchDevice,
                             topAir: sp.bodyGap,
                           ),
+                          // The cited passage: one soft block with a rail,
+                          // behind the field (selection paints over it).
+                          if (_cites.isNotEmpty)
+                            CiteBackLayer(
+                              controller: _body,
+                              scroll: _bodyScroll,
+                              render: _bodyRender,
+                              stack: _stackBox,
+                              fill: context.pb.citeFill,
+                              pulse: context.pb.citePulse,
+                              edge: context.pb.citeEdge,
+                              visible: _citeOn,
+                              pulseKey: _citePulse,
+                              topAir: sp.bodyGap,
+                            ),
                           Listener(
                             onPointerDown: (e) {
                               _pointerDown = true;

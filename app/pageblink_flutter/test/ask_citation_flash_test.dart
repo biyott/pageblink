@@ -12,6 +12,7 @@ import 'package:pageblink_flutter/app/theme.dart';
 import 'package:pageblink_flutter/features/ask/ask_markers.dart';
 import 'package:pageblink_flutter/features/ask/ask_screen.dart';
 import 'package:pageblink_flutter/features/ask/ask_sources.dart';
+import 'package:pageblink_flutter/features/ask/ask_suggestions.dart';
 import 'package:pageblink_flutter/features/demo/demo.dart' show demoStatus;
 
 Citation _c(int i, {String title = 'Doc', String kind = 'pdf'}) => Citation(
@@ -1415,11 +1416,20 @@ void main() {
       }
     });
 
-    testWidgets('demo status arriving late swaps in the demo questions', (
+    testWidgets('demo status arriving late drops the general questions', (
       t,
     ) async {
-      addTearDown(() => demoStatus.value = null);
+      final hint = SampleHint(
+        packId: 'demo-en',
+        locale: 'en',
+        questions: ['When is the launch, and what is the budget?'],
+      );
+      addTearDown(() {
+        demoStatus.value = null;
+        sampleHints.value = const [];
+      });
       demoStatus.value = null;
+      sampleHints.value = [hint];
       await t.pumpWidget(
         MaterialApp(
           theme: buildPbTheme(Brightness.light),
@@ -1431,14 +1441,46 @@ void main() {
           ),
         ),
       );
+      expect(find.text(hint.questions.first), findsOneWidget);
       expect(find.text(L.en.askSuggestions.first), findsOneWidget);
-      expect(find.text(L.en.demoSuggestions.first), findsNothing);
       demoStatus.value = DemoStatus(enabled: true, isDemo: true);
       await t.pump();
-      for (final q in L.en.demoSuggestions) {
-        expect(find.text(q), findsOneWidget);
-      }
+      expect(find.text(hint.questions.first), findsOneWidget);
       expect(find.text(L.en.askSuggestions.first), findsNothing);
+    });
+
+    testWidgets('hints arriving late come first; a project scope has none', (
+      t,
+    ) async {
+      final hint = SampleHint(
+        packId: 'signup-en',
+        locale: 'en',
+        questions: ['What is due today?'],
+      );
+      addTearDown(() => sampleHints.value = const []);
+      sampleHints.value = const [];
+      Future<void> pump(bool includePersonal) => t.pumpWidget(
+        MaterialApp(
+          theme: buildPbTheme(Brightness.light),
+          locale: const Locale('en'),
+          supportedLocales: supportedLocales,
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Scaffold(
+            body: AskEmptyHint(
+              includePersonal: includePersonal,
+              onPick: (_) {},
+            ),
+          ),
+        ),
+      );
+      await pump(true);
+      expect(find.text(hint.questions.first), findsNothing);
+      sampleHints.value = [hint];
+      await t.pump();
+      expect(find.text(hint.questions.first), findsOneWidget);
+      await pump(false);
+      expect(find.text(hint.questions.first), findsNothing);
+      expect(find.text(L.en.askSuggestions.first), findsOneWidget);
     });
 
     testWidgets('English questions are untouched', (t) async {

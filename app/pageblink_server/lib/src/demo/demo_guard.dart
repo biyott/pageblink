@@ -4,7 +4,6 @@ import 'package:serverpod_auth_idp_server/core.dart';
 import '../generated/protocol.dart';
 import '../services/document_cleanup.dart';
 import 'demo_config.dart';
-import 'demo_samples.dart';
 import 'demo_user.dart';
 
 /// Counts uses per KST day (resets at 00:00 KST). In memory only: a restart
@@ -61,6 +60,10 @@ class DemoGuard {
   static bool _applies(Session session, UuidValue userId) =>
       DemoUser.isDemo(userId) && !isSeed(session);
 
+  /// Whether [contentHash] marks a sample of the account's own pack.
+  static bool _isSample(UuidValue userId, String contentHash) =>
+      DemoUser.packOf(userId)?.hashes.contains(contentHash) ?? false;
+
   /// Rejects a body/PDF hash that would make the document look like a sample
   /// (it would dodge the limit and the purge, or lock itself).
   static void requireNotSampleHash(
@@ -68,7 +71,7 @@ class DemoGuard {
     UuidValue userId,
     String contentHash,
   ) {
-    if (_applies(session, userId) && DemoSamples.isSampleHash(contentHash)) {
+    if (_applies(session, userId) && _isSample(userId, contentHash)) {
       throw DemoLimitException(reason: DemoLimitReason.sampleLocked);
     }
   }
@@ -79,8 +82,7 @@ class DemoGuard {
     UuidValue userId,
     Document document,
   ) {
-    if (_applies(session, userId) &&
-        DemoSamples.isSampleHash(document.contentHash)) {
+    if (_applies(session, userId) && _isSample(userId, document.contentHash)) {
       throw DemoLimitException(reason: DemoLimitReason.sampleLocked);
     }
   }
@@ -102,15 +104,18 @@ class DemoGuard {
     }
   }
 
-  /// The demo account's own (non-sample, not yet expired) documents.
-  static Future<int> countOwn(Session session, UuidValue demoId) =>
-      Document.db.count(
-        session,
-        where: (t) =>
-            t.ownerId.equals(demoId) &
-            t.contentHash.notInSet(DemoSamples.markers) &
-            (t.createdAt >= cutoff()),
-      );
+  /// A demo account's own (non-sample, not yet expired) documents. Samples
+  /// are those of the account's pack, so each account counts on its own.
+  static Future<int> countOwn(Session session, UuidValue demoId) {
+    final samples = DemoUser.packOf(demoId)?.hashes ?? <String>{};
+    return Document.db.count(
+      session,
+      where: (t) =>
+          t.ownerId.equals(demoId) &
+          t.contentHash.notInSet(samples) &
+          (t.createdAt >= cutoff()),
+    );
+  }
 
   /// Demo cannot create projects, nor be invited to one. Pass the acting
   /// user, or the invited user.
@@ -131,22 +136,23 @@ class DemoGuard {
     }
   }
 
-  /// Deletes expired non-sample demo documents (with their files) and demo
-  /// refresh tokens older than [demoRetention] (research 026 §8, §9.2).
-  /// No-op while the demo user is unknown or the feature is off.
+  /// Deletes expired non-sample documents of every demo account (with their
+  /// files) and demo refresh tokens older than [demoRetention] (research 026
+  /// §8, §9.2). No-op while no demo account is known or the feature is off.
   static Future<void> purgeExpired(Session session) async {
-    final demoId = DemoUser.demoUserId;
-    if (demoId == null || !DemoConfig.enabled(session)) return;
+    if (DemoUser.accounts.isEmpty || !DemoConfig.enabled(session)) return;
     final limit = cutoff();
 
-    final stale = await Document.db.find(
-      session,
-      where: (t) =>
-          t.ownerId.equals(demoId) &
-          t.contentHash.notInSet(DemoSamples.markers) &
-          (t.createdAt < limit),
-    );
-    if (stale.isNotEmpty) {
+    for (final MapEntry(key: demoId, value: pack)
+        in DemoUser.accounts.entries.toList()) {
+      final stale = await Document.db.find(
+        session,
+        where: (t) =>
+            t.ownerId.equals(demoId) &
+            t.contentHash.notInSet(pack.hashes) &
+            (t.createdAt < limit),
+      );
+      if (stale.isEmpty) continue;
       await DocumentCleanup.deleteFiles(
         session,
         stale.map((d) => d.storagePath),

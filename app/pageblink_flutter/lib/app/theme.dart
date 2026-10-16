@@ -43,6 +43,12 @@ class Pb extends ThemeExtension<Pb> {
     required this.dropScrim,
     required this.paneVeil,
     required this.dropSub,
+    required this.citeFill,
+    required this.citePulse,
+    required this.citeEdge,
+    required this.citePdfFill,
+    required this.citePdfEdge,
+    required this.selection,
   });
 
   final Color bgStart, bgMid, bgEnd, blobA, blobB;
@@ -59,6 +65,19 @@ class Pb extends ThemeExtension<Pb> {
   /// text-link color on cards and the board (accent fails AA on pastels).
   final Color warnText, linkInk;
   final Color dropFill, dropFillOver, dropBorder, dropScrim, paneVeil, dropSub;
+
+  /// Cited passage (research 027 §3, U2). [citeFill] is the resting block
+  /// behind the text, [citePulse] its first 600 ms, [citeEdge] the 3px rail
+  /// (and the sheet's rail). Non-text contrast comes from the rail (accent vs
+  /// panel >= 4.9:1), not from the fill.
+  final Color citeFill, citePulse, citeEdge;
+
+  /// The same on a PDF page: the page is white paper in both themes, so these
+  /// are built on the light accent in dark mode too.
+  final Color citePdfFill, citePdfEdge;
+
+  /// Text selection: a neutral blue-grey, so violet stays for citations.
+  final Color selection;
 
   static const light = Pb(
     bgStart: Color(0xFFEDE6FA),
@@ -103,6 +122,14 @@ class Pb extends ThemeExtension<Pb> {
     dropScrim: Color(0x291E160C),
     paneVeil: Color(0xEDF7E8EE),
     dropSub: Color(0xCC1F1B16),
+    // accent #6C4CF5 at 12% resting / 28% pulse; rail = accent.
+    citeFill: Color(0x1F6C4CF5),
+    citePulse: Color(0x476C4CF5),
+    citeEdge: Color(0xFF6C4CF5),
+    citePdfFill: Color(0x386C4CF5),
+    citePdfEdge: Color(0xFF6C4CF5),
+    // slate #44546F at 22%.
+    selection: Color(0x3844546F),
   );
 
   static const dark = Pb(
@@ -148,6 +175,15 @@ class Pb extends ThemeExtension<Pb> {
     dropScrim: Color(0x4D000000),
     paneVeil: Color(0xED251C27),
     dropSub: Color(0xBFF2EDE3),
+    // accent #B7A6FF at 14% resting / 30% pulse; rail = accent.
+    citeFill: Color(0x24B7A6FF),
+    citePulse: Color(0x4DB7A6FF),
+    citeEdge: Color(0xFFB7A6FF),
+    // PDF pages stay white in dark mode: light accent, 22%.
+    citePdfFill: Color(0x386C4CF5),
+    citePdfEdge: Color(0xFF6C4CF5),
+    // blue-grey #9FB4D6 at 24%.
+    selection: Color(0x3D9FB4D6),
   );
 
   /// Stable pastel per note so cards keep their color between refreshes.
@@ -257,6 +293,8 @@ ThemeData buildPbTheme(Brightness brightness) {
     colorScheme: scheme,
     textTheme: text,
     extensions: [pb],
+    // Only the selection fill: caret and handles stay the accent.
+    textSelectionTheme: TextSelectionThemeData(selectionColor: pb.selection),
     scaffoldBackgroundColor: Colors.transparent,
     appBarTheme: AppBarTheme(
       backgroundColor: Colors.transparent,

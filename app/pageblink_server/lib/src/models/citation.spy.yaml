@@ -8,3 +8,8 @@ fields:
   kind: String, default='pdf'
   page: int
   quote: String
+  ### Where [quote] starts in the note body (UTF-16 units), for notes only:
+  ### `body.startsWith(quote, quoteStart)` holds when the note is unchanged
+  ### since indexing. Null for PDFs and when the offset is unknown; then
+  ### search for [quote] as before.
+  quoteStart: int?

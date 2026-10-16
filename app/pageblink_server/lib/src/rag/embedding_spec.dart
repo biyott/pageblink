@@ -13,3 +13,16 @@ class EmbeddingSpec {
   static String document(String title, String text) =>
       'title: $title | text: $text';
 }
+
+/// Chunk rules version (design 029). `Document.embeddingModel` of a ready
+/// document is `<embedding model id>#c<version>`: a document is stale when
+/// that tag differs from the current one (new rules or a new embedder).
+class ChunkSpec {
+  /// Line/block notes, sentence-pack PDFs (`line_chunker.dart`).
+  static const latest = 2;
+
+  /// Paragraph chunks with overlap (`chunker.dart`), kept for rollback.
+  static const legacy = 1;
+
+  static String tag(String modelId, int version) => '$modelId#c$version';
+}

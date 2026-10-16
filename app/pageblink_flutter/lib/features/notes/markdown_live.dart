@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show TextInputFormatter;
 
@@ -58,7 +60,8 @@ class LiveStyles {
   /// `~~x~~`, and the list prefix pieces: `-`/`*`/`+`, `1.`, `[ ]`, `[x]`.
   final TextStyle strike, bullet, number, todo, done;
 
-  /// Background of the cited passage (opened from an answer).
+  /// Tint of `runsToSpan(highlight:)`. The editor does not use it: a cited
+  /// passage is painted as a block by CiteBackLayer instead.
   final Color highlight;
 
   /// Style of the lines of a fenced block when a host paints the block
@@ -163,13 +166,77 @@ class LiveMarkdownController extends TextEditingController {
     notifyListeners();
   }
 
-  /// Passage to tint (highlight). Found again by text on every build, so it
-  /// follows edits and simply disappears once the user changes it.
+  /// Cited passage. Found again by text ([quoteRange]), so it follows edits
+  /// and is simply not found once the user changes it. It does not touch the
+  /// span: a layer behind the field paints it (CiteBackLayer).
   String? get quote => _quote;
-  set quote(String? v) {
-    if (v == _quote) return;
+  set quote(String? v) => setQuote(v);
+
+  /// Sets the cited passage in one notification. [start] is the server's
+  /// offset of [quote] in the body ([locateQuote]); [also] are the other
+  /// citations of the same note: those whose lines touch the passage are
+  /// merged into the same block.
+  void setQuote(
+    String? v, {
+    int? start,
+    List<({String quote, int? start})> also = const [],
+  }) {
+    if (v == _quote && start == _quoteStart && _alsoSame(also)) return;
     _quote = v;
+    _quoteStart = start;
+    _also = also;
+    _hText = null;
     notifyListeners();
+  }
+
+  bool _alsoSame(List<({String quote, int? start})> a) {
+    if (a.length != _also.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != _also[i]) return false;
+    }
+    return true;
+  }
+
+  /// Where [quote] sits in the text ([locateQuote]), merged with the lines of
+  /// the [also] citations that touch it; null: no quote, or not found. Cached
+  /// for the current text and quote.
+  TextRange? get quoteRange {
+    final q = _quote;
+    if (q == null) return null;
+    if (_hText != text || _hQuote != q) {
+      _hText = text;
+      _hQuote = q;
+      _hRange = _resolve(q);
+    }
+    return _hRange;
+  }
+
+  TextRange? _resolve(String q) {
+    final base = locateQuote(text, q, start: _quoteStart);
+    if (base == null || _also.isEmpty) return base;
+    var lines = citeLineRange(text, base);
+    final others = <TextRange>[
+      for (final o in _also)
+        if (locateQuote(text, o.quote, start: o.start) case final r?)
+          citeLineRange(text, r),
+    ];
+    // Overlapping or adjacent lines (next line starts at end + 1) join the
+    // block; repeat while a join brings another one in.
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (final o in [...others]) {
+        if (o.start <= lines.end + 1 && o.end >= lines.start - 1) {
+          lines = TextRange(
+            start: o.start < lines.start ? o.start : lines.start,
+            end: o.end > lines.end ? o.end : lines.end,
+          );
+          others.remove(o);
+          changed = true;
+        }
+      }
+    }
+    return lines;
   }
 
   // ponytail: whole-text re-scan only when text/styles change; selection-only
@@ -182,6 +249,8 @@ class LiveMarkdownController extends TextEditingController {
   List<CheckMarker> _kChecks = const [];
   List<FenceBlock> _kFences = const [];
   String? _hText, _hQuote;
+  int? _quoteStart;
+  List<({String quote, int? start})> _also = const [];
   TextRange? _hRange;
 
   @override
@@ -193,16 +262,9 @@ class LiveMarkdownController extends TextEditingController {
     final comp = withComposing && value.isComposingRangeValid
         ? value.composing
         : null;
-    TextRange? hl;
-    if (_quote != null) {
-      if (_hText != text || _hQuote != _quote) {
-        _hText = text;
-        _hQuote = _quote;
-        _hRange = findQuote(text, _quote!);
-      }
-      hl = _hRange;
-    }
-    if (!_live && hl == null) {
+    // The cited passage is not painted here (no per-glyph background): a layer
+    // behind the field draws it from [quoteRange] (CiteBackLayer).
+    if (!_live) {
       return super.buildTextSpan(
         context: context,
         style: style,
@@ -212,9 +274,7 @@ class LiveMarkdownController extends TextEditingController {
     final base = style ?? const TextStyle();
     final styles = styleOf(context, base);
     List<LiveRun> runs;
-    if (!_live) {
-      runs = [LiveRun(0, text.length, const TextStyle())];
-    } else if (_cText == text &&
+    if (_cText == text &&
         _cStyles == styles &&
         _cBoxes == _boxes &&
         _cBlocks == _blocks) {
@@ -231,14 +291,7 @@ class LiveMarkdownController extends TextEditingController {
       _kChecks = p.checks;
       _kFences = p.fences;
     }
-    return runsToSpan(
-      text,
-      runs,
-      base,
-      composing: comp,
-      highlight: hl,
-      highlightColor: styles.highlight,
-    );
+    return runsToSpan(text, runs, base, composing: comp);
   }
 
   void _scanIfStale() {
@@ -364,6 +417,37 @@ List<LiveRun> _overlay(List<LiveRun> runs, TextRange r, TextStyle over) {
     if (b < run.end) out.add(LiveRun(b, run.end, run.style, run.kind));
   }
   return out;
+}
+
+/// [r] widened to whole lines: from the start of its first line to the end of
+/// its last (a quote is usually part of a line; the block is per line, D3 of
+/// research 027).
+TextRange citeLineRange(String text, TextRange r) {
+  if (!r.isValid || r.isCollapsed) return r;
+  final end = math.min(r.end, text.length);
+  final start = math.min(math.max(r.start, 0), end);
+  final from = start == 0 ? 0 : text.lastIndexOf('\n', start - 1) + 1;
+  // A range that ends right after a line break stays on its last line.
+  final probe = end > start && text.codeUnitAt(end - 1) == 0x0a ? end - 1 : end;
+  var to = text.indexOf('\n', probe);
+  if (to < 0) to = text.length;
+  if (to > from && text.codeUnitAt(to - 1) == 0x0d) to--; // CRLF
+  return TextRange(start: from, end: math.max(to, from));
+}
+
+/// Where a cited [quote] is in [text]. The server's [start] (UTF-16 offset of
+/// the quote in the body it indexed) is used when `text.startsWith(quote,
+/// start)` holds, which picks the right one of two equal lines; otherwise
+/// [findQuote] (the note was edited since, or there is no offset).
+TextRange? locateQuote(String text, String quote, {int? start}) {
+  if (start != null &&
+      start >= 0 &&
+      start + quote.length <= text.length &&
+      quote.trim().isNotEmpty &&
+      text.startsWith(quote, start)) {
+    return TextRange(start: start, end: start + quote.length);
+  }
+  return findQuote(text, quote);
 }
 
 /// Finds a cited [quote] in [text]: exact, then whitespace-tolerant, then by

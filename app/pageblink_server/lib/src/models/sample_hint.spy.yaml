@@ -1,0 +1,10 @@
+### Example questions for the sample content the caller holds (research 028).
+### Not stored: the server builds it from its sample packs.
+class: SampleHint
+fields:
+  ### Which pack the questions belong to (`signup-ko`, `demo-en`, ...).
+  packId: String
+  ### Language of the questions: the language of the sample's content.
+  locale: String
+  ### Questions the sample content answers, in display order.
+  questions: List<String>

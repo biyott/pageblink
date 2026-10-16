@@ -48,6 +48,56 @@ void main() {
     expect(sent['model'], 'anthropic/claude-haiku-5.5');
   });
 
+  test('renders EVIDENCE per numbered source, CONTEXT once', () async {
+    late Map<String, dynamic> sent;
+    final client = MockClient.streaming((request, body) async {
+      sent = jsonDecode(await utf8.decodeStream(body)) as Map<String, dynamic>;
+      return http.StreamedResponse(
+        Stream.value(utf8.encode('${_chunk('ok [2]')}data: [DONE]\n\n')),
+        200,
+      );
+    });
+    final events = await OpenRouterLlmProvider('k', client: client).answer(
+      'q',
+      [
+        SourcePassage(
+          title: 'Plan › Numbers (note)',
+          text: '- **Date:** Nov 18',
+          context: '## Numbers\n- **Budget:** 12M\n- **Date:** Nov 18',
+        ),
+        SourcePassage(
+          title: 'Plan › Numbers (note)',
+          text: '- **Budget:** 12M',
+          contextOf: 1,
+        ),
+        SourcePassage(title: 'Other (p.3)', text: 'plain'),
+      ],
+    ).toList();
+
+    final messages = sent['messages'] as List;
+    final system = messages[0]['content'] as String;
+    final user = messages[1]['content'] as String;
+    expect(system, contains('EVIDENCE'));
+    expect(system, contains('CONTEXT'));
+    expect(
+      user,
+      contains(
+        '[1] Plan › Numbers (note)\n'
+        'EVIDENCE: - **Date:** Nov 18\n'
+        'CONTEXT:\n'
+        '## Numbers\n'
+        '- **Budget:** 12M\n'
+        '- **Date:** Nov 18\n\n'
+        '[2] Plan › Numbers (note)\n'
+        'EVIDENCE: - **Budget:** 12M\n'
+        '(same context as [1])\n\n'
+        '[3] Other (p.3)\nEVIDENCE: plain\n',
+      ),
+    );
+    // the marker maps to the small unit, not to the context
+    expect(events.whereType<LlmCitation>().single.sourceIndex, 1);
+  });
+
   test('throws on in-stream error', () async {
     final client = MockClient.streaming(
       (request, _) async => http.StreamedResponse(

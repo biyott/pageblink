@@ -80,7 +80,7 @@ class _SignInScreenState extends State<SignInScreen> {
       _demoFailed = false;
     });
     try {
-      await signInAsDemo();
+      await signInAsDemo(locale: context.l.isKorean ? 'ko' : 'en');
     } catch (e) {
       debugPrint('demo sign-in failed: $e');
       if (mounted) setState(() => _demoFailed = true);

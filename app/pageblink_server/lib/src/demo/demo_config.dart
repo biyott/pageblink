@@ -2,14 +2,10 @@ import 'dart:io';
 
 import 'package:serverpod/serverpod.dart';
 
-/// The demo account's email. `.invalid` is a reserved TLD (RFC 2606): mail
-/// never arrives, so nobody can reset its password (research 026 §1, §4).
-const demoEmail = 'demo@pageblink.invalid';
-
 /// Own documents (notes + PDFs, samples excluded) the demo account may hold.
 const demoCreateLimit = 5;
 
-/// Questions per day for the whole demo account (all visitors together).
+/// Questions per day for all demo accounts and visitors together.
 const demoAskDailyLimit = 50;
 
 /// Own demo documents and demo refresh tokens older than this are deleted.

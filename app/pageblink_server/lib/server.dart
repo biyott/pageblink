@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:serverpod_auth_idp_server/core.dart';
@@ -8,6 +9,7 @@ import 'src/cache_busting.dart';
 import 'src/demo/demo_seed.dart';
 import 'src/generated/serverpod.dart';
 import 'src/sample/sample_seed.dart';
+import 'src/services/chunk_migration.dart';
 import 'src/web/routes/app_config_route.dart';
 
 /// The starting point of the Serverpod server.
@@ -110,4 +112,8 @@ void run(List<String> args) async {
   // After start(): migrations are applied inside it, so the auth tables exist
   // only now (research 026 D1). Does nothing unless `demoEnabled` is set.
   await DemoSeed.boot(pod);
+
+  // Re-indexes documents on older chunk rules or an older embedding model in
+  // the background. Does nothing unless `REINDEX_ON_BOOT` is set.
+  unawaited(ChunkMigration.start(pod));
 }

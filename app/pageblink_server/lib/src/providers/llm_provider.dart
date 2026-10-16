@@ -3,10 +3,23 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 /// A retrieved passage handed to the model as a citable document.
+///
+/// [text] is the evidence: what a citation points at. [context] is the larger
+/// surrounding text (its section, or the nearby chunks of a PDF page) to
+/// understand the evidence with, never cited. Sources that share one context
+/// carry it once: the others set [contextOf] to the 1-based number of the
+/// source that holds it.
 class SourcePassage {
-  SourcePassage({required this.title, required this.text});
+  SourcePassage({
+    required this.title,
+    required this.text,
+    this.context,
+    this.contextOf,
+  });
   final String title;
   final String text;
+  final String? context;
+  final int? contextOf;
 }
 
 /// Events produced while an answer streams.
@@ -72,8 +85,15 @@ class ClaudeLlmProvider implements LlmProvider {
   static const _system =
       'You answer questions using only the provided documents, '
       'which are excerpts from the user\'s own files. Cite the passages you rely on. '
+      'A document may come with context that surrounds the passage: use it only to understand the passage. '
       'If the documents do not contain the answer, say that it was not found in the documents '
       'instead of guessing. Answer in the language of the question, concisely, using Markdown.';
+
+  /// The document block's `context`: the large unit, or a pointer to the
+  /// earlier document that holds it.
+  static String? _contextOf(SourcePassage s) =>
+      s.context ??
+      (s.contextOf == null ? null : 'Same section as document ${s.contextOf}.');
 
   @override
   Stream<LlmEvent> answer(String question, List<SourcePassage> sources) async* {
@@ -111,6 +131,8 @@ class ClaudeLlmProvider implements LlmProvider {
                     'data': s.text,
                   },
                   'title': s.title,
+                  // Not cited: the surrounding text of the passage.
+                  'context': ?_contextOf(s),
                   'citations': {'enabled': true},
                 },
               {'type': 'text', 'text': question},

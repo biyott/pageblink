@@ -164,20 +164,47 @@ class _CitationSheetState extends State<_CitationSheet> {
               Expanded(
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF7F3EA),
+                    color: pb.tile,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: SingleChildScrollView(
-                    child: Text.rich(
-                      TextSpan(
-                        text: c.quote,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.6,
-                          color: const Color(0xFF1F1B16),
-                          backgroundColor: pb.accent.withValues(alpha: 0.18),
+                    padding: const EdgeInsets.all(10),
+                    // The cited passage as the editor shows it: a soft block
+                    // with the violet rail on its left, theme colors only.
+                    child: Container(
+                      key: const ValueKey('sheet-quote'),
+                      decoration: BoxDecoration(
+                        color: pb.citeFill,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Container(
+                              width: 3,
+                              decoration: BoxDecoration(
+                                color: pb.citeEdge,
+                                borderRadius: const BorderRadius.horizontal(
+                                  left: Radius.circular(8),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Text(
+                                  c.quote,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    height: 1.6,
+                                    color: pb.ink,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

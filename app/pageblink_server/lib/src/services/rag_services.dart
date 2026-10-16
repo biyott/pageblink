@@ -11,6 +11,10 @@ import 'llm_catalog.dart';
 
 /// Builds providers from server passwords (config/passwords.yaml or Cloud).
 class RagServices {
+  /// Tests only: replace the providers (no keys, no network).
+  static EmbeddingProvider? debugEmbedding;
+  static LlmProvider? debugLlm;
+
   /// Serverpod password (passwords.yaml, Cloud, or `SERVERPOD_PASSWORD_name`),
   /// falling back to a conventional environment variable.
   static String? _secret(Session session, String password, String envVar) {
@@ -24,6 +28,8 @@ class RagServices {
   /// otherwise DeepInfra EmbeddingGemma. Pick one per deployment: vectors
   /// from different models are not comparable.
   static EmbeddingProvider embedding(Session session) {
+    final fake = debugEmbedding;
+    if (fake != null) return fake;
     final gemini = _secret(session, 'geminiApiKey', 'GEMINI_API_KEY');
     if (gemini != null) return GeminiEmbeddingProvider(gemini);
     final key = _secret(session, 'deepinfraApiKey', 'DEEPINFRA_API_KEY');
@@ -36,6 +42,8 @@ class RagServices {
   /// OpenRouter (with model rotation) when `openrouterApiKey` is set,
   /// otherwise Claude direct. [modelId] comes from the app's model picker.
   static LlmProvider llm(Session session, {String? modelId}) {
+    final fake = debugLlm;
+    if (fake != null) return fake;
     final openRouterKey = _secret(
       session,
       'openrouterApiKey',
