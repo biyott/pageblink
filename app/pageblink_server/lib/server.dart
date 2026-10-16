@@ -5,6 +5,7 @@ import 'package:serverpod_auth_idp_server/providers/email.dart';
 import 'package:serverpod_cloud_storage/serverpod_cloud_storage.dart';
 
 import 'src/cache_busting.dart';
+import 'src/demo/demo_seed.dart';
 import 'src/generated/serverpod.dart';
 import 'src/sample/sample_seed.dart';
 import 'src/web/routes/app_config_route.dart';
@@ -105,4 +106,8 @@ void run(List<String> args) async {
 
   // Start the server.
   await pod.start();
+
+  // After start(): migrations are applied inside it, so the auth tables exist
+  // only now (research 026 D1). Does nothing unless `demoEnabled` is set.
+  await DemoSeed.boot(pod);
 }

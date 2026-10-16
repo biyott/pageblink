@@ -2,6 +2,7 @@ import 'package:serverpod/serverpod.dart';
 import 'package:serverpod_auth_idp_server/providers/email.dart';
 
 import '../generated/protocol.dart';
+import '../demo/demo_guard.dart';
 import '../services/acl.dart';
 import '../services/document_cleanup.dart';
 
@@ -23,6 +24,7 @@ class ProjectEndpoint extends Endpoint {
 
   Future<Project> create(Session session, String name) async {
     final userId = Acl.requireUser(session);
+    DemoGuard.requireNoProject(userId);
     final cleanName = cleanProjectName(name);
     return session.db.transaction((tx) async {
       final project = await Project.db.insertRow(
@@ -73,6 +75,7 @@ class ProjectEndpoint extends Endpoint {
     );
     final memberId = account?.authUserId;
     if (memberId == null) throw ArgumentError('No user with email $email');
+    DemoGuard.requireNoProject(memberId);
 
     final existing = await ProjectMember.db.findFirstRow(
       session,

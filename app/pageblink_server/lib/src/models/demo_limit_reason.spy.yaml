@@ -1,0 +1,12 @@
+### Which demo rule was hit.
+enum: DemoLimitReason
+serialized: byName
+values:
+  ### The demo account already holds its maximum of own documents.
+  - createLimit
+  ### The shared daily question limit is used up.
+  - askLimit
+  ### A sample note or PDF cannot be edited, re-indexed or deleted.
+  - sampleLocked
+  ### The demo account cannot create or join projects.
+  - projectLocked

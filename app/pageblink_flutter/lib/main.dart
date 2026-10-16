@@ -13,6 +13,8 @@ import 'features/ask/ask_screen.dart';
 import 'features/documents/documents_screen.dart';
 import 'features/documents/drop_zone.dart';
 import 'features/documents/upload_controller.dart';
+import 'features/demo/demo.dart';
+import 'features/demo/demo_widgets.dart';
 import 'features/documents/upload_tray.dart';
 import 'features/open_item/open_item_view.dart';
 import 'features/projects/projects_screen.dart';
@@ -91,6 +93,10 @@ class _HomeShellState extends State<HomeShell> {
     for (var i = 0; i < 3; i++) _TabObserver(_tabStackChanged),
   ];
 
+  /// Keeps the layout (navigators, open editor) mounted when the demo banner
+  /// appears above it.
+  final _bodyKey = GlobalKey();
+
   bool _sampleEnsured = false;
 
   @override
@@ -98,6 +104,11 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     _open.openInNotesTab = _openInNotesTab;
     _loadProjects();
+    // Demo account: banner + create counter. Re-read after anything that
+    // changes the count (note save/delete, PDF added all bump boardRefresh).
+    resetDemoStatus();
+    refreshDemoStatus();
+    boardRefresh.addListener(refreshDemoStatus);
   }
 
   /// Once per signed-in session (this shell only exists while signed in).
@@ -123,6 +134,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    boardRefresh.removeListener(refreshDemoStatus);
     _open.dispose();
     _uploads.dispose();
     _projects.dispose();
@@ -289,9 +301,32 @@ class _HomeShellState extends State<HomeShell> {
         controller: _open,
         child: ListenableBuilder(
           listenable: _open,
-          builder: (context, _) => LayoutBuilder(
-            builder: (context, constraints) =>
-                _layout(context, constraints.maxWidth, destinations, appBar),
+          builder: (context, _) => ValueListenableBuilder<DemoStatus?>(
+            valueListenable: demoStatus,
+            builder: (context, demo, _) {
+              final banner = demo != null && demo.isDemo;
+              return Column(
+                children: [
+                  if (banner) DemoBanner(status: demo),
+                  Expanded(
+                    key: _bodyKey,
+                    // The banner's SafeArea took the status bar inset.
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: banner,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) => _layout(
+                          context,
+                          constraints.maxWidth,
+                          destinations,
+                          appBar,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

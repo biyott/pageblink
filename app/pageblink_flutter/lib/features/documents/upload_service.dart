@@ -9,6 +9,7 @@ import '../../app/l10n.dart';
 import '../../app/local_pdfs.dart';
 import '../../app/text_norm.dart';
 import '../../client.dart';
+import '../demo/demo.dart';
 import 'pdf_text.dart' as pdf;
 
 /// Every upload limit in one place (research 025 §1, §4).
@@ -64,6 +65,9 @@ enum UploadKind {
   timeout,
   unknown,
   cancelled,
+
+  /// The demo account's limit (documents, sample or project lock).
+  demoLimit,
 }
 
 /// A PDF handed to [uploadPdfs]: platform-neutral name + lazy bytes.
@@ -92,6 +96,7 @@ class UploadOutcome {
     this.errorCode,
     this.originalStored = true,
     this.detail,
+    this.demoLimit,
   });
 
   final String name;
@@ -108,6 +113,9 @@ class UploadOutcome {
   /// Short diagnostic code for local failures (type + clipped message, no
   /// paths or file names), shown so a user can copy it to support.
   final String? detail;
+
+  /// [UploadKind.demoLimit]: the server's reason.
+  final DemoLimitException? demoLimit;
 
   bool get isFailure => switch (kind) {
     UploadKind.added || UploadKind.duplicate || UploadKind.cancelled => false,
@@ -439,6 +447,9 @@ Future<UploadOutcome> _uploadOne(
     );
   } catch (e) {
     debugPrint('upload ${file.name} failed: $e');
+    if (e is DemoLimitException) {
+      return UploadOutcome(file.name, UploadKind.demoLimit, demoLimit: e);
+    }
     return fail(classifyUploadError(e, projectId: projectId));
   }
   final id = document.id;
@@ -504,6 +515,8 @@ String uploadReasonText(L l, UploadOutcome o) => switch (o.kind) {
   UploadKind.network => l.uploadNetwork,
   UploadKind.timeout => l.uploadTimeout,
   UploadKind.unknown => l.uploadUnknown,
+  UploadKind.demoLimit =>
+    o.demoLimit == null ? l.uploadUnknown : demoLimitText(l, o.demoLimit!),
   UploadKind.added || UploadKind.duplicate || UploadKind.cancelled => '',
 };
 

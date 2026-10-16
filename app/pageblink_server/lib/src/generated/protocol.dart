@@ -25,6 +25,9 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import 'answer_event.dart' as _iiosvpvg;
 import 'citation.dart' as _i7jy3rkv;
+import 'demo_limit_exception.dart' as _if2i642k;
+import 'demo_limit_reason.dart' as _iyfquffa;
+import 'demo_status.dart' as _i8rpgbq5;
 import 'doc_chunk.dart' as _iy239l3h;
 import 'doc_page.dart' as _i92jcfzt;
 import 'document.dart' as _i674ac8o;
@@ -35,6 +38,9 @@ import 'project.dart' as _ifiazq2p;
 import 'project_member.dart' as _i7o7d07j;
 export 'answer_event.dart';
 export 'citation.dart';
+export 'demo_limit_exception.dart';
+export 'demo_limit_reason.dart';
+export 'demo_status.dart';
 export 'doc_chunk.dart';
 export 'doc_page.dart';
 export 'document.dart';
@@ -473,6 +479,15 @@ class Protocol extends _is.DatabaseSerializationManager {
     if (t == _i7jy3rkv.Citation) {
       return _i7jy3rkv.Citation.fromJson(data) as T;
     }
+    if (t == _if2i642k.DemoLimitException) {
+      return _if2i642k.DemoLimitException.fromJson(data) as T;
+    }
+    if (t == _iyfquffa.DemoLimitReason) {
+      return _iyfquffa.DemoLimitReason.fromJson(data) as T;
+    }
+    if (t == _i8rpgbq5.DemoStatus) {
+      return _i8rpgbq5.DemoStatus.fromJson(data) as T;
+    }
     if (t == _iy239l3h.DocChunk) {
       return _iy239l3h.DocChunk.fromJson(data) as T;
     }
@@ -502,6 +517,17 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (t == _is.getType<_i7jy3rkv.Citation?>()) {
       return (data != null ? _i7jy3rkv.Citation.fromJson(data) : null) as T;
+    }
+    if (t == _is.getType<_if2i642k.DemoLimitException?>()) {
+      return (data != null ? _if2i642k.DemoLimitException.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_iyfquffa.DemoLimitReason?>()) {
+      return (data != null ? _iyfquffa.DemoLimitReason.fromJson(data) : null)
+          as T;
+    }
+    if (t == _is.getType<_i8rpgbq5.DemoStatus?>()) {
+      return (data != null ? _i8rpgbq5.DemoStatus.fromJson(data) : null) as T;
     }
     if (t == _is.getType<_iy239l3h.DocChunk?>()) {
       return (data != null ? _iy239l3h.DocChunk.fromJson(data) : null) as T;
@@ -583,6 +609,9 @@ class Protocol extends _is.DatabaseSerializationManager {
     return switch (type) {
       _iiosvpvg.AnswerEvent => 'AnswerEvent',
       _i7jy3rkv.Citation => 'Citation',
+      _if2i642k.DemoLimitException => 'DemoLimitException',
+      _iyfquffa.DemoLimitReason => 'DemoLimitReason',
+      _i8rpgbq5.DemoStatus => 'DemoStatus',
       _iy239l3h.DocChunk => 'DocChunk',
       _i92jcfzt.DocPage => 'DocPage',
       _i674ac8o.Document => 'Document',
@@ -609,6 +638,12 @@ class Protocol extends _is.DatabaseSerializationManager {
         return 'AnswerEvent';
       case _i7jy3rkv.Citation():
         return 'Citation';
+      case _if2i642k.DemoLimitException():
+        return 'DemoLimitException';
+      case _iyfquffa.DemoLimitReason():
+        return 'DemoLimitReason';
+      case _i8rpgbq5.DemoStatus():
+        return 'DemoStatus';
       case _iy239l3h.DocChunk():
         return 'DocChunk';
       case _i92jcfzt.DocPage():
@@ -656,6 +691,15 @@ class Protocol extends _is.DatabaseSerializationManager {
     }
     if (dataClassName == 'Citation') {
       return deserialize<_i7jy3rkv.Citation>(data['data']);
+    }
+    if (dataClassName == 'DemoLimitException') {
+      return deserialize<_if2i642k.DemoLimitException>(data['data']);
+    }
+    if (dataClassName == 'DemoLimitReason') {
+      return deserialize<_iyfquffa.DemoLimitReason>(data['data']);
+    }
+    if (dataClassName == 'DemoStatus') {
+      return deserialize<_i8rpgbq5.DemoStatus>(data['data']);
     }
     if (dataClassName == 'DocChunk') {
       return deserialize<_iy239l3h.DocChunk>(data['data']);

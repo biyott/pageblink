@@ -13,6 +13,7 @@
 import 'dart:async' as _ida;
 import 'package:http/http.dart' as _i85jenna;
 import 'package:pageblink_client/src/protocol/answer_event.dart' as _iv9ukj64;
+import 'package:pageblink_client/src/protocol/demo_status.dart' as _ic49xm8h;
 import 'package:pageblink_client/src/protocol/document.dart' as _ix72owx0;
 import 'package:pageblink_client/src/protocol/greetings/greeting.dart'
     as _ibcu9c6c;
@@ -249,6 +250,39 @@ class EndpointJwtRefresh extends _iacc.EndpointRefreshJwtTokens {
         'refreshAccessToken',
         {'refreshToken': refreshToken},
         authenticated: false,
+      );
+}
+
+/// "Try the demo": a shared, fully working account with sample content
+/// (ADR 020, plan 014). Both methods are public; with `demoEnabled` off the
+/// feature does not exist (`status().enabled == false`, `signIn` refuses).
+/// {@category Endpoint}
+class EndpointDemo extends _isc.EndpointRef {
+  EndpointDemo(_isc.EndpointCaller caller) : super(caller);
+
+  @override
+  String get name => 'demo';
+
+  /// What the login screen and the demo banner need. Never throws for a
+  /// disabled or broken demo: that is just `enabled: false`.
+  _ida.Future<_ic49xm8h.DemoStatus> status() =>
+      caller.callServerEndpoint<_ic49xm8h.DemoStatus>(
+        'demo',
+        'status',
+        {},
+      );
+
+  /// Signs in as the demo account. Refused when the flag is off.
+  ///
+  /// The caller must not be signed in as someone else: the server then throws
+  /// `SignInWhileAuthenticatedException`, so the app signs out first
+  /// (`client.auth.signOutDevice()`) and then hands the result to
+  /// `client.auth.updateSignedInUser`.
+  _ida.Future<_iacc.AuthSuccess> signIn() =>
+      caller.callServerEndpoint<_iacc.AuthSuccess>(
+        'demo',
+        'signIn',
+        {},
       );
 }
 
@@ -564,6 +598,7 @@ class Client extends _isc.ServerpodClientShared {
        ) {
     emailIdp = EndpointEmailIdp(this);
     jwtRefresh = EndpointJwtRefresh(this);
+    demo = EndpointDemo(this);
     greeting = EndpointGreeting(this);
     ask = EndpointAsk(this);
     document = EndpointDocument(this);
@@ -575,6 +610,8 @@ class Client extends _isc.ServerpodClientShared {
   late final EndpointEmailIdp emailIdp;
 
   late final EndpointJwtRefresh jwtRefresh;
+
+  late final EndpointDemo demo;
 
   late final EndpointGreeting greeting;
 
@@ -592,6 +629,7 @@ class Client extends _isc.ServerpodClientShared {
   Map<String, _isc.EndpointRef> get endpointRefLookup => {
     'emailIdp': emailIdp,
     'jwtRefresh': jwtRefresh,
+    'demo': demo,
     'greeting': greeting,
     'ask': ask,
     'document': document,

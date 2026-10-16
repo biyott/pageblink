@@ -1,0 +1,8 @@
+### Thrown when the demo account hits one of its rules. Not a permission
+### error: the app answers it with "sign up to keep going".
+exception: DemoLimitException
+fields:
+  reason: DemoLimitReason
+  ### The number behind [reason]: documents for createLimit, questions per day
+  ### for askLimit. Null for the other reasons.
+  limit: int?

@@ -28,3 +28,4 @@
 | [011](011-pdf-form-field-fallback.md) | 폼 입력란 전용 PDF 텍스트 추출 폴백(pdf.js) 계획 | PDFium 0자 vs PyMuPDF 537자 재현, 후보 비교(pdf.js·pdf-lib·PDFium 직접·서버 비추), JS interop 구현·수용 기준·위험 (P3) |
 | [012](012-session-handoff.md) | 세션 인수인계: 작업 방식·하네스·현재 상태 | 역할·규칙, 워크트리 검증·무접촉 커밋·scloud 배포 절차, 현재 git·배포 상태, 이어서 할 일 체크리스트, 알려진 주의사항 |
 | [013](013-ui-polish-status.md) | UI polish(UP-01~22) 현황 감사와 남은 일 | 코드로 검증한 항목별 상태(✅1·🟡4·⬜15·⛔2)·근거(파일:줄)·효과/비용/의존, 클라이언트 피드백 반영 현황, 묶음별 실행 순서·수용 기준·검증, 012 ⑤ 정정, 재검증 명령 |
+| [014](014-demo-account.md) | 데모 체험 로그인(demo 계정) 설계 명세 | `Try the demo` 버튼, `pod.start()` 뒤 멱등 `DemoUser.ensure()`, `demoEnabled` 플래그(기본 꺼짐), 쓰기 가능한 공유 계정의 한도·정리·보호(§10 확정 값), 변경 지점·데이터 흐름·테스트·구현 순서·위험, §11 소스 검증 결과([research 026](../research/026-demo-account-api-verification.md)) (서버 구현 중) |

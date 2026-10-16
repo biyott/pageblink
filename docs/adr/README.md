@@ -49,3 +49,4 @@
 | [017](017-image-generation-model-guidance.md) | 이미지 생성: 목업은 Nano Banana 2.1, 로고·아이콘 최종본은 손으로 쓴 SVG | 채택 |
 | [018](018-body-font-pretendard-single-family.md) | 본문 폰트를 Pretendard 한 가족으로 통일 (Inter·Noto Sans KR 제거) | 채택 |
 | [019](019-pdf-drag-drop-desktop-drop-shell-web-first.md) | PDF 드래그 앤 드롭: `desktop_drop`, 앱 셸 수준, 웹 우선 | 채택 |
+| [020](020-demo-account-shared-user.md) | 데모 체험: 서버 시작 시 만드는 공유 demo 사용자 + 환경 설정 플래그(`demoEnabled`, 기본 꺼짐) | 채택 |

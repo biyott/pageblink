@@ -1,0 +1,16 @@
+### Public state of the demo account ("Try the demo"). When `enabled` is false
+### nothing else is meaningful (the app hides the button).
+class: DemoStatus
+fields:
+  ### demoEnabled flag is on and the demo user exists.
+  enabled: bool
+  ### The caller is signed in as the demo account.
+  isDemo: bool, default=false
+  ### Documents (notes + PDFs, samples excluded) the demo account may create.
+  createLimit: int, default=0
+  ### Slots left right now. Null unless [isDemo].
+  createRemaining: int?
+  ### Questions per day, shared by every demo visitor.
+  askLimit: int, default=0
+  ### Questions left today. Null unless [isDemo].
+  askRemaining: int?

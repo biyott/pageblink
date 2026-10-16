@@ -620,4 +620,51 @@ class L {
   String get back => _t('Back', '뒤로');
   String get closeEsc => _t('Close (Esc)', '닫기 (Esc)');
   String get newChat => _t('New question', '새 질문');
+
+  // ── Demo account (docs/plan/014-demo-account.md §5.3, §9) ─────────────
+  String get demoButton => _t('Try the demo', '데모 체험하기');
+  String get demoButtonLabel =>
+      _t('Try the demo without signing up', '가입 없이 데모 체험하기');
+  String get demoOpening => _t('Opening the demo…', '데모를 여는 중…');
+  String get demoSignInFailed => _k(
+    "Couldn't open the demo. Tap to try again.",
+    '데모를 열지 못했어요. 다시 눌러 시도해 주세요.',
+  );
+  String get demoBanner => _t('Demo mode', '데모 모드');
+  String demoCreateLeft(int left, int limit) =>
+      _t('$left of $limit new items left', '새 항목 $left/$limit개 남음');
+  String get demoSignUp => _t('Sign up', '가입하기');
+  String get demoAbout => _t('About demo mode', '데모 모드 안내');
+  String get demoPrivacyNote => _k(
+    "Other visitors can see what you add here. Please don't enter personal "
+        'information. Items are deleted after 24 hours.',
+    '다른 방문자에게도 보여요. 개인정보는 넣지 마세요. '
+        '만든 항목은 24시간 뒤 삭제돼요.',
+  );
+  String demoCreateLimit(int? limit) => _k(
+    limit == null
+        ? 'The demo has a limit on notes and PDFs. Sign up to keep going.'
+        : 'In the demo you can create up to $limit notes or PDFs. '
+              'Sign up to keep going.',
+    limit == null
+        ? '데모에서는 노트와 PDF를 만들 수 있는 수가 정해져 있어요. 가입하면 계속 쓸 수 있어요.'
+        : '데모에서는 노트와 PDF를 최대 $limit개까지 만들 수 있어요. 가입하면 계속 쓸 수 있어요.',
+  );
+  String demoAskLimit(int? limit) => _k(
+    limit == null
+        ? "The demo has reached today's question limit. Sign up to keep asking."
+        : "The demo has reached today's limit of $limit questions. "
+              'Sign up to keep asking.',
+    limit == null
+        ? '오늘 데모 질문 한도에 도달했어요. 가입하면 계속 물어볼 수 있어요.'
+        : '오늘 데모 질문 한도($limit회)에 도달했어요. 가입하면 계속 물어볼 수 있어요.',
+  );
+  String get demoSampleLocked => _k(
+    "Sample items can't be edited or deleted. Notes you create yourself can.",
+    '샘플 자료는 수정하거나 삭제할 수 없어요. 직접 만든 노트는 가능해요.',
+  );
+  String get demoProjectLocked => _k(
+    "Projects can't be created or joined in the demo.",
+    '데모에서는 프로젝트를 만들거나 초대할 수 없어요.',
+  );
 }

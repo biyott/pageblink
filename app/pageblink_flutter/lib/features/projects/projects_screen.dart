@@ -7,6 +7,7 @@ import '../../app/confirm_dialog.dart';
 import '../../app/l10n.dart';
 import '../../app/open_item_controller.dart';
 import '../../client.dart';
+import '../demo/demo.dart';
 
 /// Same limit the server enforces (`cleanProjectName`).
 const maxProjectNameLength = 60;
@@ -88,6 +89,17 @@ class ProjectsScreen extends StatelessWidget {
   }
 
   Future<void> _create(BuildContext context) async {
+    final l = context.l;
+    final messenger = ScaffoldMessenger.of(context);
+    // The demo account cannot make projects: say so before asking for a name.
+    if (demoStatus.value?.isDemo ?? false) {
+      showDemoLimit(
+        messenger,
+        l,
+        DemoLimitException(reason: DemoLimitReason.projectLocked),
+      );
+      return;
+    }
     final name = await _prompt(
       context,
       context.l.newProject,
@@ -95,7 +107,12 @@ class ProjectsScreen extends StatelessWidget {
       projectName: true,
     );
     if (name == null || name.isEmpty) return;
-    await client.project.create(name);
+    try {
+      await client.project.create(name);
+    } on DemoLimitException catch (e) {
+      showDemoLimit(messenger, l, e);
+      return;
+    }
     await onChanged();
   }
 
@@ -164,9 +181,12 @@ class ProjectsScreen extends StatelessWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(l.inviteFailed(e))));
+        final messenger = ScaffoldMessenger.of(context);
+        if (e is DemoLimitException) {
+          showDemoLimit(messenger, l, e);
+        } else {
+          messenger.showSnackBar(SnackBar(content: Text(l.inviteFailed(e))));
+        }
       }
     }
   }

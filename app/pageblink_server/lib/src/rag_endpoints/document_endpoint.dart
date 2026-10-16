@@ -6,6 +6,7 @@ import '../rag/embedding_spec.dart';
 import '../rag/text_norm.dart';
 import '../sample/sample_note.dart';
 import '../providers/embedding_provider.dart';
+import '../demo/demo_guard.dart';
 import '../services/acl.dart';
 import '../services/document_cleanup.dart';
 import '../services/rag_services.dart';
@@ -67,6 +68,7 @@ class DocumentEndpoint extends Endpoint {
     int? projectId,
   ) async {
     final userId = Acl.requireUser(session);
+    DemoGuard.requireNotSampleHash(session, userId, contentHash);
     if (projectId != null) {
       await Acl.requireRole(
         session,
@@ -84,6 +86,8 @@ class DocumentEndpoint extends Endpoint {
           t.projectId.equals(projectId),
     );
     if (existing != null && existing.status == 'ready') return existing;
+    // A retry of the user's own failed document needs no new slot.
+    if (existing == null) await DemoGuard.requireCreateSlot(session, userId);
 
     final now = DateTime.now().toUtc();
     // A retried failed/stuck document restarts the stale-indexing clock.
@@ -120,6 +124,8 @@ class DocumentEndpoint extends Endpoint {
     int? projectId,
   ) async {
     final userId = Acl.requireUser(session);
+    final bodyHash = sha256Hex(body);
+    DemoGuard.requireNotSampleHash(session, userId, bodyHash);
     if (projectId != null) {
       await Acl.requireRole(
         session,
@@ -135,6 +141,7 @@ class DocumentEndpoint extends Endpoint {
 
     Document document;
     if (documentId == null) {
+      await DemoGuard.requireCreateSlot(session, userId);
       document = await Document.db.insertRow(
         session,
         Document(
@@ -143,7 +150,7 @@ class DocumentEndpoint extends Endpoint {
           kind: 'note',
           title: cleanTitle,
           body: body,
-          contentHash: sha256Hex(body),
+          contentHash: bodyHash,
           version: 1,
           pageCount: 1,
           status: 'indexing',
@@ -166,7 +173,7 @@ class DocumentEndpoint extends Endpoint {
         existing.copyWith(
           title: cleanTitle,
           body: body,
-          contentHash: sha256Hex(body),
+          contentHash: bodyHash,
           version: changed ? existing.version + 1 : existing.version,
           lastError: null,
           status: 'indexing',
@@ -318,6 +325,8 @@ class DocumentEndpoint extends Endpoint {
         if ((await reindex(session, d.id!)).status == 'ready') ready++;
       } on AccessDeniedException {
         // Viewers can't re-index project documents; skip.
+      } on DemoLimitException {
+        // Demo samples are locked; skip.
       }
     }
     return ready;
@@ -349,6 +358,7 @@ class DocumentEndpoint extends Endpoint {
         roles: {'owner', 'editor'},
       );
     }
+    DemoGuard.requireNotSample(session, userId, document);
   }
 
   /// Chunks, embeds and stores [pages], replacing previous chunks.

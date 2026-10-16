@@ -14,6 +14,7 @@ import '../../app/open_item_controller.dart';
 import '../../app/pane_header.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
+import '../demo/demo.dart';
 import 'link_popover.dart';
 import 'live_check_layer.dart';
 import 'live_code_layer.dart';
@@ -356,6 +357,13 @@ class _NoteEditorViewState extends State<NoteEditorView> {
 
   bool get _changed => _title.text != _savedTitle || _body.text != _savedBody;
 
+  /// Title + body as they were when the demo limit refused the save. The save
+  /// can never succeed (full demo, locked sample), so the next close with the
+  /// same text leaves instead of trapping the user in the editor (the text is
+  /// dropped; the message has been shown once).
+  String? _demoBlockedAt;
+  String get _snapshot => '${_title.text}\u0000${_body.text}';
+
   @override
   void initState() {
     super.initState();
@@ -385,6 +393,7 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     if (_deleted) return true;
     if (_saving || _deleting) return false;
     if (!_changed || _body.text.trim().isEmpty) return true;
+    if (_demoBlockedAt == _snapshot) return true;
     final l = context.l;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _saving = true);
@@ -404,9 +413,14 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       return true;
     } catch (e) {
       if (mounted) setState(() => _saving = false);
-      messenger.showSnackBar(
-        SnackBar(content: Text(failure ?? l.saveFailed(e))),
-      );
+      if (e is DemoLimitException) {
+        _demoBlockedAt = _snapshot;
+        showDemoLimit(messenger, l, e);
+      } else {
+        messenger.showSnackBar(
+          SnackBar(content: Text(failure ?? l.saveFailed(e))),
+        );
+      }
       return false;
     }
   }
@@ -441,7 +455,11 @@ class _NoteEditorViewState extends State<NoteEditorView> {
       report(d);
     } catch (e) {
       debugPrint('reindex failed: $e');
-      messenger.showSnackBar(SnackBar(content: Text(l.reindexFailed)));
+      if (e is DemoLimitException) {
+        showDemoLimit(messenger, l, e);
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text(l.reindexFailed)));
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -544,7 +562,11 @@ class _NoteEditorViewState extends State<NoteEditorView> {
     } catch (e) {
       debugPrint('delete note failed: $e');
       if (mounted) setState(() => _deleting = false);
-      messenger.showSnackBar(SnackBar(content: Text(l.noteDeleteFailed)));
+      if (e is DemoLimitException) {
+        showDemoLimit(messenger, l, e);
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text(l.noteDeleteFailed)));
+      }
       return;
     }
     _deleted = true;

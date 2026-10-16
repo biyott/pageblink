@@ -7,6 +7,8 @@ import '../app/l10n.dart';
 import '../app/locale_controller.dart';
 import '../app/theme.dart';
 import '../client.dart';
+import '../features/demo/demo.dart';
+import '../features/demo/demo_widgets.dart';
 import '../app/app_icons.dart';
 import 'auth_spacing.dart';
 import 'email_sign_in.dart';
@@ -41,6 +43,12 @@ class SignInScreen extends StatefulWidget {
 class _SignInScreenState extends State<SignInScreen> {
   bool _isSignedIn = false;
 
+  // Demo login (plan 014): the button exists only while the server says the
+  // demo is on. A failed or slow status call just means no button.
+  bool _demoEnabled = false;
+  bool _demoBusy = false;
+  bool _demoFailed = false;
+
   // Owned here (not by the package widget) so our login form can use it.
   // Created lazily (needs the locale), dropped after sign-in so no typed
   // email/password lingers and the next sign-in screen starts empty.
@@ -55,6 +63,30 @@ class _SignInScreenState extends State<SignInScreen> {
     super.initState();
     client.auth.authInfoListenable.addListener(_updateSignedInState);
     _isSignedIn = client.auth.isAuthenticated;
+    if (!_isSignedIn) _loadDemo();
+  }
+
+  Future<void> _loadDemo() async {
+    final status = await fetchDemoStatus();
+    if (mounted && !_isSignedIn) {
+      setState(() => _demoEnabled = status?.enabled ?? false);
+    }
+  }
+
+  Future<void> _startDemo() async {
+    if (_demoBusy) return;
+    setState(() {
+      _demoBusy = true;
+      _demoFailed = false;
+    });
+    try {
+      await signInAsDemo();
+    } catch (e) {
+      debugPrint('demo sign-in failed: $e');
+      if (mounted) setState(() => _demoFailed = true);
+    } finally {
+      if (mounted) setState(() => _demoBusy = false);
+    }
   }
 
   @override
@@ -67,6 +99,10 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() {
       _isSignedIn = client.auth.isAuthenticated;
     });
+    if (!_isSignedIn) {
+      // Back on the sign-in screen (e.g. signed out of the demo).
+      _loadDemo();
+    }
     if (_isSignedIn) {
       // After the frame: the form's widgets must be unmounted first.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,6 +111,12 @@ class _SignInScreenState extends State<SignInScreen> {
         _email = null;
       });
     }
+  }
+
+  EmailFlowScreen _startScreen() {
+    final signUp = demoSignUpRequested;
+    demoSignUpRequested = false;
+    return signUp ? EmailFlowScreen.startRegistration : EmailFlowScreen.login;
   }
 
   void _onEmailAuthenticated() {
@@ -120,7 +162,8 @@ class _SignInScreenState extends State<SignInScreen> {
         // shows "Don't have an account? Sign up" below the button.
         controller: _email ??= EmailAuthController(
           client: client,
-          startScreen: EmailFlowScreen.login,
+          // "Sign up" in the demo banner lands on the registration form.
+          startScreen: _startScreen(),
           passwordRequirements: pageBlinkPasswordRequirements(l),
           onAuthenticated: _onEmailAuthenticated,
           onError: _onEmailError,
@@ -143,6 +186,13 @@ class _SignInScreenState extends State<SignInScreen> {
               key: _cardKey,
               compact: mobile,
               signIn: signIn,
+              demo: _demoEnabled
+                  ? DemoSignInButton(
+                      busy: _demoBusy,
+                      failed: _demoFailed,
+                      onPressed: _startDemo,
+                    )
+                  : null,
             );
             // Priority: form > headline > pitch > preview (spec R4).
             final size = mobile
@@ -705,10 +755,18 @@ class _PreviewCard extends StatelessWidget {
 /// put every step of the flow into the real card.
 @visibleForTesting
 class SignInCard extends StatelessWidget {
-  const SignInCard({super.key, required this.compact, required this.signIn});
+  const SignInCard({
+    super.key,
+    required this.compact,
+    required this.signIn,
+    this.demo,
+  });
 
   final bool compact;
   final Widget signIn;
+
+  /// The "Try the demo" button; null when the demo is off.
+  final Widget? demo;
 
   @override
   Widget build(BuildContext context) {
@@ -731,6 +789,10 @@ class SignInCard extends StatelessWidget {
               type: MaterialType.transparency,
               child: signIn,
             ),
+            if (demo != null) ...[
+              const SizedBox(height: AuthSpacing.field),
+              demo!,
+            ],
             const SizedBox(height: AuthSpacing.section),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -14,6 +14,7 @@
 import 'dart:async' as _ida;
 import 'dart:io' as _idi;
 import 'package:pageblink_server/src/generated/answer_event.dart' as _i16h3xsg;
+import 'package:pageblink_server/src/generated/demo_status.dart' as _ikzdgfd1;
 import 'package:pageblink_server/src/generated/document.dart' as _iloq337r;
 import 'package:pageblink_server/src/generated/greetings/greeting.dart'
     as _i23xf59p;
@@ -163,6 +164,8 @@ class TestEndpoints {
 
   late final _JwtRefreshEndpoint jwtRefresh;
 
+  late final _DemoEndpoint demo;
+
   late final _GreetingEndpoint greeting;
 
   late final _AskEndpoint ask;
@@ -186,6 +189,10 @@ class _InternalTestEndpoints extends TestEndpoints
       serializationManager,
     );
     jwtRefresh = _JwtRefreshEndpoint(
+      endpoints,
+      serializationManager,
+    );
+    demo = _DemoEndpoint(
       endpoints,
       serializationManager,
     );
@@ -514,6 +521,77 @@ class _JwtRefreshEndpoint {
           endpointPath: 'jwtRefresh',
           methodName: 'refreshAccessToken',
           parameters: _ist.testObjectToJson({'refreshToken': refreshToken}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_iacs.AuthSuccess>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+}
+
+class _DemoEndpoint {
+  _DemoEndpoint(
+    this._endpointDispatch,
+    this._serializationManager,
+  );
+
+  final _is.EndpointDispatch _endpointDispatch;
+
+  final _is.SerializationManager _serializationManager;
+
+  _ida.Future<_ikzdgfd1.DemoStatus> status(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'demo',
+            method: 'status',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'demo',
+          methodName: 'status',
+          parameters: _ist.testObjectToJson({}),
+          serializationManager: _serializationManager,
+        );
+        var _localReturnValue =
+            await (_localCallContext.method.call(
+                  _localUniqueSession,
+                  _localCallContext.arguments,
+                )
+                as _ida.Future<_ikzdgfd1.DemoStatus>);
+        return _localReturnValue;
+      } finally {
+        await _localUniqueSession.close();
+      }
+    });
+  }
+
+  _ida.Future<_iacs.AuthSuccess> signIn(
+    _ist.TestSessionBuilder sessionBuilder,
+  ) async {
+    return _ist.callAwaitableFunctionAndHandleExceptions(() async {
+      var _localUniqueSession =
+          (sessionBuilder as _ist.InternalTestSessionBuilder).internalBuild(
+            endpoint: 'demo',
+            method: 'signIn',
+          );
+      try {
+        var _localCallContext = await _endpointDispatch.getMethodCallContext(
+          createSessionCallback: (_) => _localUniqueSession,
+          endpointPath: 'demo',
+          methodName: 'signIn',
+          parameters: _ist.testObjectToJson({}),
           serializationManager: _serializationManager,
         );
         var _localReturnValue =

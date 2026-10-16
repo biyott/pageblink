@@ -48,6 +48,7 @@ abstract final class AppIcons {
   static const settings = LucideIcons.settings;
   static const language = LucideIcons.languages;
   static const signOut = LucideIcons.logOut;
+  static const demo = LucideIcons.play;
   static const check = LucideIcons.check;
   static const close = LucideIcons.x;
   // Password field: the icon shows what tapping does.

@@ -4,6 +4,7 @@ import '../generated/protocol.dart';
 import '../providers/embedding_provider.dart';
 import '../providers/llm_provider.dart';
 import '../rag/embedding_spec.dart';
+import '../demo/demo_guard.dart';
 import '../services/acl.dart';
 import '../services/rag_services.dart';
 
@@ -25,6 +26,8 @@ class AskEndpoint extends Endpoint {
     String? locale,
   ]) async* {
     final userId = Acl.requireUser(session);
+    // Throws DemoLimitException(askLimit): arrives as a stream error.
+    DemoGuard.consumeAsk(session, userId);
     final ko = locale == 'ko';
     // Intersect with real memberships: client-sent ids are never trusted.
     final allowed = (await Acl.memberProjectIds(

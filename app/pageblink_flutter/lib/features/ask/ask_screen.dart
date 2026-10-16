@@ -9,6 +9,7 @@ import '../../app/text_wrap.dart';
 import '../../app/theme.dart';
 import '../../app/l10n.dart';
 import '../../client.dart';
+import '../demo/demo.dart' show demoLimitText;
 import '../viewer/citation_sheet.dart';
 import '../../app/open_item_controller.dart';
 import '../documents/documents_screen.dart' show documentsNotifier;
@@ -96,7 +97,8 @@ class _AskScreenState extends State<AskScreen> {
   void _ask() {
     final question = _input.text.trim();
     if (question.isEmpty || _streaming || _scopeEmpty) return;
-    final failed = context.l.askFailed;
+    final l = context.l;
+    final failed = l.askFailed;
     _input.clear();
     final turn = AskTurn(question);
     setState(() => _turns.add(turn));
@@ -136,7 +138,11 @@ class _AskScreenState extends State<AskScreen> {
           onError: (Object e) {
             debugPrint('ask failed: $e');
             setState(() {
-              turn.error = failed;
+              // The demo's daily limit arrives as a stream error; the banner
+              // above keeps the Sign up action in reach.
+              turn.error = e is DemoLimitException
+                  ? demoLimitText(l, e)
+                  : failed;
               turn.done = true;
             });
           },

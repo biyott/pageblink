@@ -10,6 +10,7 @@ import '../../app/text_norm.dart';
 import '../../app/theme.dart';
 import '../../client.dart';
 import '../../app/open_item_controller.dart';
+import '../demo/demo.dart';
 import '../open_item/open_item_view.dart';
 import 'index_status.dart';
 import 'tier_sheet.dart';
@@ -114,6 +115,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   /// Picker -> where to put it -> the shell's upload queue (progress shows in
   /// the tray, so this stays usable while files upload).
   Future<void> _upload() async {
+    if (await demoBlocksCreate(context) || !mounted) return;
     final picked = await (widget.pickPdfs ?? _pickPdfs)();
     if (picked.isEmpty || !mounted) return;
     final uploads = UploadScope.maybeOf(context);
@@ -145,7 +147,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       }
     } catch (e) {
       debugPrint('reindex failed: $e');
-      if (announce) _snack(l.reindexFailed);
+      if (announce) {
+        if (e is DemoLimitException) {
+          _demoLimit(l, e);
+        } else {
+          _snack(l.reindexFailed);
+        }
+      }
     } finally {
       _reindexing.remove(id);
       if (mounted) setState(() {});
@@ -204,12 +212,17 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       await _api.delete(document.id!);
     } catch (e) {
       debugPrint('delete failed: $e');
-      _snack(l.deleteFailed);
+      if (e is DemoLimitException) {
+        _demoLimit(l, e);
+      } else {
+        _snack(l.deleteFailed);
+      }
     }
     await _refresh();
   }
 
   Future<void> _openNote(Document? note) async {
+    if (note == null && (await demoBlocksCreate(context) || !mounted)) return;
     int? projectId;
     if (note == null && widget.projects.isNotEmpty) {
       final chosen = await chooseUploadTier(context, widget.projects);
@@ -236,6 +249,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
       ),
     ),
   );
+
+  void _demoLimit(L l, DemoLimitException e) {
+    if (mounted) showDemoLimit(ScaffoldMessenger.of(context), l, e);
+  }
 
   void _snack(String message) {
     if (mounted) {

@@ -18,6 +18,7 @@ import 'package:serverpod_auth_idp_server/serverpod_auth_idp_server.dart'
     as _iais;
 import '../auth/email_idp_endpoint.dart' as _iuc1hd5t;
 import '../auth/jwt_refresh_endpoint.dart' as _inwq3ztq;
+import '../demo/demo_endpoint.dart' as _i46mxkwc;
 import '../greetings/greeting_endpoint.dart' as _il624ik7;
 import '../rag_endpoints/ask_endpoint.dart' as _ijowjyl9;
 import '../rag_endpoints/document_endpoint.dart' as _iw2avhc4;
@@ -38,6 +39,12 @@ class Endpoints extends _is.EndpointDispatch {
         ..initialize(
           server,
           'jwtRefresh',
+          null,
+        ),
+      'demo': _i46mxkwc.DemoEndpoint()
+        ..initialize(
+          server,
+          'demo',
           null,
         ),
       'greeting': _il624ik7.GreetingEndpoint()
@@ -274,6 +281,32 @@ class Endpoints extends _is.EndpointDispatch {
                         session,
                         refreshToken: params['refreshToken'],
                       ),
+        ),
+      },
+    );
+    connectors['demo'] = _is.EndpointConnector(
+      name: 'demo',
+      endpoint: endpoints['demo']!,
+      methodConnectors: {
+        'status': _is.MethodConnector(
+          name: 'status',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['demo'] as _i46mxkwc.DemoEndpoint).status(session),
+        ),
+        'signIn': _is.MethodConnector(
+          name: 'signIn',
+          params: {},
+          call:
+              (
+                _is.Session session,
+                Map<String, dynamic> params,
+              ) async =>
+                  (endpoints['demo'] as _i46mxkwc.DemoEndpoint).signIn(session),
         ),
       },
     );
