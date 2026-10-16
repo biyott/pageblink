@@ -8,7 +8,7 @@
 | 결론 한 줄 | Ask 컴포저의 `출처`/`모델` 알약과 `적게 보기` 토글은 호버·포커스가 실제로 0(잉크가 유리 면 아래에 그려져 가려짐). 나머지 기본 Material 위젯은 호버 Δ10·포커스 Δ30 수준의 회색 덧칠뿐이고, ui-polish §5.3 "2px accent 링"은 구현되지 않았다(당시 UP-04 ⬜). |
 | 반영 | 디자인 기준 [`design/interaction-states/spec.md`](../design/interaction-states/spec.md) · [plan 013](../plan/013-ui-polish-status.md) UP-04 · [devlog 012](../devlog/012-releases-10-to-15.md) |
 
-> 상태: 14차에 구현·배포, 후속은 15차까지 이어짐(15차 배포 진행 중이라 15차 반영 범위는 확인 필요). 디자인 기준은 `docs/design/interaction-states/spec.md`. 아래 본문은 점검 시점의 스냅샷이며 "구현되지 않았다" 같은 서술은 그 시점 기준이다.
+> 상태: 14차에 구현·배포, 후속은 15차까지 이어짐(15차 배포 성공 16:13). 디자인 기준은 `docs/design/interaction-states/spec.md`. 아래 본문은 점검 시점의 스냅샷이며 "구현되지 않았다" 같은 서술은 그 시점 기준이다.
 > 경로 메모: 본문의 `S/`(스크래치패드의 `a11y/`)와 `shots/`·`data/`·`*.mjs` 파일은 저장소에 없다. 스크린샷·원자료 판독이 필요하면 확인 필요.
 
 - 점검 시각: 2026-10-16 (KST, 이 세션 기준). 코드 수정·커밋·서버 실행 없음(읽기 전용).

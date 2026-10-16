@@ -3,7 +3,7 @@
 작성 2026-10-16 KST · 작성자 UI/UX 디자이너 · 대상 `app/pageblink_flutter` (Flutter 3.47.7 SDK 소스 기준)
 표기: ✅ 코드·SDK 소스·실측·계산으로 확인 / ⚠️ 미확인·추정. **저장소 파일은 만들지도 고치지도 않았다.** 산출물은 모두 이 폴더(`a11y-design/`) 안이다.
 
-> 상태: 구현 완료(14·15차 — 14차에 `PbInteractive`·`PbFocusRing`·전역 테마로 구현·배포, 15차까지 후속 반영. 15차 배포는 진행 중이라 최종 반영 범위는 확인 필요). 점검 근거는 [research 034](../../research/034-accessibility-audit.md).
+> 상태: 구현 완료(14·15차 — 14차에 `PbInteractive`·`PbFocusRing`·전역 테마로 구현·배포, 15차까지 후속 반영. 15차 배포 성공 16:13). 점검 근거는 [research 034](../../research/034-accessibility-audit.md).
 > 결정 반영: §8 결정 1(링 색 `ink`)은 CTO 위임(2026-10-16)으로 채택돼 [ui-polish/spec.md](../ui-polish/spec.md) §5.3을 뒤집었다. 결정 3(`controlEdge`)·4(hover 6%)·6(터치 36/44)은 코드에 있다 ✅ (`theme.dart`, `pb_interactive.dart`). 결정 2·5·7·8의 확정 여부는 확인 필요.
 > 문서 위치: 저장소 편입 시 `a11y-design/` 폴더를 이 폴더(`docs/design/interaction-states/`)로 옮겼다. 파일명은 `spec.md`.
 

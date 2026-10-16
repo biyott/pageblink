@@ -13,12 +13,12 @@
 |---|---|
 | 제품 | PageBlink — Flutter + Serverpod 하이브리드 문서 RAG 앱 (Serverpod 해커톤 2026) |
 | 라이브 | https://pageblink.serverpod.space |
-| Git | 14차 기준 커밋 `b64747f`(접근성·PDF 미리보기 서버 + 로컬 OCR 통합, 부모 `598dc12`). 그 앞 `558c119`(노트별 색, 타 세션)·`b37fb3d`(편집기 헤딩 H1~H3 제한). 이 문서를 고친 시점의 `main`에는 15차 커밋 `613a2fd`(OCR 제거)·`4757d20`(PDF 미리보기 표시·검색)·`686e4aa`(Ask 헤더·최근 대화 메뉴)가 올라와 있음 ✅ git. 그 앞 9차 `2801184`(언어별 demo 계정·줄 단위 청크·U2 인용 하이라이트), 8차 `c99822f`(샘플 보강), demo 계정 `8445f02`, NFC 수정은 `5a2b7d9` ✅ |
-| 배포 | **15차 배포 진행 중**(커밋·ID는 확인 필요). 마지막 확인된 배포는 14차 `b64747f` / 배포 ID `d0ce83cf` ([devlog 012](../devlog/012-releases-10-to-15.md), §4-2). 10~13차(`e8a31aa`~`de349e9`)와 타 세션 배포(`558c119`, ID `fb3be59a`, 롤아웃 성공·라이브 API 확인 ✅)도 같은 표에 있음. 그 앞 9차 `2801184` ([plan 014 §13.4](014-demo-account.md) · [devlog 011](../devlog/011-chunk-v2-two-tier-u2-locale-demo.md)). 재색인 플래그 `REINDEX_ON_BOOT` **켜짐** (구버전 청크 문서를 부팅 후 백그라운드로 재색인, 9차 때 5개 문서 13초 · 이후 부팅은 `pending=0`) |
+| Git | `main` = `686e4aa`(15차). 14차 기준 커밋 `b64747f`(접근성·PDF 미리보기 서버 + 로컬 OCR 통합, 부모 `598dc12`). 그 앞 `558c119`(노트별 색, 타 세션)·`b37fb3d`(편집기 헤딩 H1~H3 제한). 15차 커밋은 `613a2fd`(OCR 제거)·`4757d20`(PDF 미리보기 표시·검색)·`686e4aa`(Ask 헤더·최근 대화 메뉴, `main` 끝) ✅ git. 그 앞 9차 `2801184`(언어별 demo 계정·줄 단위 청크·U2 인용 하이라이트), 8차 `c99822f`(샘플 보강), demo 계정 `8445f02`, NFC 수정은 `5a2b7d9` ✅ |
+| 배포 | **15차 배포 성공**(16:13, `686e4aa`, 배포 ID `6e96b5eb-1d97-4ddb-a3d5-2664a4a207ea` — PM 전달값). 직전 14차는 `b64747f` / `d0ce83cf` ([devlog 012](../devlog/012-releases-10-to-15.md), §4-2). 10~13차(`e8a31aa`~`de349e9`)와 타 세션 배포(`558c119`, ID `fb3be59a`, 롤아웃 성공·라이브 API 확인 ✅)도 같은 표에 있음. 그 앞 9차 `2801184` ([plan 014 §13.4](014-demo-account.md) · [devlog 011](../devlog/011-chunk-v2-two-tier-u2-locale-demo.md)). 재색인 플래그 `REINDEX_ON_BOOT` **켜짐** (구버전 청크 문서를 부팅 후 백그라운드로 재색인, 9차 때 5개 문서 13초 · 이후 부팅은 `pending=0`) |
 | demo 계정 | 배포·운영 플래그 켜짐(`DEMO_ENABLED=true`) ✅. 브라우저 수동 확인 11개는 ⚠️ 사용자 확인 대기 ([plan 014 §12.2](014-demo-account.md)) |
-| 테스트 | 14차 기준 서버 `dart test` 319개 · 클라이언트 `flutter test` 1,366개 (전달받은 값). **15차는 확인 필요**. 이전: 타 세션 배포(`558c119`) 시점 1,259 / 261 (analyze 이슈 0, `serverpod generate` 재실행 diff 없음 ✅), 9차 1,194 / 146. §2-3·§3-1의 1,106은 6차 시점 값 |
+| 테스트 | 15차 기준 서버 `dart test` 316개 · 클라이언트 `flutter test` 1,369개 (PM 전달값). 14차는 319 / 1,366. 이전: 타 세션 배포(`558c119`) 시점 1,259 / 261 (analyze 이슈 0, `serverpod generate` 재실행 diff 없음 ✅), 9차 1,194 / 146. §2-3·§3-1의 1,106은 6차 시점 값 |
 | 미커밋 작업 | 없음 (README·run-locally는 사용자 개인 수정) ✅ |
-| 다음 작업 | 후보 (우선순위 미정): ① 안내 배너를 2배 글자로 키웠을 때 오버플로 ② 다크 노트 카드 hover 때 보조 글자 대비 4.09:1 ③ 권한 오류(`Acl`, 데모 거부, 문서 편집 권한)가 직렬화되지 않아 HTTP 500으로 도달 → 정식 예외화 ④ 편집기 키보드 전용 서식 경로(툴바 `ExcludeFocus`) ⑤ gemma 한도가 풀리면 모델 속도 재측정 ([research 033](../research/033-llm-latency-and-rotation.md)) ⑥ 서술형 짧은 답변의 인용 보정 확장 ⑦ 한국어 계정 샘플 PDF 미리보기가 영어로 시작 ⑧ 코어 압축·메모리 등 OCR 관련은 **폐기** ([ADR 023](../adr/023-no-scanned-pdf-recovery.md)). 이전 후보 중 타이머·demo 세션 만료·유료 폴백·`【n】` 인용·Ask 대화 기록(13차)은 배포됨. §3의 ② 노트 상단 고정은 여전히 미착수 ✅. 9차 실기 수동 확인 8개는 ⚠️ 대기 |
+| 다음 작업 | 후보 (우선순위 미정): ① 안내 배너를 2배 글자로 키웠을 때 오버플로 ② 다크 노트 카드 hover 때 보조 글자 대비 4.09:1 ③ 권한 오류(`Acl`, 데모 거부, 문서 편집 권한)가 직렬화되지 않아 HTTP 500으로 도달 → 정식 예외화 ④ 편집기 키보드 전용 서식 경로(툴바 `ExcludeFocus`) ⑤ gemma 한도가 풀리면 모델 속도 재측정 ([research 033](../research/033-llm-latency-and-rotation.md)) ⑥ 서술형 짧은 답변의 인용 보정 확장 ⑦ 한국어 계정 샘플 PDF 미리보기가 영어로 시작 ⑧ 코어 압축·메모리 등 OCR 관련은 **폐기** ([ADR 023](../adr/023-no-scanned-pdf-recovery.md)). 항목별 증거·접근·완료 기준은 [plan 015](015-followup-backlog.md). 이전 후보 중 타이머·demo 세션 만료·유료 폴백·`【n】` 인용·Ask 대화 기록(13차)은 배포됨. §3의 ② 노트 상단 고정은 여전히 미착수 ✅. 9차 실기 수동 확인 8개는 ⚠️ 대기 |
 | 버전 | Flutter 3.47.7 (`.fvmrc`), Serverpod 4.0.4 (모든 `serverpod*` 동일) |
 
 ---
@@ -227,7 +227,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 
 **작업 트리 (커밋 후 `git status` ✅):** 사용자 개인 수정 `README.md`, `README.ko.md`, `docs/reference/002-run-locally.md`만 남음 (**건드리지 말 것**).
 
-### 4-2. 배포 이력 (10차 이후는 아래 표, 15차 진행 중)
+### 4-2. 배포 이력 (10차 이후는 아래 표, 15차까지)
 
 | 차수 | 내용 |
 |---|---|
@@ -243,7 +243,7 @@ cd ../pageblink-deploy/app/pageblink_server \
 | 13차 (`de349e9`) | **Ask 대화 기록** — `ask_session`/`ask_message` 마이그레이션(`20261016042828611-ask-history`) + 복원 · 멀티턴 · 관리자 조회, 스위치 `ASK_HISTORY_ENABLED`([research 030](../research/030-ask-sessions.md)). 배포 ID `35153be0-9cee-4ffb-98ff-fbb285ba8c84` |
 | (타 세션) (`558c119`) | **노트별 배경색**(`Document.colorIndex` 널 허용, 팔레트 0~4 자동·5~7 로즈/아쿠아/라임·8 무지개, 엔드포인트 `setNoteColor`: 쓰기 권한 + demo 샘플 잠금, 재색인·`updatedAt` 변경 없음, 카드 `⋯` 메뉴의 색 시트/팝오버 · [note-color/spec.md](../design/note-color/spec.md)) + **편집기 헤딩 H1~H3 제한**(`b37fb3d`). DB 마이그레이션 `20261016055710840-note-color`(널 허용 컬럼 1개 추가)가 부팅 로그 `Applied database migration`으로 적용됨 ✅. 빌드 162초·롤아웃 74초, 배포 ID `fb3be59a-6d4f-437b-924f-489713cd6029`(15:16~15:20 KST). 클린 워크트리 검증: 클라이언트 `flutter test` 1,259개·서버 `dart test` 261개 통과, analyze 이슈 0. 라이브 API 확인(demo 계정): `demo/status`·`document/list` 정상, `setNoteColor` 6→8→null 왕복 정상(`version`·`updatedAt`·`status` 불변), demo 샘플 노트는 `DemoLimitException(sampleLocked)` 400, 비로그인 401, 잘못된 값(9)·PDF 문서는 `ArgumentError`라 HTTP 500(DB 변경 없음 — 400으로 다듬을지는 후속). 같은 날 앞선 배포(10~13차 `e8a31aa`~`de349e9`)는 이 표의 해당 행과 [devlog 012](../devlog/012-releases-10-to-15.md) 참조 |
 | 14차 (`b64747f`) | **접근성 상태**(`PbInteractive`·`PbFocusRing`·전역 테마, [interaction-states 명세](../design/interaction-states/spec.md)), 서버 후속(역방향 보정 인용, `AskAdminException`), **PDF 카드 미리보기 서버**(`Document.preview` · 백필), 로컬 OCR 모듈(**한시적 서빙**, 15차에 제거 — [ADR 023](../adr/023-no-scanned-pdf-recovery.md)) + 마이그레이션 `20261016062428206-pdf-recovery-and-preview`. 배포 ID `d0ce83cf-5a48-4f18-9bc2-47a6870b4fe3`. 서버 319개 · 클라이언트 1,366개 통과 |
-| 15차 | **진행 중** — 커밋 · 배포 ID · 테스트 수치는 확인 필요. 내용: OCR 코드 제거, PDF 카드 미리보기 표시 · 검색, Ask 대화 헤더 · 최근 대화 메뉴 |
+| 15차 (`686e4aa`) | 배포 ID `6e96b5eb-1d97-4ddb-a3d5-2664a4a207ea`, 성공 16:13. 서버 316개 · 클라이언트 1,369개 통과. 내용: OCR 코드 제거, PDF 카드 미리보기 표시 · 검색, Ask 대화 헤더 · 최근 대화 메뉴 |
 | 1~3차 | 이 문서에 기록 없음 (확인 필요 ⚠️) — `docs/devlog/`와 `git log` 참조 |
 
 ### 4-3. 앱 스택
