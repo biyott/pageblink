@@ -92,6 +92,8 @@ Other limits include no real-time or collaborative note editing (notes save when
 
 You need Flutter **3.47.7** ([fvm](https://fvm.app)) and Serverpod CLI 4.0.4. Docker is not needed: `serverpod start` uses an embedded Postgres with pgvector.
 
+Create `app/pageblink_server/config/passwords.yaml` first: it is git-ignored, and without it `serverpod start` exits with `Missing password for "database"`. The required format is in [run locally](docs/reference/002-run-locally.md).
+
 ```bash
 fvm use 3.47.7 && dart install serverpod_cli
 export OPENROUTER_API_KEY=... DEEPINFRA_API_KEY=...   # or config/passwords.yaml

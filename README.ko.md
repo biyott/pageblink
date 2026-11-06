@@ -92,6 +92,8 @@ flowchart LR
 
 Flutter **3.47.7**([fvm](https://fvm.app))과 Serverpod CLI 4.0.4가 필요합니다. Docker는 필요 없습니다. `serverpod start`가 pgvector가 들어 있는 내장 Postgres를 사용합니다.
 
+먼저 `app/pageblink_server/config/passwords.yaml`을 만들어야 합니다. 이 파일은 git 제외 대상이라 새로 클론하면 없고, 없으면 `serverpod start`가 `Missing password for "database"` 오류로 종료됩니다. 형식은 [로컬 실행 상세](docs/reference/002-run-locally.md)(영문)를 참고하세요.
+
 ```bash
 fvm use 3.47.7 && dart install serverpod_cli
 export OPENROUTER_API_KEY=... DEEPINFRA_API_KEY=...   # or config/passwords.yaml
